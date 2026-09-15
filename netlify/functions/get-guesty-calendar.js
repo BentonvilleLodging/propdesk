@@ -221,7 +221,7 @@ exports.handler = async function(event) {
       const lid = listing._id || listing.id;
       try {
         const calData = await gGet(
-          `/v1/availability-pricing/api/calendar/listings/${lid}?startDate=${fromDate}&endDate=${toDate}&view=full`,
+          `/v1/availability-pricing/api/calendar/listings/${lid}?startDate=${fromDate}&endDate=${toDate}`,
           token
         );
         const days = (calData.data && calData.data.days) || calData.days || [];
