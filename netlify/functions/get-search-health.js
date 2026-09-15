@@ -12,6 +12,14 @@
 //
 // Call this on a schedule (recommend once daily, e.g. 6 AM) via
 // netlify.toml, same pattern as check-due-tasks.
+//
+// IMPORTANT: this function does NOT chain-call get-recommendations.js.
+// That was tried once and caused Netlify's function timeout to kill this
+// function mid-response (28 sequential Guesty calendar calls + a full
+// Claude generation in one invocation is too slow), producing a blank,
+// unparseable response on the client. Recommendation refresh is its own
+// separate scheduled function (see daily-recommendations-cron.js) with
+// its own time budget.
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -438,19 +446,6 @@ exports.handler = async function(event) {
     result.reviewRows = reviewResult.ok ? reviewResult.count : 0;
     result.gapRows = gapResult.ok ? gapResult.count : 0;
     result.priceRows = priceResult.ok ? priceResult.count : 0;
-
-    // 5. Chain-call the recommendations engine so the daily scheduled run
-    // also refreshes the AI recommendations, without making
-    // get-recommendations.js itself a scheduled (and thus browser-blocked)
-    // function. Non-fatal if this fails -- the sync itself already succeeded.
-    try {
-      const siteUrl = process.env.URL || 'https://bentonvillelodgingcomanagement.com';
-      const recRes = await fetch(`${siteUrl}/.netlify/functions/get-recommendations`);
-      result.recommendationsTriggered = recRes.ok;
-      if (!recRes.ok) result.errors.push('recommendations trigger: HTTP ' + recRes.status);
-    } catch(e) {
-      result.errors.push('recommendations trigger: ' + e.message);
-    }
 
     return { statusCode: 200, headers: CORS, body: JSON.stringify(result) };
 
