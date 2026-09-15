@@ -267,7 +267,7 @@ exports.handler = async function(event) {
     // rejects its own documented array query param — a Guesty-side bug/
     // inconsistency, not a query formatting issue on our end).
     const lData = await gGet(
-      `/v1/listings?limit=100&fields=${encodeURIComponent('_id title nickname isListed status reviews pictures publicDescription amenities')}`,
+      `/v1/listings?limit=100&fields=${encodeURIComponent('_id title nickname isListed status reviews pictures publicDescription amenities bookingSettings integrations tags')}`,
       token
     );
     const allListings = lData.results || lData.data || (Array.isArray(lData) ? lData : []);
@@ -280,11 +280,34 @@ exports.handler = async function(event) {
     }
 
     // 1b. Listing completeness — photo count, description length, amenity
-    // count. A real (if moderate-weight) Airbnb ranking factor that was
-    // sitting unused in data we already pull.
+    // count, cover photo, and Instant Book status. A real (if moderate-
+    // weight for completeness, high-weight for Instant Book) Airbnb
+    // ranking factor that was sitting unused in data we already pull.
+    //
+    // Instant Book field name is NOT clearly documented on the Open API
+    // listing object (Guesty's docs describe it as a per-channel /
+    // per-Booking-Engine-instance setting, not a single listing field).
+    // Checking several plausible paths defensively; ?debug=1 surfaces
+    // the raw bookingSettings/integrations objects so this can be
+    // corrected once the real shape is confirmed, rather than trusting
+    // a guess silently.
+    const findInstantBook = (l) => {
+      const bs = l.bookingSettings || {};
+      const candidates = [
+        bs.instantBook, bs.instantBookable, bs.instantable,
+        l.instantBook, l.instantable,
+        (l.integrations && l.integrations.airbnb && l.integrations.airbnb.instantBook),
+      ];
+      const found = candidates.find(v => typeof v === 'boolean');
+      return found !== undefined ? found : null;
+    };
+
     const completenessRows = listings.map(l => {
       const lid = l._id || l.id;
       const photoCount = Array.isArray(l.pictures) ? l.pictures.length : 0;
+      const coverPhoto = Array.isArray(l.pictures) && l.pictures[0]
+        ? (l.pictures[0].original || l.pictures[0].thumbnail || l.pictures[0].url || null)
+        : null;
       const desc = (l.publicDescription && (l.publicDescription.summary || l.publicDescription.description)) || '';
       const amenityCount = Array.isArray(l.amenities) ? l.amenities.length : 0;
       return {
@@ -293,9 +316,18 @@ exports.handler = async function(event) {
         photo_count: photoCount,
         description_length: desc.length,
         amenities_count: amenityCount,
+        instant_book: findInstantBook(l),
+        cover_photo_url: coverPhoto,
         raw: { pictures: photoCount, description: desc.slice(0, 200), amenities: l.amenities || [] },
       };
     });
+    if (debugMode) {
+      result.instantBookSample = listings.slice(0, 5).map(l => ({
+        id: l._id,
+        bookingSettings: l.bookingSettings,
+        integrations: l.integrations,
+      }));
+    }
     const completenessResult = await sbUpsertRows('listing_completeness_snapshots', completenessRows, 'listing_id,snapshot_date');
     if (!completenessResult.ok) result.errors.push(completenessResult.error);
     result.completenessRows = completenessResult.ok ? completenessResult.count : 0;
