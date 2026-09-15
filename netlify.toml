@@ -11,7 +11,9 @@
 [functions."check-due-tasks"]
   schedule = "0 8 * * *"
 
-# get-search-health: temporarily unscheduled again to force a manual
-# re-test after a schema-cache timing bug. Re-add once confirmed:
-# [functions."get-search-health"]
-#   schedule = "0 11 * * *"
+# Run every day at 11:00 AM UTC (6 AM Central) — after PriceLabs' own
+# overnight pricing runs, so we capture the day's actual recommendations.
+# Also chain-triggers get-recommendations at the end of each run.
+# Confirmed working end-to-end 2026-09-15.
+[functions."get-search-health"]
+  schedule = "0 11 * * *"
