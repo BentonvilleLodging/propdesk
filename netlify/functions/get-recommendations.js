@@ -48,12 +48,12 @@ async function sbInsert(table, rows) {
 // source table, joined by listing_id. Keeping this tight matters --
 // every extra token here is cost on every run.
 async function buildDataset() {
-  const [priceRows, gapRows, reviewRows, completenessRows, insightsRows] = await Promise.all([
+  const [priceRows, gapRows, reviewRows, completenessRows, perfRows] = await Promise.all([
     sbSelect('pricelabs_daily', 'select=*&order=snapshot_date.desc'),
     sbSelect('calendar_gap_snapshots', 'select=*&order=snapshot_date.desc'),
     sbSelect('guesty_review_snapshots', 'select=*&order=snapshot_date.desc'),
     sbSelect('listing_completeness_snapshots', 'select=*&order=snapshot_date.desc'),
-    sbSelect('airbnb_insights_import', 'select=*&order=week_start.desc'),
+    sbSelect('airbnb_performance_import', 'select=*&order=period_start.desc'),
   ]);
 
   const latest = (rows) => {
@@ -66,7 +66,7 @@ async function buildDataset() {
   const gaps = latest(gapRows);
   const reviews = latest(reviewRows);
   const completeness = latest(completenessRows);
-  const insights = latest(insightsRows);
+  const perf = latest(perfRows);
 
   const listingIds = Object.keys(price);
   return listingIds.map(lid => {
@@ -74,7 +74,7 @@ async function buildDataset() {
     const g = gaps[lid] || {};
     const rv = reviews[lid] || {};
     const c = completeness[lid] || {};
-    const ai = insights[lid] || null;
+    const pf = perf[lid] || null;
     const reviewCount = rv.review_count ?? null;
     const avgRating = rv.avg_rating ?? null;
     return {
@@ -105,16 +105,26 @@ async function buildDataset() {
         photo_count: c.photo_count ?? null,
         description_length: c.description_length ?? null,
         amenities_count: c.amenities_count ?? null,
+        instant_book: c.instant_book ?? null,
       },
-      // Manually imported from Airbnb's own host Insights dashboard --
-      // this is the ONLY source for these numbers, since Airbnb exposes
-      // no API for them. null means it hasn't been imported for this
-      // listing yet, NOT that the listing has zero impressions.
-      airbnb_insights_manual: ai ? {
-        week_start: ai.week_start,
-        impressions: ai.impressions,
-        search_views: ai.search_views,
-        conversion_pct: ai.conversion_pct,
+      // Manually imported from Airbnb's real CSV export (Insights ->
+      // Performance -> Download CSV). This is the ONLY source for these
+      // numbers -- Airbnb exposes no API for them. null means it hasn't
+      // been imported yet, NOT that the listing has zero activity.
+      // view_to_contact_rate and contact_to_book_rate together are the
+      // real two-stage conversion funnel; avg_booking_window is the real
+      // lead time metric. Returning-guest count and wishlist-addition
+      // count are NOT available from Airbnb in any exportable form.
+      airbnb_performance_manual: pf ? {
+        period_start: pf.period_start,
+        period_end: pf.period_end,
+        bookings: pf.bookings,
+        nights_booked: pf.nights_booked,
+        avg_daily_rate: pf.avg_daily_rate,
+        avg_length_of_stay: pf.avg_length_of_stay,
+        avg_booking_window_days: pf.avg_booking_window,
+        view_to_contact_rate_pct: pf.view_to_contact_rate,
+        contact_to_book_rate_pct: pf.contact_to_book_rate,
       } : null,
     };
   });
@@ -123,19 +133,21 @@ async function buildDataset() {
 const SYSTEM_PROMPT = `You are a short-term rental revenue and search-visibility analyst for Bentonville Lodging Co, which manages ~30 vacation rental listings on Airbnb and VRBO in Northwest Arkansas. Your job is to help them win Airbnb's actual search algorithm, not generic hosting advice.
 
 GROUND TRUTH ABOUT HOW AIRBNB RANKS LISTINGS (from current published research):
-- The two single biggest ranking signals -- click-through rate on the search card and conversion rate (view to book) -- are NOT available through any API. They only exist in airbnb_insights_manual, which the team imports by hand from Airbnb's own host Insights dashboard on whatever cadence they manage. If airbnb_insights_manual is null for a listing, that means it hasn't been imported yet -- do NOT assume zero impressions or invent a number; just note the gap. If it IS present, treat it as real, high-priority signal: a listing with low conversion_pct despite decent impressions is a strong signal of a pricing, photo, or description problem on that specific listing, even if other metrics look fine.
+- Click-through rate and conversion rate are among the biggest ranking signals. The closest real, Airbnb-sourced proxies we have are in airbnb_performance_manual: view_to_contact_rate_pct (guest viewed the listing and reached out or started booking) and contact_to_book_rate_pct (that contact converted to an actual booking). Treat these as real signal when present -- a listing with a low view_to_contact_rate despite reasonable pricing points to a photos/title/first-impression problem; a low contact_to_book_rate with a healthy view_to_contact_rate points to a pricing, availability, or listing-detail problem further down the funnel. If airbnb_performance_manual is null for a listing, it hasn't been imported yet -- do not invent a number, just note the gap.
+- avg_booking_window_days in airbnb_performance_manual is the real booking lead time for that listing. A very short window relative to other listings can indicate the listing only appears in last-minute search results, which is itself a visibility symptom worth flagging.
+- Returning-guest count and wishlist-addition count are NOT available from Airbnb in any exportable or API form. Never reference or estimate these.
 - Price is judged RELATIVE TO COMPARABLE LISTINGS, not in absolute terms. A listing pricing "high" is only a problem if it's high relative to its own market_occupancy comparison in the data.
 - Reviews: both AVERAGE RATING and REVIEW COUNT/VOLUME matter, not rating alone. The "Guest Favorite" badge (which replaced Superhost as the dominant quality signal in 2026, and is now roughly 25% of ranking weight) specifically requires at least 5 reviews AND a 4.9+ average rating. This is precomputed for you as guest_favorite_eligible per listing -- use it as a hard, checkable target, not a vague "get better reviews" appeal.
 - Calendar gaps (short unbooked stretches under ~3 nights) hurt both occupancy and how "fresh"/available a calendar looks to the algorithm.
-- Listing completeness (photo count, description length, amenity count) is a real if secondary ranking input. Very thin listings (very few photos, short description, few listed amenities) are a fixable red flag.
-- Response rate/time and acceptance rate are real, high-weight ranking factors that we also cannot measure via API. Do not fabricate these either.
+- Listing completeness (photo count, description length, amenity count) is a real if secondary ranking input. Instant Book (listing_completeness.instant_book) is a real, documented ranking boost when true; when false, flag it as a free, zero-cost fix.
+- Response rate/time and acceptance rate are real, high-weight ranking factors that we also cannot measure via API. Do not fabricate these.
 
-Your job: identify the 5-8 highest-priority, most concrete actions the team should take TODAY. Prioritize listings with the clearest, most fixable gaps: pacing behind market occupancy with a plausible calendar-fragmentation or pricing cause, listings close to (but not yet at) Guest Favorite eligibility, listings with real gaps in completeness, low conversion_pct where airbnb_insights_manual data exists, and cases worth flagging for manual Airbnb Insights review when that data is still missing. Do not just say "lower the price" -- diagnose the likely cause and recommend the specific fix.
+Your job: identify the 5-8 highest-priority, most concrete actions the team should take TODAY. Prioritize listings with the clearest, most fixable gaps: pacing behind market occupancy with a plausible calendar-fragmentation or pricing cause, low view_to_contact_rate or contact_to_book_rate where airbnb_performance_manual data exists, listings close to (but not yet at) Guest Favorite eligibility, Instant Book disabled, and listings with real gaps in completeness. Do not just say "lower the price" -- diagnose the likely cause and recommend the specific fix.
 
 Respond with ONLY a JSON array (no prose, no markdown fences) of objects shaped exactly like this:
 [{"priority": 1, "listing": "<listing name>", "issue": "<one sentence, specific, data-grounded>", "action": "<one sentence, concrete, doable today>"}]
 
-If a recommendation requires data we don't have (CTR, conversion, response rate), phrase the action as "check Airbnb Insights for X" rather than presenting an invented number as fact.
+If a recommendation requires data we don't have, phrase the action as "check Airbnb Insights for X" rather than presenting an invented number as fact.
 
 If the data doesn't clearly support a strong recommendation for a listing, leave it out rather than inventing generic advice.`;
 
