@@ -191,9 +191,12 @@ exports.handler = async function(event) {
   try {
     const token = await getToken();
 
-    // 1. Active listings
+    // 1. Active listings — includes reviews field directly, avoiding the
+    // separate /v1/reviews/listings-average endpoint (which persistently
+    // rejects its own documented array query param — a Guesty-side bug/
+    // inconsistency, not a query formatting issue on our end).
     const lData = await gGet(
-      `/v1/listings?limit=100&fields=${encodeURIComponent('_id title nickname isListed status')}`,
+      `/v1/listings?limit=100&fields=${encodeURIComponent('_id title nickname isListed status reviews')}`,
       token
     );
     const allListings = lData.results || lData.data || (Array.isArray(lData) ? lData : []);
@@ -201,22 +204,20 @@ exports.handler = async function(event) {
     const listingIds = listings.map(l => l._id || l.id);
     result.listings = listings.length;
 
-    // 2. Review averages (single batched call for all listings)
-    let reviewRows = [];
-    try {
-      const qs = 'listingIds=' + encodeURIComponent(JSON.stringify(listingIds));
-      const revData = await gGet(`/v1/reviews/listings-average?${qs}`, token);
-      const revList = revData.results || revData.data || (Array.isArray(revData) ? revData : []);
-      reviewRows = revList.map(r => ({
-        listing_id:    r.listingId || r._id,
-        snapshot_date: today,
-        review_count:  r.reviewsCount ?? r.count ?? null,
-        avg_rating:    r.avgRating ?? r.averageRating ?? r.rating ?? null,
-        raw:           r,
-      }));
-    } catch(e) {
-      result.errors.push('reviews: ' + e.message);
+    if (debugMode) {
+      result.listingsReviewsSample = listings.slice(0, 2).map(l => ({ id: l._id, reviews: l.reviews }));
     }
+
+    // 2. Review data lifted directly from the listing objects above
+    const reviewRows = listings
+      .filter(l => l.reviews)
+      .map(l => ({
+        listing_id:    l._id || l.id,
+        snapshot_date: today,
+        review_count:  l.reviews.numberOfReviews ?? l.reviews.count ?? l.reviews.reviewsCount ?? null,
+        avg_rating:    l.reviews.averageScore ?? l.reviews.avgRating ?? l.reviews.rating ?? null,
+        raw:           l.reviews,
+      }));
     await sbUpsertRows('guesty_review_snapshots', reviewRows, 'listing_id,snapshot_date');
 
     // 3. Calendar gap analysis (sequential per listing — data calls, not
