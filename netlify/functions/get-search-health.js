@@ -135,6 +135,74 @@ async function gGet(path, token) {
   catch(e) { throw new Error('Non-JSON from ' + path.slice(0, 60)); }
 }
 
+// ── Guesty Booking Engine API (separate credentials + token cache from
+//    the Open API above -- this is what actually carries review data) ──
+const BE_CACHE_KEY = 'guesty_be_token';
+let _memBe = { token: null, expiresAt: 0 };
+
+async function getBeToken() {
+  const now = Date.now();
+  const REFRESH_BEFORE_EXPIRY = 30 * 60 * 1000;
+
+  if (_memBe.token && now < _memBe.expiresAt - REFRESH_BEFORE_EXPIRY) return _memBe.token;
+
+  try {
+    const row = await sbGet(BE_CACHE_KEY);
+    if (row && row.value && row.expires_at) {
+      const exp = new Date(row.expires_at).getTime();
+      if (now < exp - REFRESH_BEFORE_EXPIRY) {
+        _memBe.token = row.value;
+        _memBe.expiresAt = exp;
+        return _memBe.token;
+      }
+    }
+  } catch(e) {
+    console.warn('BE Supabase cache read failed (non-fatal):', e.message);
+  }
+
+  const clientId     = process.env.GUESTY_BE_CLIENT;
+  const clientSecret = process.env.GUESTY_BE_SECRET;
+  if (!clientId || !clientSecret) throw new Error('GUESTY_BE_CLIENT or GUESTY_BE_SECRET env vars not set');
+
+  const res = await fetch('https://booking.guesty.com/oauth2/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+    body: new URLSearchParams({
+      grant_type: 'client_credentials',
+      scope: 'booking_engine:api',
+      client_id: clientId,
+      client_secret: clientSecret,
+    }),
+  });
+  const raw = await res.text();
+  if (!res.ok) throw new Error(`BE token request failed (${res.status}): ${raw}`);
+
+  let data;
+  try { data = JSON.parse(raw); } catch(e) { throw new Error('BE token not JSON: ' + raw.slice(0, 200)); }
+  if (!data.access_token) throw new Error('No access_token in BE token response');
+
+  // Booking Engine tokens last 24h and can only be renewed 3x/day --
+  // cache conservatively, same pattern as the Open API token.
+  const ttlMs  = Math.min((data.expires_in || 86400) - 3600, 82800) * 1000;
+  const expiry = now + ttlMs;
+  _memBe.token = data.access_token;
+  _memBe.expiresAt = expiry;
+
+  try { await sbUpsert(BE_CACHE_KEY, data.access_token, expiry); }
+  catch(e) { console.warn('BE Supabase cache write failed (non-fatal):', e.message); }
+
+  return _memBe.token;
+}
+
+async function gBeGet(path, token) {
+  const url = 'https://booking.guesty.com' + path;
+  const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token, Accept: 'application/json; charset=utf-8' } });
+  const raw = await res.text();
+  if (!res.ok) throw new Error(`Guesty BE API ${res.status} on ${path.slice(0, 80)}: ${raw.slice(0, 300)}`);
+  try { return JSON.parse(raw); }
+  catch(e) { throw new Error('Non-JSON from BE ' + path.slice(0, 60)); }
+}
+
 // ── PriceLabs helper ────────────────────────────────────────────────────
 async function plGet(path) {
   const apiKey = process.env.PRICE_LABS_SECRET;
@@ -208,16 +276,32 @@ exports.handler = async function(event) {
       result.listingsReviewsSample = listings.slice(0, 2).map(l => ({ id: l._id, reviews: l.reviews }));
     }
 
-    // 2. Review data lifted directly from the listing objects above
-    const reviewRows = listings
-      .filter(l => l.reviews)
-      .map(l => ({
-        listing_id:    l._id || l.id,
-        snapshot_date: today,
-        review_count:  l.reviews.numberOfReviews ?? l.reviews.count ?? l.reviews.reviewsCount ?? null,
-        avg_rating:    l.reviews.averageScore ?? l.reviews.avgRating ?? l.reviews.rating ?? null,
-        raw:           l.reviews,
-      }));
+    // 2. Reviews — fetched via the Booking Engine API (separate credentials,
+    // separate token). Open API's `reviews` field on /v1/listings is
+    // always empty in this account, confirmed via debug run.
+    let reviewRows = [];
+    try {
+      const beToken = await getBeToken();
+      const beData = await gBeGet(
+        `/api/listings?fields=${encodeURIComponent('_id title reviews')}&limit=100`,
+        beToken
+      );
+      const beListings = beData.results || beData.data || (Array.isArray(beData) ? beData : []);
+      if (debugMode) {
+        result.beReviewsSample = beListings.slice(0, 3).map(l => ({ id: l._id, reviews: l.reviews }));
+      }
+      reviewRows = beListings
+        .filter(l => l.reviews)
+        .map(l => ({
+          listing_id:    l._id || l.id,
+          snapshot_date: today,
+          review_count:  l.reviews.numberOfReviews ?? l.reviews.count ?? l.reviews.reviewsCount ?? l.reviews.total ?? null,
+          avg_rating:    l.reviews.averageScore ?? l.reviews.avgRating ?? l.reviews.rating ?? l.reviews.score ?? null,
+          raw:           l.reviews,
+        }));
+    } catch(e) {
+      result.errors.push('reviews (booking engine): ' + e.message);
+    }
     await sbUpsertRows('guesty_review_snapshots', reviewRows, 'listing_id,snapshot_date');
 
     // 3. Calendar gap analysis (sequential per listing — data calls, not
@@ -281,6 +365,19 @@ exports.handler = async function(event) {
     result.reviewRows = reviewRows.length;
     result.gapRows = gapRows.length;
     result.priceRows = priceRows.length;
+
+    // 5. Chain-call the recommendations engine so the daily scheduled run
+    // also refreshes the AI recommendations, without making
+    // get-recommendations.js itself a scheduled (and thus browser-blocked)
+    // function. Non-fatal if this fails -- the sync itself already succeeded.
+    try {
+      const siteUrl = process.env.URL || 'https://bentonvillelodgingcomanagement.com';
+      const recRes = await fetch(`${siteUrl}/.netlify/functions/get-recommendations`);
+      result.recommendationsTriggered = recRes.ok;
+      if (!recRes.ok) result.errors.push('recommendations trigger: HTTP ' + recRes.status);
+    } catch(e) {
+      result.errors.push('recommendations trigger: ' + e.message);
+    }
 
     return { statusCode: 200, headers: CORS, body: JSON.stringify(result) };
 
