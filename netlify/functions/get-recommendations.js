@@ -48,11 +48,12 @@ async function sbInsert(table, rows) {
 // source table, joined by listing_id. Keeping this tight matters --
 // every extra token here is cost on every run.
 async function buildDataset() {
-  const [priceRows, gapRows, reviewRows, completenessRows] = await Promise.all([
+  const [priceRows, gapRows, reviewRows, completenessRows, insightsRows] = await Promise.all([
     sbSelect('pricelabs_daily', 'select=*&order=snapshot_date.desc'),
     sbSelect('calendar_gap_snapshots', 'select=*&order=snapshot_date.desc'),
     sbSelect('guesty_review_snapshots', 'select=*&order=snapshot_date.desc'),
     sbSelect('listing_completeness_snapshots', 'select=*&order=snapshot_date.desc'),
+    sbSelect('airbnb_insights_import', 'select=*&order=week_start.desc'),
   ]);
 
   const latest = (rows) => {
@@ -65,6 +66,7 @@ async function buildDataset() {
   const gaps = latest(gapRows);
   const reviews = latest(reviewRows);
   const completeness = latest(completenessRows);
+  const insights = latest(insightsRows);
 
   const listingIds = Object.keys(price);
   return listingIds.map(lid => {
@@ -72,6 +74,7 @@ async function buildDataset() {
     const g = gaps[lid] || {};
     const rv = reviews[lid] || {};
     const c = completeness[lid] || {};
+    const ai = insights[lid] || null;
     const reviewCount = rv.review_count ?? null;
     const avgRating = rv.avg_rating ?? null;
     return {
@@ -103,6 +106,16 @@ async function buildDataset() {
         description_length: c.description_length ?? null,
         amenities_count: c.amenities_count ?? null,
       },
+      // Manually imported from Airbnb's own host Insights dashboard --
+      // this is the ONLY source for these numbers, since Airbnb exposes
+      // no API for them. null means it hasn't been imported for this
+      // listing yet, NOT that the listing has zero impressions.
+      airbnb_insights_manual: ai ? {
+        week_start: ai.week_start,
+        impressions: ai.impressions,
+        search_views: ai.search_views,
+        conversion_pct: ai.conversion_pct,
+      } : null,
     };
   });
 }
@@ -110,14 +123,14 @@ async function buildDataset() {
 const SYSTEM_PROMPT = `You are a short-term rental revenue and search-visibility analyst for Bentonville Lodging Co, which manages ~30 vacation rental listings on Airbnb and VRBO in Northwest Arkansas. Your job is to help them win Airbnb's actual search algorithm, not generic hosting advice.
 
 GROUND TRUTH ABOUT HOW AIRBNB RANKS LISTINGS (from current published research):
-- The two single biggest ranking signals -- click-through rate on the search card and conversion rate (view to book) -- are NOT in the data you're given. Airbnb does not expose them via any API; they only appear in the host's own Airbnb Insights dashboard. Do not estimate or fabricate these. If a listing's data suggests a likely CTR/conversion problem (e.g. priced far above comps but no other red flags), say so explicitly and recommend checking Airbnb Insights manually -- do not invent a number.
+- The two single biggest ranking signals -- click-through rate on the search card and conversion rate (view to book) -- are NOT available through any API. They only exist in airbnb_insights_manual, which the team imports by hand from Airbnb's own host Insights dashboard on whatever cadence they manage. If airbnb_insights_manual is null for a listing, that means it hasn't been imported yet -- do NOT assume zero impressions or invent a number; just note the gap. If it IS present, treat it as real, high-priority signal: a listing with low conversion_pct despite decent impressions is a strong signal of a pricing, photo, or description problem on that specific listing, even if other metrics look fine.
 - Price is judged RELATIVE TO COMPARABLE LISTINGS, not in absolute terms. A listing pricing "high" is only a problem if it's high relative to its own market_occupancy comparison in the data.
 - Reviews: both AVERAGE RATING and REVIEW COUNT/VOLUME matter, not rating alone. The "Guest Favorite" badge (which replaced Superhost as the dominant quality signal in 2026, and is now roughly 25% of ranking weight) specifically requires at least 5 reviews AND a 4.9+ average rating. This is precomputed for you as guest_favorite_eligible per listing -- use it as a hard, checkable target, not a vague "get better reviews" appeal.
 - Calendar gaps (short unbooked stretches under ~3 nights) hurt both occupancy and how "fresh"/available a calendar looks to the algorithm.
 - Listing completeness (photo count, description length, amenity count) is a real if secondary ranking input. Very thin listings (very few photos, short description, few listed amenities) are a fixable red flag.
 - Response rate/time and acceptance rate are real, high-weight ranking factors that we also cannot measure via API. Do not fabricate these either.
 
-Your job: identify the 5-8 highest-priority, most concrete actions the team should take TODAY. Prioritize listings with the clearest, most fixable gaps: pacing behind market occupancy with a plausible calendar-fragmentation or pricing cause, listings close to (but not yet at) Guest Favorite eligibility, listings with real gaps in completeness, and cases worth flagging for manual Airbnb Insights review (CTR/conversion suspected issue). Do not just say "lower the price" -- diagnose the likely cause and recommend the specific fix.
+Your job: identify the 5-8 highest-priority, most concrete actions the team should take TODAY. Prioritize listings with the clearest, most fixable gaps: pacing behind market occupancy with a plausible calendar-fragmentation or pricing cause, listings close to (but not yet at) Guest Favorite eligibility, listings with real gaps in completeness, low conversion_pct where airbnb_insights_manual data exists, and cases worth flagging for manual Airbnb Insights review when that data is still missing. Do not just say "lower the price" -- diagnose the likely cause and recommend the specific fix.
 
 Respond with ONLY a JSON array (no prose, no markdown fences) of objects shaped exactly like this:
 [{"priority": 1, "listing": "<listing name>", "issue": "<one sentence, specific, data-grounded>", "action": "<one sentence, concrete, doable today>"}]
