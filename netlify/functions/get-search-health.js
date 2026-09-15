@@ -264,7 +264,7 @@ exports.handler = async function(event) {
     // rejects its own documented array query param — a Guesty-side bug/
     // inconsistency, not a query formatting issue on our end).
     const lData = await gGet(
-      `/v1/listings?limit=100&fields=${encodeURIComponent('_id title nickname isListed status reviews')}`,
+      `/v1/listings?limit=100&fields=${encodeURIComponent('_id title nickname isListed status reviews pictures publicDescription amenities')}`,
       token
     );
     const allListings = lData.results || lData.data || (Array.isArray(lData) ? lData : []);
@@ -275,6 +275,26 @@ exports.handler = async function(event) {
     if (debugMode) {
       result.listingsReviewsSample = listings.slice(0, 2).map(l => ({ id: l._id, reviews: l.reviews }));
     }
+
+    // 1b. Listing completeness — photo count, description length, amenity
+    // count. A real (if moderate-weight) Airbnb ranking factor that was
+    // sitting unused in data we already pull.
+    const completenessRows = listings.map(l => {
+      const lid = l._id || l.id;
+      const photoCount = Array.isArray(l.pictures) ? l.pictures.length : 0;
+      const desc = (l.publicDescription && (l.publicDescription.summary || l.publicDescription.description)) || '';
+      const amenityCount = Array.isArray(l.amenities) ? l.amenities.length : 0;
+      return {
+        listing_id: lid,
+        snapshot_date: today,
+        photo_count: photoCount,
+        description_length: desc.length,
+        amenities_count: amenityCount,
+        raw: { pictures: photoCount, description: desc.slice(0, 200), amenities: l.amenities || [] },
+      };
+    });
+    await sbUpsertRows('listing_completeness_snapshots', completenessRows, 'listing_id,snapshot_date');
+    result.completenessRows = completenessRows.length;
 
     // 2. Reviews — fetched via the Booking Engine API (separate credentials,
     // separate token). Open API's `reviews` field on /v1/listings is
