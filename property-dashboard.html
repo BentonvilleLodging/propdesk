@@ -1,0 +1,3414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PropDesk -- Bentonville Lodging Co.</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f0f0e;
+    --surface: #1a1a18;
+    --surface2: #242422;
+    --surface3: #2e2e2b;
+    --border: #333330;
+    --border-light: #3d3d39;
+    --text: #f0ede6;
+    --text-muted: #888880;
+    --text-dim: #555550;
+    --accent: #c8a96e;
+    --accent-hover: #d4b87a;
+    --accent-dim: #c8a96e22;
+    --accent-mid: #c8a96e44;
+    --red: #e06b5a;
+    --red-dim: #e06b5a22;
+    --green: #7ab87a;
+    --green-dim: #7ab87a22;
+    --blue: #6a9fd8;
+    --blue-dim: #6a9fd822;
+    --yellow: #d4a843;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --shadow: 0 4px 24px rgba(0,0,0,0.4);
+    --shadow-lg: 0 8px 48px rgba(0,0,0,0.6);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* === HEADER === */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 32px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.02em;
+  }
+  .logo span { color: var(--text); font-weight: 400; }
+
+  nav { display: flex; gap: 4px; }
+  nav button {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 7px 16px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.03em;
+  }
+  nav button:hover { color: var(--text); background: var(--surface2); }
+  nav button.active { color: var(--accent); background: var(--accent-dim); }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .date-badge {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 5px 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  /* === PAGES === */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* === MAIN LAYOUT === */
+  main {
+    max-width: 1300px;
+    margin: 0 auto;
+    padding: 28px 32px 60px;
+  }
+
+  section-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+
+  .section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.01em;
+  }
+
+  .section-subtitle {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-left: 8px;
+  }
+
+  /* === PRIORITY TODO === */
+  .todo-section { margin-bottom: 28px; }
+
+  .priority-list {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .todo-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 13px 18px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+    cursor: default;
+  }
+  .todo-item:last-child { border-bottom: none; }
+  .todo-item:hover { background: var(--surface2); }
+  .todo-item.overdue { border-left: 3px solid var(--red); }
+  .todo-item.due-soon { border-left: 3px solid var(--yellow); }
+  .todo-item.normal { border-left: 3px solid var(--border); }
+  .todo-item.completed { opacity: 0.45; }
+
+  .todo-check {
+    width: 18px;
+    height: 18px;
+    border: 1.5px solid var(--border-light);
+    border-radius: 50%;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+  .todo-check:hover { border-color: var(--accent); }
+  .todo-check.checked { background: var(--accent); border-color: var(--accent); }
+  .todo-check.checked::after { content: '✓'; color: var(--bg); font-size: 11px; font-weight: 700; }
+
+  .todo-content { flex: 1; min-width: 0; }
+  .todo-title {
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .todo-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  .todo-tags { display: flex; gap: 5px; align-items: center; }
+  .tag {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .tag-property { background: var(--blue-dim); color: var(--blue); }
+  .tag-maintenance { background: var(--red-dim); color: var(--red); }
+  .tag-admin { background: var(--accent-dim); color: var(--accent); }
+  .tag-tenant { background: var(--green-dim); color: var(--green); }
+
+  .priority-badge {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .p-high { color: var(--red); }
+  .p-med { color: var(--yellow); }
+  .p-low { color: var(--text-dim); }
+
+  .age-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+  .age-badge.old { color: var(--red); }
+
+  .expand-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 12px;
+    font-family: 'DM Sans', sans-serif;
+    padding: 6px 14px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .expand-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* === CALENDAR === */
+  .calendar-section { margin-bottom: 28px; }
+
+  .week-calendar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .cal-header {
+    display: grid;
+    grid-template-columns: 60px repeat(7, 1fr);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .cal-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 8px;
+    border-right: 1px solid var(--border);
+    gap: 4px;
+  }
+  .cal-nav button {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 4px;
+    border-radius: 4px;
+    line-height: 1;
+    transition: color 0.15s;
+  }
+  .cal-nav button:hover { color: var(--accent); }
+
+  .cal-day-header {
+    text-align: center;
+    padding: 10px 4px;
+    border-right: 1px solid var(--border);
+  }
+  .cal-day-header:last-child { border-right: none; }
+  .cal-day-name {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+  }
+  .cal-day-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--text);
+    margin-top: 2px;
+  }
+  .cal-day-header.today .cal-day-num {
+    color: var(--accent);
+    background: var(--accent-dim);
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 2px auto 0;
+    font-size: 14px;
+  }
+
+  .cal-body {
+    display: grid;
+    grid-template-columns: 60px repeat(7, 1fr);
+    min-height: 180px;
+  }
+
+  .cal-time-col {
+    border-right: 1px solid var(--border);
+    padding-top: 8px;
+  }
+
+  .cal-day-col {
+    border-right: 1px solid var(--border);
+    padding: 8px 6px;
+    min-height: 180px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .cal-day-col:last-child { border-right: none; }
+  .cal-day-col.today-col { background: #c8a96e06; }
+
+  .cal-event {
+    font-size: 11px;
+    padding: 4px 7px;
+    border-radius: 4px;
+    line-height: 1.3;
+    cursor: default;
+    word-break: break-word;
+  }
+  .cal-event-todo { background: var(--accent-dim); color: var(--accent); border-left: 2px solid var(--accent); }
+  .cal-event-pto { background: var(--blue-dim); color: var(--blue); border-left: 2px solid var(--blue); }
+  .cal-event-event { background: var(--green-dim); color: var(--green); border-left: 2px solid var(--green); }
+  .cal-event-name { font-weight: 600; }
+  .cal-event-sub { opacity: 0.75; font-size: 10px; }
+
+  /* === ACTION CARDS === */
+  .action-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .action-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    position: relative;
+    overflow: hidden;
+  }
+  .action-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    transition: opacity 0.2s;
+    opacity: 0.6;
+  }
+  .action-card-todo::before { background: var(--accent); }
+  .action-card-event::before { background: var(--green); }
+  .action-card-time::before { background: var(--blue); }
+
+  .action-card:hover { border-color: var(--border-light); background: var(--surface2); transform: translateY(-1px); box-shadow: var(--shadow); }
+  .action-card:hover::before { opacity: 1; }
+
+  .card-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+  .card-icon-todo { background: var(--accent-dim); }
+  .card-icon-event { background: var(--green-dim); }
+  .card-icon-time { background: var(--blue-dim); }
+
+  .card-title { font-size: 15px; font-weight: 600; color: var(--text); }
+  .card-desc { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+  .card-cta {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: var(--radius-sm);
+    border: none;
+    cursor: pointer;
+    margin-top: 4px;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.2s;
+  }
+  .card-cta-todo { background: var(--accent-dim); color: var(--accent); }
+  .card-cta-event { background: var(--green-dim); color: var(--green); }
+  .card-cta-time { background: var(--blue-dim); color: var(--blue); }
+  .action-card:hover .card-cta { filter: brightness(1.2); }
+
+  /* === MODALS === */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 1000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    backdrop-filter: blur(4px);
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border-light);
+    border-radius: 14px;
+    box-shadow: var(--shadow-lg);
+    width: 100%;
+    max-width: 580px;
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: modal-in 0.2s ease;
+  }
+  .modal-wide { max-width: 820px; }
+
+  @keyframes modal-in {
+    from { opacity: 0; transform: translateY(12px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .modal-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .modal-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 1;
+    padding: 4px;
+    border-radius: 4px;
+    transition: color 0.15s;
+  }
+  .modal-close:hover { color: var(--text); }
+
+  .modal-body { padding: 24px; }
+
+  .form-row { margin-bottom: 18px; }
+  .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+  .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+
+  label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+
+  input, textarea, select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13.5px;
+    padding: 9px 12px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input:focus, textarea:focus, select:focus {
+    border-color: var(--accent);
+  }
+  textarea { resize: vertical; min-height: 80px; }
+  select option { background: var(--surface2); }
+
+  input[type="date"] { cursor: pointer; }
+
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 16px 24px 20px;
+    border-top: 1px solid var(--border);
+  }
+
+  .btn {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 9px 20px;
+    border-radius: var(--radius-sm);
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.02em;
+  }
+  .btn-primary { background: var(--accent); color: var(--bg); }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-secondary { background: var(--surface3); color: var(--text-muted); border: 1px solid var(--border); }
+  .btn-secondary:hover { color: var(--text); border-color: var(--border-light); }
+  .btn-danger { background: var(--red-dim); color: var(--red); border: 1px solid var(--red-dim); }
+  .btn-danger:hover { background: var(--red); color: white; }
+  .btn-success { background: var(--green-dim); color: var(--green); border: 1px solid var(--green-dim); }
+  .btn-success:hover { background: var(--green); color: var(--bg); }
+
+  /* === FULL TODO LIST (MODAL) === */
+  .full-todo-list { display: flex; flex-direction: column; gap: 2px; }
+
+  .full-todo-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 14px;
+    border-radius: var(--radius-sm);
+    background: var(--surface2);
+    transition: background 0.15s;
+  }
+  .full-todo-item:hover { background: var(--surface3); }
+  .full-todo-item.completed { opacity: 0.4; }
+
+  .todo-actions { display: flex; gap: 6px; margin-left: auto; }
+  .todo-del {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 3px 6px;
+    border-radius: 4px;
+    transition: color 0.15s;
+  }
+  .todo-del:hover { color: var(--red); }
+
+  /* === ADMIN / PAYROLL PAGE === */
+  .admin-section { margin-bottom: 32px; }
+
+  .payroll-grid {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .payroll-period-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .payroll-period-header:hover { background: var(--surface3); }
+
+  .period-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--accent);
+  }
+  .period-meta { font-size: 12px; color: var(--text-muted); }
+
+  .period-status {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .status-paid { background: var(--green-dim); color: var(--green); }
+  .status-pending { background: var(--yellow-dim, #d4a84322); color: var(--yellow); }
+  .status-unpaid { background: var(--red-dim); color: var(--red); }
+
+  .payroll-table-wrap {
+    overflow-x: auto;
+    display: none;
+  }
+  .payroll-table-wrap.open { display: block; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  thead tr { background: var(--surface2); }
+  th {
+    text-align: left;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  td {
+    font-size: 13px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: var(--surface2); }
+
+  .amount { font-family: 'DM Mono', monospace; font-size: 13px; }
+  .amount-total { color: var(--accent); font-weight: 500; }
+
+  .mark-paid-btn {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: var(--radius-sm);
+    border: none;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    background: var(--accent-dim);
+    color: var(--accent);
+    transition: all 0.2s;
+  }
+  .mark-paid-btn:hover { background: var(--accent); color: var(--bg); }
+  .mark-paid-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* === TIME ENTRIES LOG === */
+  .time-log {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-top: 16px;
+  }
+  .time-log-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 18px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .time-log-item:last-child { border-bottom: none; }
+  .tl-emp { font-weight: 600; min-width: 120px; }
+  .tl-dates { color: var(--text-muted); font-size: 12px; font-family: 'DM Mono', monospace; flex: 1; }
+  .tl-hours { color: var(--blue); font-family: 'DM Mono', monospace; min-width: 70px; }
+  .tl-pay { color: var(--accent); font-family: 'DM Mono', monospace; min-width: 80px; }
+  .tl-del { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 13px; }
+  .tl-del:hover { color: var(--red); }
+
+  /* === EMPLOYEE LIST === */
+  .employee-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+    margin-top: 16px;
+  }
+  .employee-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+  }
+  .emp-name { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+  .emp-role { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; }
+  .emp-stat { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; }
+  .emp-stat-label { color: var(--text-muted); }
+  .emp-stat-val { font-family: 'DM Mono', monospace; color: var(--text); }
+
+  /* === EMPTY STATE === */
+  .empty {
+    text-align: center;
+    padding: 32px;
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+
+  /* === SCROLLBAR === */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--border-light); }
+
+  /* === RESPONSIVE === */
+  @media (max-width: 768px) {
+    main { padding: 16px; }
+    header { padding: 12px 16px; }
+    .action-cards { grid-template-columns: 1fr; }
+    .form-row-2, .form-row-3 { grid-template-columns: 1fr; }
+    nav button { font-size: 12px; padding: 6px 10px; }
+  }
+
+  .chevron {
+    display: inline-block;
+    transition: transform 0.2s;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .chevron.open { transform: rotate(180deg); }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 11px;
+    color: var(--text-muted);
+    gap: 5px;
+  }
+
+  hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+  .add-emp-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  /* === LOGIN SCREEN === */
+  #login-screen {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  #login-screen.hidden { display: none; }
+  .login-bg {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 50% at 20% 60%, rgba(200,169,110,0.07) 0%, transparent 70%),
+      radial-gradient(ellipse 50% 40% at 80% 30%, rgba(106,159,216,0.05) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .login-card {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--border-light);
+    border-radius: 18px;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.7);
+    width: 100%;
+    max-width: 420px;
+    padding: 48px 40px 40px;
+    animation: login-in 0.4s cubic-bezier(0.22,1,0.36,1);
+  }
+  @keyframes login-in {
+    from { opacity: 0; transform: translateY(24px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .login-logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.02em;
+    margin-bottom: 6px;
+  }
+  .login-logo span { color: var(--text); font-weight: 400; }
+  .login-tagline {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 36px;
+    line-height: 1.5;
+  }
+  .login-field { margin-bottom: 18px; }
+  .login-field label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    margin-bottom: 7px;
+  }
+  .login-field input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    padding: 11px 14px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .login-field input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(200,169,110,0.15);
+  }
+  .login-field input.input-error {
+    border-color: var(--red);
+    box-shadow: 0 0 0 3px rgba(224,107,90,0.15);
+  }
+  .login-error-msg {
+    font-size: 12px;
+    color: var(--red);
+    margin-top: -10px;
+    margin-bottom: 14px;
+    min-height: 16px;
+  }
+  .login-btn {
+    width: 100%;
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    border-radius: var(--radius-sm);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 12px;
+    cursor: pointer;
+    letter-spacing: 0.03em;
+    transition: background 0.2s, transform 0.1s;
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .login-btn:hover  { background: var(--accent-hover); }
+  .login-btn:active { transform: scale(0.99); }
+  .login-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+  .login-spinner {
+    width: 14px; height: 14px;
+    border: 2px solid rgba(15,15,14,0.4);
+    border-top-color: var(--bg);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    flex-shrink: 0;
+  }
+  .login-footer {
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-dim);
+    text-align: center;
+  }
+  .logout-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    padding: 5px 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .logout-btn:hover { border-color: var(--red); color: var(--red); }
+
+  /* === PROPERTIES PAGE === */
+  .property-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+  }
+  .property-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .property-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--accent);
+    opacity: 0.5;
+    transition: opacity 0.2s;
+  }
+  .property-card:hover { border-color: var(--border-light); background: var(--surface2); transform: translateY(-2px); box-shadow: var(--shadow); }
+  .property-card:hover::before { opacity: 1; }
+  .prop-card-name { font-family: 'Playfair Display', serif; font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .prop-card-address { font-size: 12px; color: var(--text-muted); margin-bottom: 14px; line-height: 1.4; }
+  .prop-card-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .prop-card-owners { font-size: 12px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 12px; }
+  .prop-card-owners strong { color: var(--text); }
+  .prop-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .badge-full { background: var(--accent-dim); color: var(--accent); }
+  .badge-essentials { background: var(--blue-dim); color: var(--blue); }
+  .badge-beds { background: var(--surface3); color: var(--text-muted); border: 1px solid var(--border); }
+  .modal-property { max-width: 720px; }
+  .prop-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    gap: 2px;
+    overflow-x: auto;
+  }
+  .prop-tab {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 12px 14px 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-bottom: -1px;
+    white-space: nowrap;
+  }
+  .prop-tab:hover { color: var(--text); }
+  .prop-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .prop-tab-panel { display: none; }
+  .prop-tab-panel.active { display: block; }
+  .prop-section { padding: 24px; }
+  .prop-view {
+    font-size: 13.5px;
+    color: var(--text);
+    padding: 8px 0;
+    min-height: 22px;
+    line-height: 1.6;
+  }
+  .amenity-view { display: flex; flex-wrap: wrap; gap: 5px; padding: 6px 0; }
+  .amenity-tag {
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 11px;
+    padding: 3px 10px;
+    color: var(--text-muted);
+  }
+  .care-notes-view {
+    background: var(--surface2);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px !important;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    font-size: 13px;
+  }
+  .empty-field { color: var(--text-dim); font-style: italic; font-size: 13px; }
+
+  /* === INVOICING PAGE === */
+  .inv-month-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .inv-month-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .inv-nav-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 14px;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .inv-nav-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .inv-summary-bar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+  .inv-stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 20px;
+    flex: 1;
+    min-width: 140px;
+  }
+  .inv-stat-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 4px; }
+  .inv-stat-value { font-family: 'DM Mono', monospace; font-size: 20px; font-weight: 500; color: var(--accent); }
+  .inv-stat-sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+  .inv-action-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+  .inv-add-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 22px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  .inv-add-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+  }
+  .inv-add-card-prop::before { background: var(--accent); }
+  .inv-add-card-contract::before { background: var(--green); }
+  .inv-add-card:hover { border-color: var(--border-light); background: var(--surface2); transform: translateY(-1px); box-shadow: var(--shadow); }
+  .inv-add-card:hover::before { opacity: 1; }
+  .inv-add-icon {
+    width: 42px; height: 42px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+  .inv-add-icon-prop { background: var(--accent-dim); }
+  .inv-add-icon-contract { background: var(--green-dim); }
+  .inv-add-info { flex: 1; }
+  .inv-add-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+  .inv-add-desc { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+
+  /* Tables */
+  .inv-table-section { margin-bottom: 28px; }
+  .inv-table-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .inv-table-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .inv-count-badge {
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    color: var(--text-muted);
+  }
+  .inv-table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .inv-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .inv-table thead tr { background: var(--surface2); }
+  .inv-table th {
+    text-align: left;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .inv-table td {
+    font-size: 13px;
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    vertical-align: middle;
+  }
+  .inv-table tbody tr:last-child td { border-bottom: none; }
+  .inv-table tbody tr:hover td { background: var(--surface2); }
+  .inv-table tbody tr.inv-done td { opacity: 0.45; }
+  .inv-table tbody tr.inv-done td .inv-prop-name,
+  .inv-table tbody tr.inv-done td .inv-person-name { text-decoration: line-through; }
+  .inv-amount { font-family: 'DM Mono', monospace; color: var(--accent); font-weight: 500; }
+  .inv-prop-name { font-weight: 600; }
+  .inv-person-name { font-weight: 600; }
+  .inv-notes-cell { color: var(--text-muted); font-size: 12px; max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .inv-status-pill {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+  .pill-pending { background: var(--yellow-dim, rgba(212,168,67,0.15)); color: var(--yellow); }
+  .pill-invoiced { background: var(--green-dim); color: var(--green); }
+  .inv-row-actions { display: flex; gap: 6px; align-items: center; white-space: nowrap; }
+  .inv-check-btn {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 11px;
+    border-radius: var(--radius-sm);
+    border: none;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.18s;
+    background: var(--green-dim);
+    color: var(--green);
+  }
+  .inv-check-btn:hover { background: var(--green); color: var(--bg); }
+  .inv-check-btn.done { background: var(--surface3); color: var(--text-dim); cursor: default; }
+  .inv-del-btn {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 13px;
+    padding: 4px 6px;
+    border-radius: 4px;
+    transition: color 0.15s;
+  }
+  .inv-del-btn:hover { color: var(--red); }
+  .inv-empty { padding: 28px; text-align: center; color: var(--text-dim); font-size: 13px; }
+  @media (max-width: 768px) {
+    .inv-action-cards { grid-template-columns: 1fr; }
+    .inv-table-wrap { overflow-x: auto; }
+  }
+
+  /* === BRANDED HEADER === */
+  .header-brand {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+  }
+  .header-logo-img {
+    height: 36px;
+    width: auto;
+    mix-blend-mode: lighten;
+    opacity: 0.95;
+  }
+  .header-brand-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0px;
+    line-height: 1;
+  }
+  .header-propdesk {
+    font-family: 'Playfair Display', serif;
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.02em;
+  }
+  .header-byline {
+    font-size: 9.5px;
+    font-weight: 500;
+    color: var(--text-muted);
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  /* === BRANDED LOGIN === */
+  .login-brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 8px;
+  }
+  .login-logo-img {
+    height: 52px;
+    width: auto;
+    mix-blend-mode: lighten;
+    opacity: 0.95;
+  }
+
+</style>
+</head>
+<body>
+
+
+<!-- ============================================================ -->
+<!-- LOGIN SCREEN -->
+<!-- ============================================================ -->
+<div id="login-screen">
+  <div class="login-bg"></div>
+  <div class="login-card">
+    <div class="login-brand">
+      <img src="data:image/png;base64,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" alt="Bentonville Lodging Co." class="login-logo-img">
+      <div class="login-logo">PropDesk</div>
+    </div>
+    <div class="login-tagline">Bentonville Lodging Co. &mdash; staff portal.</div>
+
+    <div class="login-field">
+      <label>Username</label>
+      <input type="text" id="login-username" placeholder="Enter username" autocomplete="username"
+        onkeydown="if(event.key==='Enter')document.getElementById('login-password').focus()">
+    </div>
+
+    <div class="login-field">
+      <label>Password</label>
+      <input type="password" id="login-password" placeholder="Enter password" autocomplete="current-password"
+        onkeydown="if(event.key==='Enter')attemptLogin()">
+    </div>
+
+    <div class="login-error-msg" id="login-error"></div>
+
+    <button class="login-btn" id="login-btn" onclick="attemptLogin()">
+      <span id="login-btn-text">Sign In</span>
+      <span id="login-btn-spinner" class="login-spinner" style="display:none;"></span>
+    </button>
+
+    <div class="login-footer">PropDesk &copy; 2025 &nbsp;&middot;&nbsp; Bentonville Lodging Co. &nbsp;&middot;&nbsp; Authorized personnel only</div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- APP SHELL (hidden until authenticated) -->
+<!-- ============================================================ -->
+<div id="app-shell" style="display:none;">
+
+<!-- HEADER -->
+<header>
+  <div class="header-brand">
+    <img src="data:image/png;base64,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" alt="Bentonville Lodging Co." class="header-logo-img">
+    <div class="header-brand-text">
+      <span class="header-propdesk">PropDesk</span>
+      <span class="header-byline">by Bentonville Lodging Co.</span>
+    </div>
+  </div>
+  <nav>
+    <button class="active" onclick="showPage('dashboard')">Dashboard</button>
+    <button onclick="showPage('admin')">Payroll & Admin</button>
+    <button onclick="showPage('properties')">Properties</button>
+    <button onclick="showPage('invoicing')">Invoicing</button>
+  </nav>
+  <div class="header-right">
+    <div class="date-badge" id="todayDate"></div>
+    <button class="logout-btn" onclick="logout()">Sign Out</button>
+  </div>
+</header>
+
+<!-- ============================================================ -->
+<!-- DASHBOARD PAGE -->
+<!-- ============================================================ -->
+<div class="page active" id="page-dashboard">
+<main>
+
+  <!-- PRIORITY TO DO -->
+  <div class="todo-section">
+    <div class="section-header">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="section-title">Priority To-Do</span>
+        <span class="section-subtitle" id="todoCountBadge"></span>
+      </div>
+      <button class="expand-btn" onclick="openModal('modal-full-todo')">View All ↗</button>
+    </div>
+    <div class="priority-list" id="priorityTodoList">
+      <div class="empty">No tasks yet -- add one below.</div>
+    </div>
+  </div>
+
+  <!-- WEEK CALENDAR -->
+  <div class="calendar-section">
+    <div class="section-header">
+      <span class="section-title">Week at a Glance</span>
+      <span class="section-subtitle" id="weekRangeLabel"></span>
+    </div>
+    <div class="week-calendar">
+      <div class="cal-header">
+        <div class="cal-nav">
+          <button onclick="shiftWeek(-1)">‹</button>
+          <button onclick="resetWeek()" title="Today" style="font-size:10px;padding:3px 6px;">●</button>
+          <button onclick="shiftWeek(1)">›</button>
+        </div>
+        <div id="calDayHeaders"></div>
+      </div>
+      <div class="cal-body">
+        <div class="cal-time-col"></div>
+        <div id="calDayCols" style="display:contents;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTION CARDS -->
+  <div class="action-cards">
+    <div class="action-card action-card-todo" onclick="openModal('modal-add-todo')">
+      <div class="card-icon card-icon-todo">📋</div>
+      <div class="card-title">Add To-Do</div>
+      <div class="card-desc">Create a new task or maintenance item with deadline, priority, and property.</div>
+      <button class="card-cta card-cta-todo">New Task →</button>
+    </div>
+    <div class="action-card action-card-event" onclick="openModal('modal-add-event')">
+      <div class="card-icon card-icon-event">📅</div>
+      <div class="card-title">Schedule Event</div>
+      <div class="card-desc">Add a team event, inspection, vendor visit, or other calendar item.</div>
+      <button class="card-cta card-cta-event">New Event →</button>
+    </div>
+    <div class="action-card action-card-time" onclick="openModal('modal-add-time')">
+      <div class="card-icon card-icon-time">⏱</div>
+      <div class="card-title">Log Hours</div>
+      <div class="card-desc">Record employee hours worked and any direct contract pay for payroll.</div>
+      <button class="card-cta card-cta-time">Log Time →</button>
+    </div>
+  </div>
+
+</main>
+</div>
+
+<!-- ============================================================ -->
+<!-- ADMIN PAGE -->
+<!-- ============================================================ -->
+<div class="page" id="page-admin">
+<main>
+
+  <!-- EMPLOYEES -->
+  <div class="admin-section">
+    <div class="add-emp-row">
+      <span class="section-title">Team Members</span>
+      <button class="btn btn-primary" onclick="openModal('modal-add-employee')">+ Add Employee</button>
+    </div>
+    <div class="employee-grid" id="employeeGrid">
+      <div class="empty" style="grid-column:1/-1;">No employees added yet.</div>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- PAYROLL -->
+  <div class="admin-section">
+    <div class="section-header">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="section-title">Payroll by Period</span>
+        <span class="section-subtitle">2-week pay periods</span>
+      </div>
+      <button class="btn btn-primary" onclick="sendPayrollReminder()" style="font-size:12px;">
+        &#128231; Send Payroll Reminder
+      </button>
+    </div>
+    <div id="payrollContainer">
+      <div class="empty">No time entries logged yet.</div>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- TIME LOG -->
+  <div class="admin-section">
+    <div class="section-header">
+      <span class="section-title">All Time Entries</span>
+    </div>
+    <div class="time-log" id="timeLogContainer">
+      <div class="empty">No time entries yet.</div>
+    </div>
+  </div>
+
+</main>
+</div>
+
+<!-- ============================================================ -->
+<!-- PROPERTIES PAGE -->
+<!-- ============================================================ -->
+<div class="page" id="page-properties">
+<main>
+  <div class="section-header" style="margin-bottom:20px;">
+    <span class="section-title">Properties</span>
+    <button class="btn btn-primary" onclick="openModal('modal-add-property')">+ Add Property</button>
+  </div>
+  <div class="property-grid" id="propertyGrid">
+    <div class="empty" style="grid-column:1/-1;">No properties added yet.</div>
+  </div>
+</main>
+</div>
+
+<!-- ============================================================ -->
+<!-- INVOICING PAGE -->
+<!-- ============================================================ -->
+<div class="page" id="page-invoicing">
+<main>
+
+  <!-- Month nav + summary -->
+  <div class="inv-month-header">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <button class="inv-nav-btn" onclick="shiftInvMonth(-1)">&#8249;</button>
+      <div class="inv-month-title" id="inv-month-label"></div>
+      <button class="inv-nav-btn" onclick="shiftInvMonth(1)">&#8250;</button>
+    </div>
+    <button class="inv-nav-btn" onclick="resetInvMonth()" style="font-size:12px;">Today</button>
+  </div>
+
+  <div class="inv-summary-bar" id="invSummaryBar">
+    <div class="inv-stat"><div class="inv-stat-label">Property Charges</div><div class="inv-stat-value" id="inv-sum-prop">$0.00</div><div class="inv-stat-sub" id="inv-sum-prop-sub">0 items</div></div>
+    <div class="inv-stat"><div class="inv-stat-label">Contract Work</div><div class="inv-stat-value" id="inv-sum-contract">$0.00</div><div class="inv-stat-sub" id="inv-sum-contract-sub">0 items</div></div>
+    <div class="inv-stat"><div class="inv-stat-label">Total This Month</div><div class="inv-stat-value" id="inv-sum-total">$0.00</div><div class="inv-stat-sub" id="inv-sum-total-sub">0 pending</div></div>
+    <div class="inv-stat"><div class="inv-stat-label">Invoiced</div><div class="inv-stat-value" id="inv-sum-done" style="color:var(--green);">$0.00</div><div class="inv-stat-sub" id="inv-sum-done-sub">0 completed</div></div>
+  </div>
+
+  <!-- Add buttons -->
+  <div class="inv-action-cards">
+    <div class="inv-add-card inv-add-card-prop" onclick="openModal('modal-add-prop-charge')">
+      <div class="inv-add-icon inv-add-icon-prop">&#127968;</div>
+      <div class="inv-add-info">
+        <div class="inv-add-title">Log Property Charge</div>
+        <div class="inv-add-desc">Management fees, repairs, restocking, or any charge to bill a property owner.</div>
+      </div>
+    </div>
+    <div class="inv-add-card inv-add-card-contract" onclick="openModal('modal-add-contract-charge')">
+      <div class="inv-add-icon inv-add-icon-contract">&#128196;</div>
+      <div class="inv-add-info">
+        <div class="inv-add-title">Log Contract Work</div>
+        <div class="inv-add-desc">One-off contract invoices for individuals with line-item descriptions.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Property Charges Table -->
+  <div class="inv-table-section">
+    <div class="inv-table-header">
+      <div class="inv-table-title">
+        Property Charges
+        <span class="inv-count-badge" id="prop-charge-count">0</span>
+      </div>
+    </div>
+    <div class="inv-table-wrap">
+      <table class="inv-table">
+        <thead><tr>
+          <th>Property</th>
+          <th>Service / Description</th>
+          <th>Amount</th>
+          <th>Added</th>
+          <th>Status</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="propChargeTableBody">
+          <tr><td colspan="6" class="inv-empty">No property charges this month.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Contract Work Table -->
+  <div class="inv-table-section">
+    <div class="inv-table-header">
+      <div class="inv-table-title">
+        Contract Work
+        <span class="inv-count-badge" id="contract-charge-count">0</span>
+      </div>
+    </div>
+    <div class="inv-table-wrap">
+      <table class="inv-table">
+        <thead><tr>
+          <th>Person</th>
+          <th>Email</th>
+          <th>Description</th>
+          <th>Amount</th>
+          <th>Added</th>
+          <th>Status</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="contractChargeTableBody">
+          <tr><td colspan="7" class="inv-empty">No contract work this month.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+</div>
+
+<!-- ADD PROPERTY CHARGE MODAL -->
+<div class="modal-overlay" id="modal-add-prop-charge">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Log Property Charge</span>
+      <button class="modal-close" onclick="closeModal('modal-add-prop-charge')">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label>Property *</label>
+        <select id="pc-property">
+          <option value="">&#x2014; Select a property &#x2014;</option>
+        </select>
+        <div id="pc-no-props" style="display:none;margin-top:8px;font-size:12px;color:var(--text-muted);">
+          No properties on file. <a href="#" onclick="closeModal('modal-add-prop-charge');showPage('properties');return false;" style="color:var(--accent);">Add one first &#8594;</a>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Service / Description *</label>
+        <input type="text" id="pc-service" placeholder="e.g. Monthly management fee, HVAC repair, Restocking supplies">
+      </div>
+      <div class="form-row">
+        <label>Amount ($) *</label>
+        <input type="number" id="pc-amount" min="0" step="0.01" placeholder="0.00">
+      </div>
+      <div class="form-row">
+        <label>Notes</label>
+        <textarea id="pc-notes" placeholder="Additional details, invoice reference, vendor info..." style="min-height:70px;"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-add-prop-charge')">Cancel</button>
+      <button class="btn btn-primary" onclick="savePropCharge()">Add Charge</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD CONTRACT WORK MODAL -->
+<div class="modal-overlay" id="modal-add-contract-charge">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Log Contract Work</span>
+      <button class="modal-close" onclick="closeModal('modal-add-contract-charge')">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row-2">
+        <div>
+          <label>Person / Company Name *</label>
+          <input type="text" id="cc-name" placeholder="e.g. John Smith Plumbing">
+        </div>
+        <div>
+          <label>Invoice Email *</label>
+          <input type="email" id="cc-email" placeholder="billing@example.com">
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Total Amount ($) *</label>
+        <input type="number" id="cc-amount" min="0" step="0.01" placeholder="0.00">
+      </div>
+      <div class="form-row">
+        <label>Description of Work *</label>
+        <textarea id="cc-desc" placeholder="Describe the contract work by line items&#10;e.g.&#10;&#8226; Replaced water heater -- $800&#10;&#8226; Labor (4hrs @ $75) -- $300&#10;&#8226; Parts &amp; materials -- $120" style="min-height:120px;"></textarea>
+      </div>
+      <div class="form-row">
+        <label>Notes</label>
+        <textarea id="cc-notes" placeholder="PO number, project reference, special instructions..." style="min-height:60px;"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-add-contract-charge')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveContractCharge()">Add Contract Work</button>
+    </div>
+  </div>
+</div>
+
+<!-- PROPERTY DETAIL MODAL -->
+<div class="modal-overlay" id="modal-property-detail">
+  <div class="modal modal-property">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="prop-detail-name">Property</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:3px;" id="prop-detail-address"></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn btn-secondary" id="prop-edit-toggle" onclick="togglePropEdit()">Edit</button>
+        <button class="btn btn-danger" onclick="confirmDeleteProperty()" style="font-size:12px;padding:6px 12px;">Delete</button>
+        <button class="modal-close" onclick="closeModal('modal-property-detail')">&#x2715;</button>
+      </div>
+    </div>
+    <div class="modal-body" style="padding:0;">
+
+      <!-- TAB BAR -->
+      <div class="prop-tabs">
+        <button class="prop-tab active" onclick="switchPropTab('home',this)">Home Info</button>
+        <button class="prop-tab" onclick="switchPropTab('ops',this)">Operations</button>
+        <button class="prop-tab" onclick="switchPropTab('owner',this)">Owner</button>
+        <button class="prop-tab" onclick="switchPropTab('notes',this)">Care Notes</button>
+      </div>
+
+      <!-- HOME INFO TAB -->
+      <div class="prop-tab-panel active" id="proptab-home">
+        <div class="prop-section">
+          <div class="form-row-3">
+            <div><label>Bedrooms</label>
+              <div class="prop-view" id="pv-bedrooms"></div>
+              <input class="prop-edit" type="number" id="pe-bedrooms" min="0" style="display:none;">
+            </div>
+            <div><label>Bathrooms</label>
+              <div class="prop-view" id="pv-bathrooms"></div>
+              <input class="prop-edit" type="number" id="pe-bathrooms" min="0" step="0.5" style="display:none;">
+            </div>
+            <div><label>Max Guests</label>
+              <div class="prop-view" id="pv-max_guests"></div>
+              <input class="prop-edit" type="number" id="pe-max_guests" min="1" style="display:none;">
+            </div>
+          </div>
+          <div class="form-row-2">
+            <div><label>Square Footage</label>
+              <div class="prop-view" id="pv-sqft"></div>
+              <input class="prop-edit" type="text" id="pe-sqft" style="display:none;">
+            </div>
+            <div><label>Year Built</label>
+              <div class="prop-view" id="pv-year_built"></div>
+              <input class="prop-edit" type="number" id="pe-year_built" style="display:none;">
+            </div>
+          </div>
+          <div class="form-row"><label>Amenities</label>
+            <div class="prop-view amenity-view" id="pv-amenities"></div>
+            <textarea class="prop-edit" id="pe-amenities" placeholder="WiFi, Pool, Hot Tub, Washer/Dryer, Parking..." style="display:none;"></textarea>
+          </div>
+          <div class="form-row"><label>Special Features</label>
+            <div class="prop-view" id="pv-special_features"></div>
+            <textarea class="prop-edit" id="pe-special_features" placeholder="Mountain views, private dock, game room..." style="display:none;"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- OPERATIONS TAB -->
+      <div class="prop-tab-panel" id="proptab-ops" style="display:none;">
+        <div class="prop-section">
+          <div class="form-row-3">
+            <div><label>Min Night Stay</label>
+              <div class="prop-view" id="pv-min_nights"></div>
+              <input class="prop-edit" type="number" id="pe-min_nights" min="1" style="display:none;">
+            </div>
+            <div><label>Min Nightly Price</label>
+              <div class="prop-view" id="pv-min_price"></div>
+              <input class="prop-edit" type="number" id="pe-min_price" min="0" step="1" style="display:none;">
+            </div>
+            <div><label>Business Model</label>
+              <div class="prop-view" id="pv-business_model"></div>
+              <select class="prop-edit" id="pe-business_model" style="display:none;">
+                <option value="">-- Select --</option>
+                <option value="Essentials">Essentials</option>
+                <option value="Full Set">Full Set</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row-2">
+            <div><label>Check-in Time</label>
+              <div class="prop-view" id="pv-checkin_time"></div>
+              <input class="prop-edit" type="text" id="pe-checkin_time" placeholder="e.g. 4:00 PM" style="display:none;">
+            </div>
+            <div><label>Check-out Time</label>
+              <div class="prop-view" id="pv-checkout_time"></div>
+              <input class="prop-edit" type="text" id="pe-checkout_time" placeholder="e.g. 11:00 AM" style="display:none;">
+            </div>
+          </div>
+          <div class="form-row-2">
+            <div><label>Platform(s)</label>
+              <div class="prop-view" id="pv-platforms"></div>
+              <input class="prop-edit" type="text" id="pe-platforms" placeholder="Airbnb, VRBO, Direct..." style="display:none;">
+            </div>
+            <div><label>Wi-Fi Name / Password</label>
+              <div class="prop-view" id="pv-wifi"></div>
+              <input class="prop-edit" type="text" id="pe-wifi" placeholder="Network: Pwd" style="display:none;">
+            </div>
+          </div>
+          <div class="form-row"><label>Access / Lock Info</label>
+            <div class="prop-view" id="pv-access_info"></div>
+            <textarea class="prop-edit" id="pe-access_info" placeholder="Lock box code, keypad code, gate code..." style="display:none;"></textarea>
+          </div>
+          <div class="form-row"><label>Cleaning / Turnaround Notes</label>
+            <div class="prop-view" id="pv-cleaning_notes"></div>
+            <textarea class="prop-edit" id="pe-cleaning_notes" placeholder="Cleaning crew contact, turnaround time..." style="display:none;"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- OWNER TAB -->
+      <div class="prop-tab-panel" id="proptab-owner" style="display:none;">
+        <div class="prop-section">
+          <div class="form-row-2">
+            <div><label>Owner Name(s)</label>
+              <div class="prop-view" id="pv-owner_names"></div>
+              <input class="prop-edit" type="text" id="pe-owner_names" style="display:none;">
+            </div>
+            <div><label>Owner Phone</label>
+              <div class="prop-view" id="pv-owner_phone"></div>
+              <input class="prop-edit" type="tel" id="pe-owner_phone" style="display:none;">
+            </div>
+          </div>
+          <div class="form-row-2">
+            <div><label>Owner Email</label>
+              <div class="prop-view" id="pv-owner_email"></div>
+              <input class="prop-edit" type="email" id="pe-owner_email" style="display:none;">
+            </div>
+            <div><label>Preferred Contact Method</label>
+              <div class="prop-view" id="pv-contact_pref"></div>
+              <select class="prop-edit" id="pe-contact_pref" style="display:none;">
+                <option value="">-- Select --</option>
+                <option value="Phone">Phone</option>
+                <option value="Text">Text</option>
+                <option value="Email">Email</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row"><label>Mailing Address (if different)</label>
+            <div class="prop-view" id="pv-owner_address"></div>
+            <input class="prop-edit" type="text" id="pe-owner_address" style="display:none;">
+          </div>
+          <div class="form-row"><label>Emergency Contact</label>
+            <div class="prop-view" id="pv-emergency_contact"></div>
+            <input class="prop-edit" type="text" id="pe-emergency_contact" placeholder="Name & phone" style="display:none;">
+          </div>
+          <div class="form-row"><label>Contract / Agreement Notes</label>
+            <div class="prop-view" id="pv-contract_notes"></div>
+            <textarea class="prop-edit" id="pe-contract_notes" style="display:none;"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- CARE NOTES TAB -->
+      <div class="prop-tab-panel" id="proptab-notes" style="display:none;">
+        <div class="prop-section">
+          <div style="background:var(--accent-dim);border:1px solid var(--accent-mid);border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:20px;font-size:13px;color:var(--accent);">
+            &#9733; These are the things that matter most to this owner. Review before every visit or communication.
+          </div>
+          <div class="form-row"><label>What the Owners Care About</label>
+            <div class="prop-view care-notes-view" id="pv-care_notes"></div>
+            <textarea class="prop-edit" id="pe-care_notes" placeholder="e.g. They are very particular about the lawn. Always respond within 2 hours. Do not move the artwork in the master bedroom..." rows="8" style="display:none;"></textarea>
+          </div>
+          <div class="form-row"><label>Do&#39;s</label>
+            <div class="prop-view" id="pv-owner_dos"></div>
+            <textarea class="prop-edit" id="pe-owner_dos" placeholder="Things the owner specifically wants done..." style="display:none;"></textarea>
+          </div>
+          <div class="form-row"><label>Don&#39;ts</label>
+            <div class="prop-view" id="pv-owner_donts"></div>
+            <textarea class="prop-edit" id="pe-owner_donts" placeholder="Things the owner specifically does not want..." style="display:none;"></textarea>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end modal-body -->
+
+    <!-- EDIT MODE FOOTER -->
+    <div class="modal-footer" id="prop-edit-footer" style="display:none;">
+      <button class="btn btn-secondary" onclick="cancelPropEdit()">Cancel</button>
+      <button class="btn btn-primary" onclick="savePropEdits()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD PROPERTY MODAL -->
+<div class="modal-overlay" id="modal-add-property">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Add Property</span>
+      <button class="modal-close" onclick="closeModal('modal-add-property')">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label>Property Name *</label>
+        <input type="text" id="np-name" placeholder="e.g. The Lakehouse, 123 Oak Retreat">
+      </div>
+      <div class="form-row">
+        <label>Property Address *</label>
+        <input type="text" id="np-address" placeholder="123 Main St, City, State ZIP">
+      </div>
+      <div class="form-row">
+        <label>Owner Name(s)</label>
+        <input type="text" id="np-owners" placeholder="e.g. John & Sarah Smith">
+      </div>
+      <div class="form-row-3">
+        <div><label>Bedrooms</label>
+          <input type="number" id="np-bedrooms" min="0" placeholder="3">
+        </div>
+        <div><label>Bathrooms</label>
+          <input type="number" id="np-bathrooms" min="0" step="0.5" placeholder="2">
+        </div>
+        <div><label>Business Model</label>
+          <select id="np-model">
+            <option value="">-- Select --</option>
+            <option value="Essentials">Essentials</option>
+            <option value="Full Set">Full Set</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-add-property')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveNewProperty()">Add Property</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ============================================================ -->
+<!-- MODALS -->
+<!-- ============================================================ -->
+
+<!-- FULL TODO LIST -->
+<div class="modal-overlay" id="modal-full-todo">
+  <div class="modal modal-wide">
+    <div class="modal-header">
+      <span class="modal-title">All Tasks</span>
+      <button class="modal-close" onclick="closeModal('modal-full-todo')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="full-todo-list" id="fullTodoList">
+        <div class="empty">No tasks yet.</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-full-todo')">Close</button>
+      <button class="btn btn-primary" onclick="closeModal('modal-full-todo');openModal('modal-add-todo')">+ Add Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD TODO -->
+<div class="modal-overlay" id="modal-add-todo">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">New Task</span>
+      <button class="modal-close" onclick="closeModal('modal-add-todo')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label>Task Title *</label>
+        <input type="text" id="todo-title" placeholder="e.g. Fix HVAC at Unit 4B">
+      </div>
+      <div class="form-row">
+        <label>Description</label>
+        <textarea id="todo-desc" placeholder="Additional details…"></textarea>
+      </div>
+      <div class="form-row-3">
+        <div>
+          <label>Property</label>
+          <input type="text" id="todo-property" placeholder="e.g. 123 Oak St">
+        </div>
+        <div>
+          <label>Category</label>
+          <select id="todo-category">
+            <option value="maintenance">Maintenance</option>
+            <option value="admin">Admin</option>
+            <option value="tenant">Tenant</option>
+            <option value="property">Property</option>
+          </select>
+        </div>
+        <div>
+          <label>Priority</label>
+          <select id="todo-priority">
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row-2">
+        <div>
+          <label>Due Date</label>
+          <input type="date" id="todo-due">
+        </div>
+        <div>
+          <label>Assigned To</label>
+          <input type="text" id="todo-assigned" placeholder="Employee name">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-add-todo')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTodo()">Save Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD EVENT -->
+<div class="modal-overlay" id="modal-add-event">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">New Event</span>
+      <button class="modal-close" onclick="closeModal('modal-add-event')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label>Event Title *</label>
+        <input type="text" id="event-title" placeholder="e.g. Roof inspection, Vendor meeting">
+      </div>
+      <div class="form-row">
+        <label>Description / Notes</label>
+        <textarea id="event-desc" placeholder="Additional details…"></textarea>
+      </div>
+      <div class="form-row-2">
+        <div>
+          <label>Event Type</label>
+          <select id="event-type">
+            <option value="event">General Event</option>
+            <option value="pto">Out of Office / PTO</option>
+            <option value="inspection">Inspection</option>
+            <option value="vendor">Vendor Visit</option>
+            <option value="meeting">Meeting</option>
+          </select>
+        </div>
+        <div>
+          <label>Employee (if applicable)</label>
+          <input type="text" id="event-employee" placeholder="Name or "All Team"">
+        </div>
+      </div>
+      <div class="form-row-2">
+        <div>
+          <label>Start Date *</label>
+          <input type="date" id="event-start">
+        </div>
+        <div>
+          <label>End Date</label>
+          <input type="date" id="event-end">
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Location / Property</label>
+        <input type="text" id="event-location" placeholder="e.g. 456 Maple Ave, Unit 2">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-add-event')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEvent()">Save Event</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD TIME ENTRY -->
+<div class="modal-overlay" id="modal-add-time">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Log Hours</span>
+      <button class="modal-close" onclick="closeModal('modal-add-time')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label>Employee *</label>
+        <select id="time-employee" onchange="onEmployeeSelect()">
+          <option value="">-- Select employee --</option>
+        </select>
+        <div id="time-no-employees" style="display:none;margin-top:8px;font-size:12px;color:var(--text-muted);">
+          No employees on file yet. <a href="#" onclick="closeModal('modal-add-time');showPage('admin');openModal('modal-add-employee');return false;" style="color:var(--accent);">Add one first →</a>
+        </div>
+      </div>
+      <div class="form-row-2">
+        <div>
+          <label>Work Period Start *</label>
+          <input type="date" id="time-start">
+        </div>
+        <div>
+          <label>Work Period End *</label>
+          <input type="date" id="time-end">
+        </div>
+      </div>
+      <div class="form-row-2">
+        <div>
+          <label>Hours Worked</label>
+          <input type="number" id="time-hours" placeholder="e.g. 40" min="0" step="0.25">
+        </div>
+        <div>
+          <label>Hourly Rate ($)</label>
+          <div style="position:relative;">
+            <input type="number" id="time-rate" placeholder="e.g. 18.50" min="0" step="0.01">
+            <div id="time-rate-hint" style="display:none;margin-top:5px;font-size:11px;color:var(--accent);display:flex;align-items:center;gap:4px;">
+              <span>✦</span><span id="time-rate-hint-text"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Direct Contract Pay ($) <span style="font-size:10px;color:var(--text-dim);font-weight:400;text-transform:none;">(flat amount, bypasses hourly calc)</span></label>
+        <input type="number" id="time-contract" placeholder="e.g. 500.00" min="0" step="0.01">
+      </div>
+      <div class="form-row">
+        <label>Notes</label>
+        <textarea id="time-notes" placeholder="Property, job details, etc." style="min-height:60px;"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-add-time')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTimeEntry()">Log Entry</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD EMPLOYEE -->
+<div class="modal-overlay" id="modal-add-employee">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Add Team Member</span>
+      <button class="modal-close" onclick="closeModal('modal-add-employee')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row-2">
+        <div>
+          <label>Full Name *</label>
+          <input type="text" id="emp-name" placeholder="e.g. Maria Torres">
+        </div>
+        <div>
+          <label>Role / Title</label>
+          <input type="text" id="emp-role" placeholder="e.g. Maintenance Lead">
+        </div>
+      </div>
+      <div class="form-row-2">
+        <div>
+          <label>Default Hourly Rate ($)</label>
+          <input type="number" id="emp-rate" placeholder="e.g. 18.50" min="0" step="0.01">
+        </div>
+        <div>
+          <label>Email</label>
+          <input type="email" id="emp-email" placeholder="email@example.com">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-add-employee')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEmployee()">Add Employee</button>
+    </div>
+  </div>
+</div>
+
+
+</div><!-- end #app-shell -->
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ========== SUPABASE CLIENT ==========
+const { createClient } = supabase;
+const db = createClient(
+  'https://wljtpxqdmxszplngdwsc.supabase.co',
+  'sb_publishable_PERqMlyz5OndCT7wVSUgGQ_T4Tpy_OQ'
+);
+
+// ========== STATE ==========
+let todos = [];
+let events = [];
+let timeEntries = [];
+let employees = [];
+let weekOffset = 0;
+
+// ========== LOADING INDICATOR ==========
+function setLoading(show, msg) {
+  let el = document.getElementById('global-loader');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'global-loader';
+    el.style.cssText = [
+      'position:fixed', 'bottom:20px', 'right:24px',
+      'background:var(--surface2)', 'border:1px solid var(--border-light)',
+      'color:var(--text-muted)', 'font-size:12px', 'padding:10px 18px',
+      'border-radius:8px', 'z-index:9999', 'display:flex',
+      'align-items:center', 'gap:8px', 'box-shadow:var(--shadow)',
+      'font-family:"DM Sans",sans-serif', 'transition:opacity 0.3s'
+    ].join(';');
+    document.body.appendChild(el);
+  }
+  if (show) {
+    el.style.opacity = '1';
+    el.style.display = 'flex';
+    el.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid var(--accent);border-top-color:transparent;border-radius:50%;animation:spin 0.6s linear infinite;flex-shrink:0;"></span>&nbsp;' + (msg || 'Saving...');
+  } else {
+    el.style.opacity = '0';
+    setTimeout(function() { el.style.display = 'none'; }, 300);
+  }
+}
+
+function dbError(err, ctx) {
+  console.error(ctx, err);
+  alert('Database error (' + ctx + '): ' + (err.message || JSON.stringify(err)));
+}
+
+// ========== LOAD ALL DATA ==========
+async function loadAllData() {
+  setLoading(true, 'Loading...');
+  try {
+    const [t, ev, emp, te] = await Promise.all([
+      db.from('todos').select('*').order('created_at', { ascending: true }),
+      db.from('events').select('*').order('created_at', { ascending: true }),
+      db.from('employees').select('*').order('created_at', { ascending: true }),
+      db.from('time_entries').select('*').order('created_at', { ascending: true })
+    ]);
+    if (t.error)   { dbError(t.error,   'todos');        return; }
+    if (ev.error)  { dbError(ev.error,  'events');       return; }
+    if (emp.error) { dbError(emp.error, 'employees');    return; }
+    if (te.error)  { dbError(te.error,  'time_entries'); return; }
+    todos       = t.data   || [];
+    events      = ev.data  || [];
+    employees   = emp.data || [];
+    timeEntries = te.data  || [];
+    renderPriorityTodo();
+    renderCalendar();
+    updateEmpDropdown();
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ========== UTILS ==========
+function today() {
+  var d = new Date();
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function parseDate(str) {
+  if (!str) return null;
+  var parts = str.split('-').map(Number);
+  return new Date(parts[0], parts[1]-1, parts[2]);
+}
+
+function fmt(date) {
+  if (!date) return '';
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function fmtMoney(n) {
+  return '$' + Number(n || 0).toFixed(2);
+}
+
+function daysBetween(a, b) {
+  return Math.floor((b - a) / 86400000);
+}
+
+function ageStr(created) {
+  var d = daysBetween(new Date(created), today());
+  if (d === 0) return 'today';
+  if (d === 1) return '1d ago';
+  if (d < 7)  return d + 'd ago';
+  if (d < 30) return Math.floor(d/7) + 'w ago';
+  return Math.floor(d/30) + 'mo ago';
+}
+
+function getPeriodKey(dateStr) {
+  var epoch = new Date(2024, 0, 1);
+  var d = parseDate(dateStr) || today();
+  var diff = daysBetween(epoch, d);
+  var period = Math.floor(diff / 14);
+  var start = new Date(epoch.getTime() + period * 14 * 86400000);
+  var end   = new Date(start.getTime() + 13 * 86400000);
+  return { key: period, start: start, end: end };
+}
+
+function dateStr(d) {
+  return d.getFullYear() + '-' +
+    String(d.getMonth()+1).padStart(2,'0') + '-' +
+    String(d.getDate()).padStart(2,'0');
+}
+
+// ========== HEADER DATE ==========
+function initDate() {
+  var d = today();
+  document.getElementById('todayDate').textContent =
+    d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' });
+}
+
+// ========== NAVIGATION ==========
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
+  document.getElementById('page-' + id).classList.add('active');
+  document.querySelectorAll('nav button').forEach(function(b) { b.classList.remove('active'); });
+  event.target.classList.add('active');
+  if (id === 'admin') renderAdmin();
+  if (id === 'properties') { loadProperties(); }
+  if (id === 'invoicing') { loadInvoicing(); }
+}
+
+// ========== MODAL ==========
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+  if (id === 'modal-full-todo') renderFullTodoList();
+  if (id === 'modal-add-time') { updateEmpDropdown(); onEmployeeSelect(true); }
+  if (id === 'modal-add-prop-charge') { populatePropDropdown(); }
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+document.querySelectorAll('.modal-overlay').forEach(function(o) {
+  o.addEventListener('click', function(e) { if (e.target === o) o.classList.remove('open'); });
+});
+
+// ========== TODO ==========
+async function saveTodo() {
+  var title = document.getElementById('todo-title').value.trim();
+  if (!title) { alert('Please enter a task title.'); return; }
+  setLoading(true, 'Saving task...');
+  var payload = {
+    title: title,
+    description: document.getElementById('todo-desc').value.trim(),
+    property: document.getElementById('todo-property').value.trim(),
+    category: document.getElementById('todo-category').value,
+    priority: document.getElementById('todo-priority').value,
+    due_date: document.getElementById('todo-due').value || null,
+    assigned_to: document.getElementById('todo-assigned').value.trim(),
+    completed: false
+  };
+  var res = await db.from('todos').insert(payload).select().single();
+  setLoading(false);
+  if (res.error) { dbError(res.error, 'saveTodo'); return; }
+  todos.push(res.data);
+  closeModal('modal-add-todo');
+  clearForm(['todo-title','todo-desc','todo-property','todo-assigned','todo-due']);
+  renderPriorityTodo();
+  renderCalendar();
+}
+
+async function toggleTodo(id) {
+  var t = todos.find(function(x) { return x.id === id; });
+  if (!t) return;
+  var newVal = !t.completed;
+  setLoading(true, 'Updating...');
+  var res = await db.from('todos').update({ completed: newVal }).eq('id', id).select().single();
+  setLoading(false);
+  if (res.error) { dbError(res.error, 'toggleTodo'); return; }
+  t.completed = newVal;
+  renderPriorityTodo();
+  renderFullTodoList();
+  renderCalendar();
+}
+
+async function deleteTodo(id) {
+  setLoading(true, 'Deleting...');
+  var res = await db.from('todos').delete().eq('id', id);
+  setLoading(false);
+  if (res.error) { dbError(res.error, 'deleteTodo'); return; }
+  todos = todos.filter(function(t) { return t.id !== id; });
+  renderPriorityTodo();
+  renderFullTodoList();
+  renderCalendar();
+}
+
+function sortedTodos() {
+  return todos.slice().sort(function(a, b) {
+    if (a.completed !== b.completed) return a.completed ? 1 : -1;
+    return new Date(a.created_at) - new Date(b.created_at);
+  });
+}
+
+function todoStatusClass(t) {
+  var due = t.due_date || t.due;
+  if (!due) return 'normal';
+  var d = parseDate(due);
+  var diff = daysBetween(today(), d);
+  if (diff < 0) return 'overdue';
+  if (diff <= 2) return 'due-soon';
+  return 'normal';
+}
+
+function todoMeta(t) {
+  var parts = [];
+  if (t.property)    parts.push(t.property);
+  if (t.assigned_to || t.assigned) parts.push('Assigned: ' + (t.assigned_to || t.assigned));
+  var due = t.due_date || t.due;
+  if (due) parts.push('Due: ' + fmt(parseDate(due)));
+  return parts.join(' &middot; ');
+}
+
+function renderPriorityTodo() {
+  var el = document.getElementById('priorityTodoList');
+  var active = sortedTodos().filter(function(t) { return !t.completed; });
+  var top5 = active.slice(0, 5);
+  var badge = document.getElementById('todoCountBadge');
+  badge.textContent = active.length ? active.length + ' open' : '';
+
+  if (!top5.length) {
+    el.innerHTML = '<div class="empty">All done! No open tasks.</div>';
+    return;
+  }
+
+  el.innerHTML = top5.map(function(t) {
+    var age = daysBetween(new Date(t.created_at || t.created), today());
+    var cat = t.category || 'admin';
+    var pri = t.priority || 'low';
+    var priClass = pri === 'high' ? 'high' : pri === 'medium' ? 'med' : 'low';
+    return '<div class="todo-item ' + todoStatusClass(t) + (t.completed ? ' completed' : '') + '">' +
+      '<div class="todo-check ' + (t.completed ? 'checked' : '') + '" onclick="toggleTodo(' + t.id + ')"></div>' +
+      '<div class="todo-content">' +
+        '<div class="todo-title">' + t.title + '</div>' +
+        '<div class="todo-meta">' + todoMeta(t) + '</div>' +
+      '</div>' +
+      '<div class="todo-tags">' +
+        '<span class="tag tag-' + cat + '">' + cat + '</span>' +
+        '<span class="priority-badge p-' + priClass + '">' + pri.toUpperCase() + '</span>' +
+      '</div>' +
+      '<span class="age-badge ' + (age > 7 ? 'old' : '') + '">' + ageStr(t.created_at || t.created) + '</span>' +
+    '</div>';
+  }).join('');
+}
+
+function renderFullTodoList() {
+  var el = document.getElementById('fullTodoList');
+  var sorted = sortedTodos();
+  if (!sorted.length) { el.innerHTML = '<div class="empty">No tasks yet.</div>'; return; }
+  el.innerHTML = sorted.map(function(t) {
+    var cat = t.category || 'admin';
+    return '<div class="full-todo-item ' + (t.completed ? 'completed' : '') + '">' +
+      '<div class="todo-check ' + (t.completed ? 'checked' : '') + '" onclick="toggleTodo(' + t.id + ')"></div>' +
+      '<div class="todo-content" style="flex:1;">' +
+        '<div class="todo-title">' + t.title + '</div>' +
+        '<div class="todo-meta" style="font-size:11px;color:var(--text-muted);">' + todoMeta(t) + ' &middot; ' + ageStr(t.created_at || t.created) + '</div>' +
+      '</div>' +
+      '<span class="tag tag-' + cat + '" style="white-space:nowrap;">' + cat + '</span>' +
+      '<div class="todo-actions">' +
+        '<button class="todo-del" onclick="deleteTodo(' + t.id + ')" title="Delete">&#x2715;</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+// ========== EVENTS ==========
+async function saveEvent() {
+  var title = document.getElementById('event-title').value.trim();
+  var start = document.getElementById('event-start').value;
+  if (!title || !start) { alert('Title and start date are required.'); return; }
+  setLoading(true, 'Saving event...');
+  var payload = {
+    title: title,
+    description: document.getElementById('event-desc').value.trim(),
+    type: document.getElementById('event-type').value,
+    employee: document.getElementById('event-employee').value.trim(),
+    start_date: start,
+    end_date: document.getElementById('event-end').value || start,
+    location: document.getElementById('event-location').value.trim()
+  };
+  var res = await db.from('events').insert(payload).select().single();
+  setLoading(false);
+  if (res.error) { dbError(res.error, 'saveEvent'); return; }
+  events.push(res.data);
+  closeModal('modal-add-event');
+  clearForm(['event-title','event-desc','event-employee','event-start','event-end','event-location']);
+  renderCalendar();
+}
+
+// ========== TIME ENTRIES ==========
+async function saveTimeEntry() {
+  var empSel = document.getElementById('time-employee');
+  var emp = empSel ? empSel.value.trim() : '';
+  var start = document.getElementById('time-start').value;
+  var end   = document.getElementById('time-end').value;
+  if (!emp || !start || !end) { alert('Employee and date range are required.'); return; }
+  var hours    = parseFloat(document.getElementById('time-hours').value) || 0;
+  var rate     = parseFloat(document.getElementById('time-rate').value)  || 0;
+  var contract = parseFloat(document.getElementById('time-contract').value) || 0;
+  var hourlyTotal = hours * rate;
+  var totalPay    = contract > 0 ? contract : hourlyTotal;
+  setLoading(true, 'Logging hours...');
+  var payload = {
+    employee_name: emp,
+    start_date: start,
+    end_date: end,
+    hours: hours,
+    hourly_rate: rate,
+    contract_pay: contract,
+    hourly_total: hourlyTotal,
+    total_pay: totalPay,
+    notes: document.getElementById('time-notes').value.trim(),
+    paid: false
+  };
+  var res = await db.from('time_entries').insert(payload).select().single();
+  setLoading(false);
+  if (res.error) { dbError(res.error, 'saveTimeEntry'); return; }
+  timeEntries.push(res.data);
+  closeModal('modal-add-time');
+  if (empSel) empSel.selectedIndex = 0;
+  var hint = document.getElementById('time-rate-hint');
+  if (hint) hint.style.display = 'none';
+  clearForm(['time-start','time-end','time-hours','time-rate','time-contract','time-notes']);
+  renderAdmin();
+}
+
+// ========== EMPLOYEES ==========
+async function saveEmployee() {
+  var name = document.getElementById('emp-name').value.trim();
+  if (!name) { alert('Name is required.'); return; }
+  setLoading(true, 'Adding employee...');
+  var payload = {
+    name: name,
+    role: document.getElementById('emp-role').value.trim(),
+    hourly_rate: parseFloat(document.getElementById('emp-rate').value) || 0,
+    email: document.getElementById('emp-email').value.trim()
+  };
+  var res = await db.from('employees').insert(payload).select().single();
+  setLoading(false);
+  if (res.error) { dbError(res.error, 'saveEmployee'); return; }
+  employees.push(res.data);
+  closeModal('modal-add-employee');
+  clearForm(['emp-name','emp-role','emp-rate','emp-email']);
+  renderAdmin();
+  updateEmpDropdown();
+}
+
+async function deleteEmployee(id) {
+  if (!confirm('Remove this employee?')) return;
+  setLoading(true, 'Removing...');
+  var res = await db.from('employees').delete().eq('id', id);
+  setLoading(false);
+  if (res.error) { dbError(res.error, 'deleteEmployee'); return; }
+  employees = employees.filter(function(e) { return e.id !== id; });
+  renderAdmin();
+  updateEmpDropdown();
+}
+
+async function deleteTimeEntry(id) {
+  if (!confirm('Delete this time entry?')) return;
+  setLoading(true, 'Deleting...');
+  var res = await db.from('time_entries').delete().eq('id', id);
+  setLoading(false);
+  if (res.error) { dbError(res.error, 'deleteTimeEntry'); return; }
+  timeEntries = timeEntries.filter(function(t) { return t.id !== id; });
+  renderAdmin();
+}
+
+async function markPaid(idsStr) {
+  var ids = idsStr.split(',').map(Number);
+  setLoading(true, 'Marking paid...');
+  var res = await db.from('time_entries').update({ paid: true }).in('id', ids);
+  setLoading(false);
+  if (res.error) { dbError(res.error, 'markPaid'); return; }
+  ids.forEach(function(id) {
+    var t = timeEntries.find(function(x) { return x.id === id; });
+    if (t) t.paid = true;
+  });
+  renderPayroll();
+}
+
+async function markAllPaid(idsStr) {
+  await markPaid(idsStr);
+}
+
+// ========== EMPLOYEE DROPDOWN ==========
+function updateEmpDropdown() {
+  var sel = document.getElementById('time-employee');
+  var noEmp = document.getElementById('time-no-employees');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">-- Select employee --</option>';
+  if (!employees.length) {
+    if (noEmp) noEmp.style.display = 'block';
+    sel.style.display = 'none';
+  } else {
+    if (noEmp) noEmp.style.display = 'none';
+    sel.style.display = '';
+    employees.forEach(function(e) {
+      var opt = document.createElement('option');
+      opt.value = e.name;
+      opt.dataset.rate = e.hourly_rate || '';
+      var label = e.name;
+      if (e.role) label += '  (' + e.role + ')';
+      if (e.hourly_rate) label += '  -- $' + Number(e.hourly_rate).toFixed(2) + '/hr';
+      opt.textContent = label;
+      sel.appendChild(opt);
+    });
+  }
+  onEmployeeSelect(true);
+}
+
+function onEmployeeSelect(silent) {
+  var sel = document.getElementById('time-employee');
+  var rateInput = document.getElementById('time-rate');
+  var hint = document.getElementById('time-rate-hint');
+  var hintText = document.getElementById('time-rate-hint-text');
+  if (!sel || !rateInput) return;
+  var chosen = sel.options[sel.selectedIndex];
+  var rate = (chosen && chosen.dataset.rate) ? parseFloat(chosen.dataset.rate) : null;
+  if (rate && !silent) {
+    rateInput.value = rate.toFixed(2);
+    if (hint) hint.style.display = 'flex';
+    if (hintText) hintText.textContent = 'Auto-filled from ' + chosen.value + '\u2019s profile';
+  } else {
+    if (!silent) rateInput.value = '';
+    if (hint) hint.style.display = 'none';
+  }
+}
+
+function updateEmpDatalist() { updateEmpDropdown(); }
+
+// ========== CALENDAR ==========
+function getWeekStart(offset) {
+  var t = today();
+  var day = t.getDay();
+  var monday = new Date(t.getTime() - (day === 0 ? 6 : day - 1) * 86400000);
+  monday.setDate(monday.getDate() + offset * 7);
+  return monday;
+}
+
+function shiftWeek(dir) { weekOffset += dir; renderCalendar(); }
+function resetWeek()     { weekOffset = 0;   renderCalendar(); }
+
+function renderCalendar() {
+  var weekStart = getWeekStart(weekOffset);
+  var days = [];
+  for (var i = 0; i < 7; i++) {
+    days.push(new Date(weekStart.getTime() + i * 86400000));
+  }
+
+  var label = document.getElementById('weekRangeLabel');
+  label.textContent = fmt(days[0]) + ' - ' + fmt(days[6]);
+
+  var dayNames = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  var todayS = dateStr(today());
+
+  var calHeader = document.querySelector('.cal-header');
+  calHeader.innerHTML = '';
+  var navDiv = document.createElement('div');
+  navDiv.className = 'cal-nav';
+  navDiv.innerHTML = '<button onclick="shiftWeek(-1)">&lsaquo;</button>' +
+    '<button onclick="resetWeek()" title="Today" style="font-size:10px;padding:3px 6px;">&#9679;</button>' +
+    '<button onclick="shiftWeek(1)">&rsaquo;</button>';
+  calHeader.appendChild(navDiv);
+  days.forEach(function(d, i) {
+    var ds = dateStr(d);
+    var isToday = ds === todayS;
+    var div = document.createElement('div');
+    div.className = 'cal-day-header' + (isToday ? ' today' : '');
+    div.innerHTML = '<div class="cal-day-name">' + dayNames[i] + '</div>' +
+                    '<div class="cal-day-num">' + d.getDate() + '</div>';
+    calHeader.appendChild(div);
+  });
+
+  var cols = document.getElementById('calDayCols');
+  cols.innerHTML = '';
+  days.forEach(function(d) {
+    var ds = dateStr(d);
+    var isToday = ds === todayS;
+    var col = document.createElement('div');
+    col.className = 'cal-day-col' + (isToday ? ' today-col' : '');
+
+    todos.filter(function(t) {
+      var due = t.due_date || t.due;
+      return !t.completed && due === ds;
+    }).forEach(function(t) {
+      var ev = document.createElement('div');
+      ev.className = 'cal-event cal-event-todo';
+      ev.innerHTML = '<div class="cal-event-name">' + t.title + '</div>' +
+                     '<div class="cal-event-sub">' + (t.category || '') + '</div>';
+      col.appendChild(ev);
+    });
+
+    events.filter(function(e) {
+      var s = e.start_date || e.start;
+      var en = e.end_date   || e.end || s;
+      return s <= ds && en >= ds;
+    }).forEach(function(e) {
+      var ev = document.createElement('div');
+      var cls = e.type === 'pto' ? 'cal-event-pto' : 'cal-event-event';
+      ev.className = 'cal-event ' + cls;
+      ev.innerHTML = '<div class="cal-event-name">' + e.title + '</div>' +
+        (e.employee ? '<div class="cal-event-sub">' + e.employee + '</div>' : '');
+      col.appendChild(ev);
+    });
+
+    cols.appendChild(col);
+  });
+}
+
+// ========== ADMIN RENDER ==========
+function renderAdmin() {
+  renderEmployeeGrid();
+  renderPayroll();
+  renderTimeLog();
+  updateEmpDropdown();
+}
+
+function renderEmployeeGrid() {
+  var el = document.getElementById('employeeGrid');
+  if (!employees.length) {
+    el.innerHTML = '<div class="empty" style="grid-column:1/-1;">No employees added yet.</div>';
+    return;
+  }
+  el.innerHTML = employees.map(function(e) {
+    var entries = timeEntries.filter(function(t) {
+      return (t.employee_name || t.employee || '').toLowerCase() === e.name.toLowerCase();
+    });
+    var totalHours = entries.reduce(function(s,t) { return s + (t.hours||0); }, 0);
+    var totalPay   = entries.reduce(function(s,t) { return s + (t.total_pay||t.totalPay||0); }, 0);
+    var rate = e.hourly_rate || e.rate;
+    return '<div class="employee-card">' +
+      '<div class="emp-name">' + e.name + '</div>' +
+      '<div class="emp-role">' + (e.role || 'Team Member') + '</div>' +
+      '<div class="emp-stat"><span class="emp-stat-label">Rate</span><span class="emp-stat-val">' + (rate ? '$'+rate+'/hr' : '--') + '</span></div>' +
+      '<div class="emp-stat"><span class="emp-stat-label">Total Hours</span><span class="emp-stat-val">' + totalHours.toFixed(1) + '</span></div>' +
+      '<div class="emp-stat"><span class="emp-stat-label">Total Pay</span><span class="emp-stat-val">' + fmtMoney(totalPay) + '</span></div>' +
+      '<div style="margin-top:10px;">' +
+        '<button onclick="deleteEmployee(' + e.id + ')" style="background:none;border:1px solid var(--border);color:var(--text-muted);font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;font-family:\'DM Sans\',sans-serif;">Remove</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function renderPayroll() {
+  var el = document.getElementById('payrollContainer');
+  if (!timeEntries.length) { el.innerHTML = '<div class="empty">No time entries logged yet.</div>'; return; }
+
+  var periods = {};
+  timeEntries.forEach(function(t) {
+    var p = getPeriodKey(t.start_date || t.start);
+    if (!periods[p.key]) periods[p.key] = { key: p.key, start: p.start, end: p.end, entries: [] };
+    periods[p.key].entries.push(t);
+  });
+
+  var sortedPeriods = Object.values(periods).sort(function(a,b) { return b.key - a.key; });
+
+  el.innerHTML = sortedPeriods.map(function(period, pi) {
+    var byEmp = {};
+    period.entries.forEach(function(t) {
+      var k = t.employee_name || t.employee;
+      if (!byEmp[k]) byEmp[k] = { employee: k, entries: [], totalHours: 0, totalPay: 0 };
+      byEmp[k].entries.push(t);
+      byEmp[k].totalHours += t.hours || 0;
+      byEmp[k].totalPay   += t.total_pay || t.totalPay || 0;
+    });
+
+    var empRows = Object.values(byEmp);
+    var grandTotal = empRows.reduce(function(s,e) { return s + e.totalPay; }, 0);
+    var allPaid = period.entries.every(function(t) { return t.paid; });
+    var statusClass = allPaid ? 'status-paid' : 'status-unpaid';
+    var statusLabel = allPaid ? 'Paid' : 'Unpaid';
+
+    var rows = empRows.map(function(e) {
+      var hourly   = e.entries.reduce(function(s,t) { return s + (t.hourly_total||t.hourlyTotal||0); }, 0);
+      var contract = e.entries.reduce(function(s,t) { return s + (t.contract_pay||t.contract||0); }, 0);
+      var empAllPaid = e.entries.every(function(t) { return t.paid; });
+      var empIds = e.entries.map(function(t) { return t.id; }).join(',');
+      var r0 = e.entries[0];
+      var rateShow = (r0 && (r0.hourly_rate || r0.rate)) ? '$' + (r0.hourly_rate || r0.rate) : '--';
+      return '<tr>' +
+        '<td><strong>' + e.employee + '</strong></td>' +
+        '<td class="amount">' + e.totalHours.toFixed(1) + '</td>' +
+        '<td class="amount">' + rateShow + '</td>' +
+        '<td class="amount">' + fmtMoney(hourly) + '</td>' +
+        '<td class="amount">' + (contract > 0 ? fmtMoney(contract) : '--') + '</td>' +
+        '<td class="amount amount-total">' + fmtMoney(e.totalPay) + '</td>' +
+        '<td><button class="mark-paid-btn" ' + (empAllPaid ? 'disabled' : '') + ' onclick="markPaid(\'' + empIds + '\')">' +
+          (empAllPaid ? '&#10003; Paid' : 'Mark Paid') + '</button></td>' +
+      '</tr>';
+    }).join('');
+
+    var allIds = period.entries.map(function(t) { return t.id; }).join(',');
+    return '<div class="payroll-grid" style="margin-bottom:12px;">' +
+      '<div class="payroll-period-header" onclick="togglePeriod(\'period-' + pi + '\')">' +
+        '<div>' +
+          '<div class="period-title">' + fmt(period.start) + ' - ' + fmt(period.end) + '</div>' +
+          '<div class="period-meta">' + empRows.length + ' employee' + (empRows.length!==1?'s':'') + ' &middot; ' + fmtMoney(grandTotal) + ' total</div>' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:10px;">' +
+          '<span class="period-status ' + statusClass + '">' + statusLabel + '</span>' +
+          '<span class="chevron" id="chev-period-' + pi + '">&#9662;</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="payroll-table-wrap" id="period-' + pi + '">' +
+        '<table><thead><tr>' +
+          '<th>Employee</th><th>Hours</th><th>Rate</th><th>Hourly Pay</th><th>Contract Pay</th><th>Total</th><th>Action</th>' +
+        '</tr></thead><tbody>' +
+          rows +
+          '<tr style="background:var(--surface2);">' +
+            '<td colspan="5" style="font-weight:600;color:var(--text-muted);font-size:12px;">PERIOD TOTAL</td>' +
+            '<td class="amount amount-total" style="font-size:15px;">' + fmtMoney(grandTotal) + '</td>' +
+            '<td>' + (!allPaid
+              ? '<button class="btn btn-success" style="font-size:11px;padding:5px 12px;" onclick="markAllPaid(\'' + allIds + '\')">Pay All</button>'
+              : '<span style="color:var(--green);font-size:12px;">&#10003; All Paid</span>') + '</td>' +
+          '</tr>' +
+        '</tbody></table>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function togglePeriod(id) {
+  var el   = document.getElementById(id);
+  var chev = document.getElementById('chev-' + id);
+  el.classList.toggle('open');
+  if (chev) chev.classList.toggle('open');
+}
+
+function renderTimeLog() {
+  var el = document.getElementById('timeLogContainer');
+  if (!timeEntries.length) { el.innerHTML = '<div class="empty">No time entries yet.</div>'; return; }
+  var sorted = timeEntries.slice().sort(function(a,b) { return b.id - a.id; });
+  el.innerHTML = sorted.map(function(t) {
+    var emp = t.employee_name || t.employee;
+    var s   = t.start_date || t.start;
+    var en  = t.end_date   || t.end;
+    var pay = t.total_pay  || t.totalPay || 0;
+    return '<div class="time-log-item">' +
+      '<div class="tl-emp">' + emp + '</div>' +
+      '<div class="tl-dates">' + s + ' &rarr; ' + en + '</div>' +
+      '<div class="tl-hours">' + (t.hours ? t.hours+'h' : '--') + '</div>' +
+      '<div class="tl-pay">' + fmtMoney(pay) + '</div>' +
+      '<div style="flex:1;font-size:11px;color:var(--text-dim);">' + (t.notes||'') + '</div>' +
+      '<div style="display:flex;align-items:center;gap:6px;">' +
+        (t.paid ? '<span style="font-size:10px;color:var(--green);">&#10003; PAID</span>' : '') +
+        '<button class="tl-del" onclick="deleteTimeEntry(' + t.id + ')">&#x2715;</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+// ========== HELPERS ==========
+function clearForm(ids) {
+  ids.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    if (el.tagName === 'SELECT') el.selectedIndex = 0;
+    else el.value = '';
+  });
+}
+
+
+
+// ========== PROPERTIES ==========
+var properties = [];
+var currentPropertyId = null;
+var propEditMode = false;
+
+var PROP_FIELDS = [
+  'bedrooms','bathrooms','max_guests','sqft','year_built',
+  'amenities','special_features',
+  'min_nights','min_price','business_model','checkin_time','checkout_time',
+  'platforms','wifi','access_info','cleaning_notes',
+  'owner_names','owner_phone','owner_email','contact_pref','owner_address',
+  'emergency_contact','contract_notes',
+  'care_notes','owner_dos','owner_donts'
+];
+
+async function loadProperties() {
+  var res = await db.from('properties').select('*').order('created_at', { ascending: true });
+  if (res.error) { console.error('loadProperties', res.error); return; }
+  properties = res.data || [];
+  renderPropertyGrid();
+}
+
+async function saveNewProperty() {
+  var name = document.getElementById('np-name').value.trim();
+  var address = document.getElementById('np-address').value.trim();
+  if (!name || !address) { alert('Property name and address are required.'); return; }
+  setLoading(true, 'Adding property...');
+  var payload = {
+    name: name,
+    address: address,
+    owner_names: document.getElementById('np-owners').value.trim(),
+    bedrooms: parseFloat(document.getElementById('np-bedrooms').value) || null,
+    bathrooms: parseFloat(document.getElementById('np-bathrooms').value) || null,
+    business_model: document.getElementById('np-model').value || null
+  };
+  var res = await db.from('properties').insert(payload).select().single();
+  setLoading(false);
+  if (res.error) { dbError(res.error, 'saveNewProperty'); return; }
+  properties.push(res.data);
+  closeModal('modal-add-property');
+  clearForm(['np-name','np-address','np-owners','np-bedrooms','np-bathrooms']);
+  document.getElementById('np-model').selectedIndex = 0;
+  renderPropertyGrid();
+}
+
+function renderPropertyGrid() {
+  var el = document.getElementById('propertyGrid');
+  if (!el) return;
+  if (!properties.length) {
+    el.innerHTML = '<div class="empty" style="grid-column:1/-1;">No properties yet. Add one above.</div>';
+    return;
+  }
+  el.innerHTML = properties.map(function(p) {
+    var modelBadge = p.business_model
+      ? '<span class="prop-badge ' + (p.business_model === 'Full Set' ? 'badge-full' : 'badge-essentials') + '">' + p.business_model + '</span>'
+      : '';
+    var bedBadge = (p.bedrooms != null)
+      ? '<span class="prop-badge badge-beds">' + p.bedrooms + ' bd / ' + (p.bathrooms || '?') + ' ba</span>'
+      : '';
+    return '<div class="property-card" onclick="openPropertyDetail(' + p.id + ')">' +
+      '<div class="prop-card-name">' + esc(p.name) + '</div>' +
+      '<div class="prop-card-address">' + esc(p.address) + '</div>' +
+      '<div class="prop-card-meta">' + bedBadge + modelBadge + '</div>' +
+      '<div class="prop-card-owners"><strong>Owners:</strong> ' + esc(p.owner_names || '\u2014') + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function esc(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+function openPropertyDetail(id) {
+  var p = properties.find(function(x) { return x.id === id; });
+  if (!p) return;
+  currentPropertyId = id;
+  propEditMode = false;
+
+  document.getElementById('prop-detail-name').textContent = p.name;
+  document.getElementById('prop-detail-address').textContent = p.address;
+
+  PROP_FIELDS.forEach(function(field) {
+    var vEl = document.getElementById('pv-' + field);
+    var eEl = document.getElementById('pe-' + field);
+    if (!vEl) return;
+    var val = p[field];
+
+    if (field === 'amenities') {
+      if (val && val.trim()) {
+        var tags = val.split(',').map(function(a) { return a.trim(); }).filter(Boolean);
+        vEl.innerHTML = tags.map(function(t) { return '<span class="amenity-tag">' + esc(t) + '</span>'; }).join('');
+      } else {
+        vEl.innerHTML = '<span class="empty-field">Not set</span>';
+      }
+    } else if (field === 'min_price') {
+      vEl.textContent = val ? '$' + val : '\u2014';
+    } else if (field === 'min_nights') {
+      vEl.textContent = val ? val + ' nights minimum' : '\u2014';
+    } else {
+      vEl.textContent = val || '\u2014';
+    }
+
+    if (eEl) {
+      if (eEl.tagName === 'SELECT') {
+        for (var i = 0; i < eEl.options.length; i++) {
+          if (eEl.options[i].value === (val || '')) { eEl.selectedIndex = i; break; }
+        }
+      } else {
+        eEl.value = val || '';
+      }
+      eEl.style.display = 'none';
+    }
+    vEl.style.display = '';
+  });
+
+  document.getElementById('prop-edit-toggle').textContent = 'Edit';
+  document.getElementById('prop-edit-footer').style.display = 'none';
+  switchPropTab('home', document.querySelectorAll('.prop-tab')[0]);
+  openModal('modal-property-detail');
+}
+
+function switchPropTab(tab, btn) {
+  document.querySelectorAll('.prop-tab').forEach(function(b) { b.classList.remove('active'); });
+  document.querySelectorAll('.prop-tab-panel').forEach(function(p) { p.style.display = 'none'; p.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  var panel = document.getElementById('proptab-' + tab);
+  if (panel) { panel.style.display = 'block'; panel.classList.add('active'); }
+}
+
+function togglePropEdit() {
+  propEditMode = !propEditMode;
+  document.getElementById('prop-edit-toggle').textContent = propEditMode ? 'Cancel' : 'Edit';
+  document.getElementById('prop-edit-footer').style.display = propEditMode ? 'flex' : 'none';
+
+  PROP_FIELDS.forEach(function(field) {
+    var vEl = document.getElementById('pv-' + field);
+    var eEl = document.getElementById('pe-' + field);
+    if (!vEl || !eEl) return;
+    vEl.style.display = propEditMode ? 'none' : '';
+    eEl.style.display = propEditMode ? '' : 'none';
+  });
+
+  if (!propEditMode) {
+    var p = properties.find(function(x) { return x.id === currentPropertyId; });
+    if (p) openPropertyDetail(p.id);
+  }
+}
+
+function cancelPropEdit() {
+  propEditMode = false;
+  document.getElementById('prop-edit-toggle').textContent = 'Edit';
+  document.getElementById('prop-edit-footer').style.display = 'none';
+  var p = properties.find(function(x) { return x.id === currentPropertyId; });
+  if (p) openPropertyDetail(p.id);
+}
+
+async function confirmDeleteProperty() {
+  var p = properties.find(function(x) { return x.id === currentPropertyId; });
+  if (!p) return;
+  if (!confirm('Delete "' + p.name + '"? This cannot be undone.')) return;
+  setLoading(true, 'Deleting property...');
+  var res = await db.from('properties').delete().eq('id', currentPropertyId);
+  setLoading(false);
+  if (res.error) { dbError(res.error, 'deleteProperty'); return; }
+  properties = properties.filter(function(x) { return x.id !== currentPropertyId; });
+  closeModal('modal-property-detail');
+  currentPropertyId = null;
+  renderPropertyGrid();
+}
+
+async function savePropEdits() {
+  var payload = {};
+  var numFields = ['bedrooms','bathrooms','max_guests','min_nights','min_price','year_built','sqft'];
+  PROP_FIELDS.forEach(function(field) {
+    var eEl = document.getElementById('pe-' + field);
+    if (!eEl) return;
+    var val = eEl.value.trim();
+    payload[field] = (numFields.indexOf(field) !== -1) ? (val !== '' ? parseFloat(val) : null) : (val || null);
+  });
+  setLoading(true, 'Saving...');
+  var res = await db.from('properties').update(payload).eq('id', currentPropertyId).select().single();
+  setLoading(false);
+  if (res.error) { dbError(res.error, 'savePropEdits'); return; }
+  var idx = properties.findIndex(function(x) { return x.id === currentPropertyId; });
+  if (idx !== -1) properties[idx] = res.data;
+  propEditMode = false;
+  renderPropertyGrid();
+  openPropertyDetail(currentPropertyId);
+}
+
+
+
+// ========== INVOICING ==========
+var propCharges = [];
+var contractCharges = [];
+var invMonthOffset = 0;
+
+function getInvMonthYear() {
+  var now = new Date();
+  var d = new Date(now.getFullYear(), now.getMonth() + invMonthOffset, 1);
+  return { year: d.getFullYear(), month: d.getMonth(), date: d };
+}
+
+function invMonthKey(y, m) {
+  return y + '-' + String(m + 1).padStart(2, '0');
+}
+
+function shiftInvMonth(dir) { invMonthOffset += dir; renderInvoicingPage(); }
+function resetInvMonth() { invMonthOffset = 0; renderInvoicingPage(); }
+
+async function loadInvoicing() {
+  setLoading(true, 'Loading invoices...');
+  var my = getInvMonthYear();
+  var key = invMonthKey(my.year, my.month);
+  var r1 = await db.from('prop_charges').select('*').eq('month_key', key).order('created_at', { ascending: true });
+  var r2 = await db.from('contract_charges').select('*').eq('month_key', key).order('created_at', { ascending: true });
+  setLoading(false);
+  if (r1.error) { console.error('prop_charges', r1.error); }
+  if (r2.error) { console.error('contract_charges', r2.error); }
+  propCharges = r1.data || [];
+  contractCharges = r2.data || [];
+  renderInvoicingPage();
+}
+
+function renderInvoicingPage() {
+  var my = getInvMonthYear();
+  var label = my.date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  var el = document.getElementById('inv-month-label');
+  if (el) el.textContent = label;
+  renderInvSummary();
+  renderPropChargeTable();
+  renderContractChargeTable();
+}
+
+function renderInvSummary() {
+  var propTotal = propCharges.reduce(function(s, r) { return s + (parseFloat(r.amount) || 0); }, 0);
+  var contractTotal = contractCharges.reduce(function(s, r) { return s + (parseFloat(r.amount) || 0); }, 0);
+  var propDone = propCharges.filter(function(r) { return r.invoiced; });
+  var contractDone = contractCharges.filter(function(r) { return r.invoiced; });
+  var doneTotal = propDone.reduce(function(s,r){return s+(parseFloat(r.amount)||0);},0)
+                + contractDone.reduce(function(s,r){return s+(parseFloat(r.amount)||0);},0);
+  var pendingCount = propCharges.filter(function(r){return !r.invoiced;}).length
+                   + contractCharges.filter(function(r){return !r.invoiced;}).length;
+
+  setText('inv-sum-prop', fmtMoney(propTotal));
+  setText('inv-sum-prop-sub', propCharges.length + ' item' + (propCharges.length !== 1 ? 's' : ''));
+  setText('inv-sum-contract', fmtMoney(contractTotal));
+  setText('inv-sum-contract-sub', contractCharges.length + ' item' + (contractCharges.length !== 1 ? 's' : ''));
+  setText('inv-sum-total', fmtMoney(propTotal + contractTotal));
+  setText('inv-sum-total-sub', pendingCount + ' pending');
+  setText('inv-sum-done', fmtMoney(doneTotal));
+  setText('inv-sum-done-sub', (propDone.length + contractDone.length) + ' completed');
+}
+
+function setText(id, val) { var el = document.getElementById(id); if (el) el.textContent = val; }
+
+function renderPropChargeTable() {
+  var tbody = document.getElementById('propChargeTableBody');
+  var badge = document.getElementById('prop-charge-count');
+  if (!tbody) return;
+  if (badge) badge.textContent = propCharges.length;
+  if (!propCharges.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="inv-empty">No property charges this month.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = propCharges.map(function(r) {
+    var done = r.invoiced;
+    return '<tr class="' + (done ? 'inv-done' : '') + '">' +
+      '<td><span class="inv-prop-name">' + escInv(r.property_name) + '</span></td>' +
+      '<td>' + escInv(r.service) + '</td>' +
+      '<td><span class="inv-amount">' + fmtMoney(r.amount) + '</span></td>' +
+      '<td style="font-size:12px;color:var(--text-muted);font-family:DM Mono,monospace;">' + fmtDate(r.created_at) + '</td>' +
+      '<td><span class="inv-status-pill ' + (done ? 'pill-invoiced' : 'pill-pending') + '">' + (done ? 'Invoiced' : 'Pending') + '</span></td>' +
+      '<td><div class="inv-row-actions">' +
+        '<button class="inv-check-btn' + (done ? ' done' : '') + '" ' + (done ? 'disabled' : 'onclick="markPropCharge(' + r.id + ')"') + '>' +
+          (done ? '&#10003; Done' : 'Mark Invoiced') +
+        '</button>' +
+        '<button class="inv-del-btn" onclick="deletePropCharge(' + r.id + ')">&#x2715;</button>' +
+      '</div></td>' +
+    '</tr>';
+  }).join('');
+}
+
+function renderContractChargeTable() {
+  var tbody = document.getElementById('contractChargeTableBody');
+  var badge = document.getElementById('contract-charge-count');
+  if (!tbody) return;
+  if (badge) badge.textContent = contractCharges.length;
+  if (!contractCharges.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="inv-empty">No contract work this month.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = contractCharges.map(function(r) {
+    var done = r.invoiced;
+    return '<tr class="' + (done ? 'inv-done' : '') + '">' +
+      '<td><span class="inv-person-name">' + escInv(r.person_name) + '</span></td>' +
+      '<td style="font-size:12px;color:var(--text-muted);">' + escInv(r.email) + '</td>' +
+      '<td class="inv-notes-cell" title="' + escInv(r.description) + '">' + escInv(r.description) + '</td>' +
+      '<td><span class="inv-amount">' + fmtMoney(r.amount) + '</span></td>' +
+      '<td style="font-size:12px;color:var(--text-muted);font-family:DM Mono,monospace;">' + fmtDate(r.created_at) + '</td>' +
+      '<td><span class="inv-status-pill ' + (done ? 'pill-invoiced' : 'pill-pending') + '">' + (done ? 'Invoiced' : 'Pending') + '</span></td>' +
+      '<td><div class="inv-row-actions">' +
+        '<button class="inv-check-btn' + (done ? ' done' : '') + '" ' + (done ? 'disabled' : 'onclick="markContractCharge(' + r.id + ')"') + '>' +
+          (done ? '&#10003; Done' : 'Mark Invoiced') +
+        '</button>' +
+        '<button class="inv-del-btn" onclick="deleteContractCharge(' + r.id + ')">&#x2715;</button>' +
+      '</div></td>' +
+    '</tr>';
+  }).join('');
+}
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  var d = new Date(iso);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function escInv(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function populatePropDropdown() {
+  var sel = document.getElementById('pc-property');
+  var noProps = document.getElementById('pc-no-props');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">&#x2014; Select a property &#x2014;</option>';
+  if (!properties.length) {
+    noProps.style.display = 'block';
+    sel.style.display = 'none';
+  } else {
+    noProps.style.display = 'none';
+    sel.style.display = '';
+    properties.forEach(function(p) {
+      var opt = document.createElement('option');
+      opt.value = p.name;
+      opt.textContent = p.name + (p.address ? ' -- ' + p.address : '');
+      sel.appendChild(opt);
+    });
+  }
+}
+
+async function savePropCharge() {
+  var propName = document.getElementById('pc-property').value;
+  var service  = document.getElementById('pc-service').value.trim();
+  var amount   = parseFloat(document.getElementById('pc-amount').value) || 0;
+  if (!propName || !service || !amount) { alert('Property, service description, and amount are required.'); return; }
+  var my = getInvMonthYear();
+  setLoading(true, 'Saving...');
+  var res = await db.from('prop_charges').insert({
+    property_name: propName,
+    service: service,
+    amount: amount,
+    notes: document.getElementById('pc-notes').value.trim(),
+    month_key: invMonthKey(my.year, my.month),
+    invoiced: false
+  }).select().single();
+  setLoading(false);
+  if (res.error) { dbError(res.error, 'savePropCharge'); return; }
+  propCharges.push(res.data);
+  closeModal('modal-add-prop-charge');
+  clearForm(['pc-service','pc-amount','pc-notes']);
+  document.getElementById('pc-property').selectedIndex = 0;
+  renderInvoicingPage();
+}
+
+async function saveContractCharge() {
+  var name   = document.getElementById('cc-name').value.trim();
+  var email  = document.getElementById('cc-email').value.trim();
+  var amount = parseFloat(document.getElementById('cc-amount').value) || 0;
+  var desc   = document.getElementById('cc-desc').value.trim();
+  if (!name || !email || !amount || !desc) { alert('Name, email, amount, and description are required.'); return; }
+  var my = getInvMonthYear();
+  setLoading(true, 'Saving...');
+  var res = await db.from('contract_charges').insert({
+    person_name: name,
+    email: email,
+    amount: amount,
+    description: desc,
+    notes: document.getElementById('cc-notes').value.trim(),
+    month_key: invMonthKey(my.year, my.month),
+    invoiced: false
+  }).select().single();
+  setLoading(false);
+  if (res.error) { dbError(res.error, 'saveContractCharge'); return; }
+  contractCharges.push(res.data);
+  closeModal('modal-add-contract-charge');
+  clearForm(['cc-name','cc-email','cc-amount','cc-desc','cc-notes']);
+  renderInvoicingPage();
+}
+
+async function markPropCharge(id) {
+  setLoading(true, 'Updating...');
+  var res = await db.from('prop_charges').update({ invoiced: true }).eq('id', id);
+  setLoading(false);
+  if (res.error) { dbError(res.error, 'markPropCharge'); return; }
+  var r = propCharges.find(function(x) { return x.id === id; });
+  if (r) r.invoiced = true;
+  renderInvoicingPage();
+}
+
+async function markContractCharge(id) {
+  setLoading(true, 'Updating...');
+  var res = await db.from('contract_charges').update({ invoiced: true }).eq('id', id);
+  setLoading(false);
+  if (res.error) { dbError(res.error, 'markContractCharge'); return; }
+  var r = contractCharges.find(function(x) { return x.id === id; });
+  if (r) r.invoiced = true;
+  renderInvoicingPage();
+}
+
+async function deletePropCharge(id) {
+  if (!confirm('Delete this charge?')) return;
+  setLoading(true, 'Deleting...');
+  var res = await db.from('prop_charges').delete().eq('id', id);
+  setLoading(false);
+  if (res.error) { dbError(res.error, 'deletePropCharge'); return; }
+  propCharges = propCharges.filter(function(x) { return x.id !== id; });
+  renderInvoicingPage();
+}
+
+async function deleteContractCharge(id) {
+  if (!confirm('Delete this entry?')) return;
+  setLoading(true, 'Deleting...');
+  var res = await db.from('contract_charges').delete().eq('id', id);
+  setLoading(false);
+  if (res.error) { dbError(res.error, 'deleteContractCharge'); return; }
+  contractCharges = contractCharges.filter(function(x) { return x.id !== id; });
+  renderInvoicingPage();
+}
+
+
+// ========== PAYROLL EMAIL REMINDER ==========
+async function sendPayrollReminder() {
+  var unpaid = timeEntries.filter(function(t) { return !t.paid; });
+  if (!unpaid.length) {
+    showToast('No outstanding payroll -- all entries are marked as paid!', 'info');
+    return;
+  }
+
+  // Group by pay period
+  var periods = {};
+  unpaid.forEach(function(t) {
+    var p = getPeriodKey(t.start_date || t.start);
+    if (!periods[p.key]) periods[p.key] = { start: p.start, end: p.end, entries: [] };
+    periods[p.key].entries.push(t);
+  });
+
+  var totalOutstanding = unpaid.reduce(function(s, t) { return s + (t.total_pay || 0); }, 0);
+  var periodKeys = Object.keys(periods).sort(function(a, b) { return b - a; });
+
+  // Build HTML email
+  var periodRowsHtml = '';
+  periodKeys.forEach(function(pk) {
+    var period = periods[pk];
+    var startStr = period.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    var endStr   = period.end.toLocaleDateString('en-US',   { month: 'short', day: 'numeric', year: 'numeric' });
+
+    var byEmp = {};
+    period.entries.forEach(function(t) {
+      var name = t.employee_name || t.employee || 'Unknown';
+      if (!byEmp[name]) byEmp[name] = { hours: 0, total: 0, rate: t.hourly_rate || t.rate || 0 };
+      byEmp[name].hours += t.hours || 0;
+      byEmp[name].total += t.total_pay || 0;
+    });
+
+    var periodTotal = Object.values(byEmp).reduce(function(s, e) { return s + e.total; }, 0);
+
+    var empRows = '';
+    Object.keys(byEmp).forEach(function(name) {
+      var emp = byEmp[name];
+      var rateStr = emp.rate ? '<span style="color:#888;font-size:12px;"> @ $' + Number(emp.rate).toFixed(2) + '/hr</span>' : '';
+      empRows += '<tr>' +
+        '<td style="padding:10px 14px;border-bottom:1px solid #2a2a28;">' + name + rateStr + '</td>' +
+        '<td style="padding:10px 14px;border-bottom:1px solid #2a2a28;text-align:center;color:#aaa;">' + emp.hours.toFixed(1) + 'h</td>' +
+        '<td style="padding:10px 14px;border-bottom:1px solid #2a2a28;text-align:right;color:#c8a96e;font-weight:600;">$' + emp.total.toFixed(2) + '</td>' +
+      '</tr>';
+    });
+
+    periodRowsHtml +=
+      '<div style="margin-bottom:24px;">' +
+        '<div style="background:#1a1a18;border:1px solid #333;border-radius:8px;overflow:hidden;">' +
+          '<div style="background:#242422;padding:12px 16px;border-bottom:1px solid #333;">' +
+            '<span style="font-family:monospace;font-size:13px;color:#c8a96e;font-weight:600;">' + startStr + ' -- ' + endStr + '</span>' +
+          '</div>' +
+          '<table style="width:100%;border-collapse:collapse;">' +
+            '<thead><tr style="background:#1e1e1c;">' +
+              '<th style="padding:8px 14px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:#666;border-bottom:1px solid #333;">Employee</th>' +
+              '<th style="padding:8px 14px;text-align:center;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:#666;border-bottom:1px solid #333;">Hours</th>' +
+              '<th style="padding:8px 14px;text-align:right;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:#666;border-bottom:1px solid #333;">Owed</th>' +
+            '</tr></thead>' +
+            '<tbody>' + empRows + '</tbody>' +
+          '</table>' +
+          '<div style="padding:10px 16px;text-align:right;border-top:1px solid #333;background:#1e1e1c;">' +
+            '<span style="font-size:12px;color:#888;">Period Total: </span>' +
+            '<span style="font-family:monospace;color:#c8a96e;font-weight:700;font-size:14px;">$' + periodTotal.toFixed(2) + '</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+  });
+
+  var emailHtml =
+    '<!DOCTYPE html><html><head><meta charset="utf-8"></head>' +
+    '<body style="margin:0;padding:0;background:#0f0f0e;font-family:Helvetica,Arial,sans-serif;color:#f0ede6;">' +
+      '<div style="max-width:600px;margin:0 auto;padding:32px 20px;">' +
+
+        // Header
+        '<div style="text-align:center;margin-bottom:32px;padding-bottom:24px;border-bottom:1px solid #2a2a28;">' +
+          '<div style="font-size:22px;font-weight:700;color:#c8a96e;letter-spacing:0.02em;margin-bottom:4px;">PropDesk</div>' +
+          '<div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:0.1em;">Bentonville Lodging Co.</div>' +
+        '</div>' +
+
+        // Title
+        '<h2 style="margin:0 0 8px;font-size:20px;font-weight:700;color:#f0ede6;">Payroll Reminder</h2>' +
+        '<p style="margin:0 0 24px;color:#888;font-size:14px;line-height:1.6;">' +
+          'The following payroll is currently outstanding and requires your attention.' +
+        '</p>' +
+
+        // Period tables
+        periodRowsHtml +
+
+        // Total
+        '<div style="background:#1a1a18;border:1px solid #c8a96e44;border-radius:8px;padding:16px 20px;margin-top:8px;display:flex;justify-content:space-between;align-items:center;">' +
+          '<span style="font-size:14px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:0.05em;">Total Outstanding</span>' +
+          '<span style="font-family:monospace;font-size:22px;font-weight:700;color:#c8a96e;">$' + totalOutstanding.toFixed(2) + '</span>' +
+        '</div>' +
+
+        // CTA
+        '<div style="margin-top:28px;padding:16px;background:#242422;border-radius:8px;text-align:center;">' +
+          '<p style="margin:0 0 12px;font-size:13px;color:#888;">Log in to PropDesk to mark payroll as paid once processed.</p>' +
+        '</div>' +
+
+        // Footer
+        '<div style="margin-top:32px;padding-top:20px;border-top:1px solid #2a2a28;text-align:center;">' +
+          '<div style="font-size:11px;color:#555;">PropDesk &bull; Bentonville Lodging Co. &bull; Automated Payroll Reminder</div>' +
+          '<div style="font-size:11px;color:#444;margin-top:4px;">Sent from noreply@bentonvillelodgingcomanagement.com</div>' +
+        '</div>' +
+
+      '</div>' +
+    '</body></html>';
+
+  var subject = 'Payroll Reminder -- $' + totalOutstanding.toFixed(2) + ' Outstanding | Bentonville Lodging Co.';
+
+  // Send via Netlify function -> Resend
+  setLoading(true, 'Sending email...');
+  try {
+    var res = await fetch('/.netlify/functions/send-payroll-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subject: subject, html: emailHtml })
+    });
+    var data = await res.json();
+    setLoading(false);
+    if (!res.ok) {
+      showToast('Email failed: ' + (data.error || 'Unknown error'), 'error');
+    } else {
+      showToast('Payroll reminder sent to luke@above8capital.com', 'success');
+    }
+  } catch(e) {
+    setLoading(false);
+    showToast('Could not reach email service. Check your function is deployed.', 'error');
+  }
+}
+
+function showToast(msg, type) {
+  var existing = document.getElementById('propdesk-toast');
+  if (existing) existing.remove();
+  var colors = { success: '#7ab87a', error: '#e06b5a', info: '#c8a96e' };
+  var toast = document.createElement('div');
+  toast.id = 'propdesk-toast';
+  toast.style.cssText = [
+    'position:fixed', 'bottom:24px', 'left:50%', 'transform:translateX(-50%)',
+    'background:var(--surface2)', 'border:1px solid ' + (colors[type] || colors.info),
+    'color:' + (colors[type] || colors.info),
+    'font-family:"DM Sans",sans-serif', 'font-size:13px', 'font-weight:500',
+    'padding:12px 22px', 'border-radius:8px', 'box-shadow:var(--shadow-lg)',
+    'z-index:9999', 'white-space:nowrap', 'transition:opacity 0.4s'
+  ].join(';');
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  setTimeout(function() { toast.style.opacity = '0'; }, 3500);
+  setTimeout(function() { toast.remove(); }, 4000);
+}
+
+
+// ========== SPIN KEYFRAME ==========
+var styleTag = document.createElement('style');
+styleTag.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
+document.head.appendChild(styleTag);
+
+// ========== AUTH ==========
+var SESSION_KEY = 'pd_session';
+var STAFF_USERNAME = 'staff';
+var STAFF_PASSWORD = 'Bentonville2025!';
+
+function getSession() {
+  try {
+    var raw = sessionStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    var s = JSON.parse(raw);
+    if (!s || !s.ts || (Date.now() - s.ts) > 8 * 60 * 60 * 1000) {
+      sessionStorage.removeItem(SESSION_KEY);
+      return null;
+    }
+    return s;
+  } catch(e) { return null; }
+}
+
+function setSession(u) {
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify({ username: u, ts: Date.now() }));
+}
+
+function clearSession() {
+  sessionStorage.removeItem(SESSION_KEY);
+}
+
+function attemptLogin() {
+  var username = document.getElementById('login-username').value.trim();
+  var password = document.getElementById('login-password').value;
+  var errEl  = document.getElementById('login-error');
+  var uInput = document.getElementById('login-username');
+  var pInput = document.getElementById('login-password');
+
+  errEl.textContent = '';
+  uInput.classList.remove('input-error');
+  pInput.classList.remove('input-error');
+
+  if (!username || !password) {
+    errEl.textContent = 'Please enter your username and password.';
+    if (!username) uInput.classList.add('input-error');
+    if (!password) pInput.classList.add('input-error');
+    return;
+  }
+
+  if (username.toLowerCase() !== STAFF_USERNAME || password !== STAFF_PASSWORD) {
+    errEl.textContent = 'Incorrect username or password.';
+    uInput.classList.add('input-error');
+    pInput.classList.add('input-error');
+    pInput.value = '';
+    return;
+  }
+
+  setSession(username);
+  showApp();
+}
+
+function showApp() {
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('app-shell').style.display = 'block';
+  initDate();
+  loadAllData();
+}
+
+function logout() {
+  clearSession();
+  todos = []; events = []; employees = []; timeEntries = [];
+  document.getElementById('app-shell').style.display = 'none';
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('login-username').value = '';
+  document.getElementById('login-password').value = '';
+  document.getElementById('login-error').textContent = '';
+  document.getElementById('login-username').classList.remove('input-error');
+  document.getElementById('login-password').classList.remove('input-error');
+}
+
+// ========== INIT ==========
+(function() {
+  if (getSession()) { showApp(); }
+})();
+</script>
+</body>
+</html>
