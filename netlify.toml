@@ -1,0 +1,12 @@
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Run every day at 8:00 AM UTC (3 AM Central)
+[functions."check-due-tasks"]
+  schedule = "0 8 * * *"
