@@ -10,3 +10,8 @@
 # Run every day at 8:00 AM UTC (3 AM Central)
 [functions."check-due-tasks"]
   schedule = "0 8 * * *"
+
+# Run every day at 11:00 AM UTC (6 AM Central) — after PriceLabs' own
+# overnight pricing runs, so we capture the day's actual recommendations
+[functions."get-search-health"]
+  schedule = "0 11 * * *"
