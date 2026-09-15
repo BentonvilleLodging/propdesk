@@ -13,7 +13,11 @@
 
 # Run every day at 11:00 AM UTC (6 AM Central) — after PriceLabs' own
 # overnight pricing runs, so we capture the day's actual recommendations.
-# Also chain-triggers get-recommendations at the end of each run.
-# Confirmed working end-to-end 2026-09-15.
 [functions."get-search-health"]
   schedule = "0 11 * * *"
+
+# Runs 10 minutes after get-search-health, giving recommendation
+# generation its own separate execution time budget (see comment in
+# get-search-health.js for why these were split apart).
+[functions."daily-recommendations-cron"]
+  schedule = "10 11 * * *"
