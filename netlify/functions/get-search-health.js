@@ -362,23 +362,37 @@ exports.handler = async function(event) {
       if (debugMode) {
         result.pricelabsSample = plListings.slice(0, 2); // inspect real field names before trusting the mapping below
       }
-      const pct = v => (v === null || v === undefined) ? null : parseFloat(String(v).replace('%', '').trim());
+      const pct = v => {
+        if (v === null || v === undefined) return null;
+        const n = parseFloat(String(v).replace('%', '').trim());
+        return Number.isFinite(n) ? n : null;
+      };
+      // PriceLabs returns the literal string "Unavailable" (not a number)
+      // for some pricing fields on listings that are paused/unconfigured
+      // in their system. Postgres numeric columns reject that outright --
+      // one bad value fails the entire batch upsert. Treat any non-finite
+      // parse as null instead of passing the raw string through.
+      const num = v => {
+        if (v === null || v === undefined) return null;
+        const n = parseFloat(v);
+        return Number.isFinite(n) ? n : null;
+      };
       for (const pl of plListings) {
         priceRows.push({
           listing_id:                pl.id,
           snapshot_date:             today,
-          min_price:                 pl.min ?? null,
-          max_price:                 pl.max ?? null,
-          base_price:                pl.base ?? null,
-          recommended_price:         pl.recommended_base_price ?? null,
-          min_stay:                  pl.min_stay ?? null,
+          min_price:                 num(pl.min),
+          max_price:                 num(pl.max),
+          base_price:                num(pl.base),
+          recommended_price:         num(pl.recommended_base_price),
+          min_stay:                  num(pl.min_stay),
           occupancy_pct_7d:          pct(pl.occupancy_next_7),
           occupancy_pct_30d:         pct(pl.occupancy_next_30),
           occupancy_pct_60d:         pct(pl.occupancy_next_60),
           market_occupancy_pct_7d:   pct(pl.market_occupancy_next_7),
           market_occupancy_pct_30d:  pct(pl.market_occupancy_next_30),
           market_occupancy_pct_60d:  pct(pl.market_occupancy_next_60),
-          cleaning_fee:              pl.cleaning_fees ?? null,
+          cleaning_fee:              num(pl.cleaning_fees),
           last_refreshed_at:         pl.last_refreshed_at ?? null,
           raw:                       pl,
         });
