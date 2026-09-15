@@ -1,0 +1,8 @@
+{
+  "name": "propdesk",
+  "version": "1.0.0",
+  "description": "PropDesk property management app",
+  "dependencies": {
+    "web-push": "^3.6.7"
+  }
+}
