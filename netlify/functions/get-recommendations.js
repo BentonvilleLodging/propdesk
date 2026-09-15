@@ -166,7 +166,13 @@ exports.handler = async function(event) {
       },
       body: JSON.stringify({
         model: CLAUDE_MODEL,
-        max_tokens: 2000,
+        max_tokens: 4000,
+        // Explicitly disabled: this is a structured data->JSON task, not
+        // something that benefits from extended reasoning, and leaving
+        // thinking on by default was silently consuming the entire
+        // token budget before any actual output was written (and costing
+        // more per call than necessary in the process).
+        thinking: { type: 'disabled' },
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: JSON.stringify(dataset) }],
       }),
