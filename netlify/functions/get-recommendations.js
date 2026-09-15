@@ -177,7 +177,11 @@ exports.handler = async function(event) {
 
     const claudeData = JSON.parse(raw);
     const textBlock = (claudeData.content || []).find(b => b.type === 'text');
-    if (!textBlock) throw new Error('No text content in Claude response');
+    if (!textBlock) {
+      // Surface the actual raw response instead of a bare error -- this is
+      // what should have happened the first time instead of guessing.
+      throw new Error('No text content in Claude response. stop_reason=' + claudeData.stop_reason + ' content=' + JSON.stringify(claudeData.content).slice(0, 500));
+    }
 
     let recommendations;
     try {
