@@ -50,9 +50,11 @@ async function sbUpsert(key, value, expiresAt) {
 }
 
 // Generic upsert into any table, matched on a conflict target.
-// Used for writing the daily snapshot rows.
+// Used for writing the daily snapshot rows. Returns {ok, error, count} so
+// callers can surface real failures instead of silently losing them to
+// a server-side console log nobody sees.
 async function sbUpsertRows(table, rows, onConflict) {
-  if (!rows.length) return;
+  if (!rows.length) return { ok: true, count: 0 };
   const res = await fetch(
     `${SUPABASE_URL}/rest/v1/${table}?on_conflict=${encodeURIComponent(onConflict)}`,
     {
@@ -68,8 +70,9 @@ async function sbUpsertRows(table, rows, onConflict) {
   );
   if (!res.ok) {
     const txt = await res.text();
-    console.error(`Upsert into ${table} failed:`, res.status, txt.slice(0, 300));
+    return { ok: false, error: `${table} upsert failed (${res.status}): ${txt.slice(0, 400)}` };
   }
+  return { ok: true, count: rows.length };
 }
 
 // ── Guesty token management (identical pattern to get-guesty-calendar.js) ─
@@ -293,8 +296,9 @@ exports.handler = async function(event) {
         raw: { pictures: photoCount, description: desc.slice(0, 200), amenities: l.amenities || [] },
       };
     });
-    await sbUpsertRows('listing_completeness_snapshots', completenessRows, 'listing_id,snapshot_date');
-    result.completenessRows = completenessRows.length;
+    const completenessResult = await sbUpsertRows('listing_completeness_snapshots', completenessRows, 'listing_id,snapshot_date');
+    if (!completenessResult.ok) result.errors.push(completenessResult.error);
+    result.completenessRows = completenessResult.ok ? completenessResult.count : 0;
 
     // 2. Reviews — fetched via the Booking Engine API (separate credentials,
     // separate token). Open API's `reviews` field on /v1/listings is
@@ -322,7 +326,8 @@ exports.handler = async function(event) {
     } catch(e) {
       result.errors.push('reviews (booking engine): ' + e.message);
     }
-    await sbUpsertRows('guesty_review_snapshots', reviewRows, 'listing_id,snapshot_date');
+    const reviewResult = await sbUpsertRows('guesty_review_snapshots', reviewRows, 'listing_id,snapshot_date');
+    if (!reviewResult.ok) result.errors.push(reviewResult.error);
 
     // 3. Calendar gap analysis (sequential per listing — data calls, not
     //    token calls, so the 5/day limit doesn't apply here)
@@ -346,7 +351,8 @@ exports.handler = async function(event) {
         result.errors.push(`calendar ${lid}: ${e.message}`);
       }
     }
-    await sbUpsertRows('calendar_gap_snapshots', gapRows, 'listing_id,snapshot_date');
+    const gapResult = await sbUpsertRows('calendar_gap_snapshots', gapRows, 'listing_id,snapshot_date');
+    if (!gapResult.ok) result.errors.push(gapResult.error);
 
     // 4. PriceLabs pricing + market data
     const priceRows = [];
@@ -380,11 +386,12 @@ exports.handler = async function(event) {
     } catch(e) {
       result.errors.push('pricelabs: ' + e.message);
     }
-    await sbUpsertRows('pricelabs_daily', priceRows, 'listing_id,snapshot_date');
+    const priceResult = await sbUpsertRows('pricelabs_daily', priceRows, 'listing_id,snapshot_date');
+    if (!priceResult.ok) result.errors.push(priceResult.error);
 
-    result.reviewRows = reviewRows.length;
-    result.gapRows = gapRows.length;
-    result.priceRows = priceRows.length;
+    result.reviewRows = reviewResult.ok ? reviewResult.count : 0;
+    result.gapRows = gapResult.ok ? gapResult.count : 0;
+    result.priceRows = priceResult.ok ? priceResult.count : 0;
 
     // 5. Chain-call the recommendations engine so the daily scheduled run
     // also refreshes the AI recommendations, without making
