@@ -204,7 +204,7 @@ exports.handler = async function(event) {
     // 2. Review averages (single batched call for all listings)
     let reviewRows = [];
     try {
-      const qs = listingIds.map(id => `listingIds[]=${encodeURIComponent(id)}`).join('&');
+      const qs = listingIds.map(id => `listingIds=${encodeURIComponent(id)}`).join('&');
       const revData = await gGet(`/v1/reviews/listings-average?${qs}`, token);
       const revList = revData.results || revData.data || (Array.isArray(revData) ? revData : []);
       reviewRows = revList.map(r => ({
@@ -226,7 +226,7 @@ exports.handler = async function(event) {
       const lid = listing._id || listing.id;
       try {
         const calData = await gGet(
-          `/v1/availability-pricing/api/calendar/listings/${lid}?startDate=${gapFrom}&endDate=${gapTo}&view=full`,
+          `/v1/availability-pricing/api/calendar/listings/${lid}?startDate=${gapFrom}&endDate=${gapTo}`,
           token
         );
         const days = (calData.data && calData.data.days) || calData.days || [];
@@ -251,16 +251,25 @@ exports.handler = async function(event) {
       if (debugMode) {
         result.pricelabsSample = plListings.slice(0, 2); // inspect real field names before trusting the mapping below
       }
+      const pct = v => (v === null || v === undefined) ? null : parseFloat(String(v).replace('%', '').trim());
       for (const pl of plListings) {
         priceRows.push({
-          listing_id:        pl.id || pl.listing_id || pl.pms_id,
-          snapshot_date:     today,
-          min_price:         pl.min ?? pl.min_price ?? null,
-          max_price:         pl.max ?? pl.max_price ?? null,
-          base_price:        pl.base ?? pl.base_price ?? null,
-          recommended_price: pl.recommended_price ?? pl.price ?? null,
-          min_stay:          pl.min_stay ?? null,
-          raw:               pl,
+          listing_id:                pl.id,
+          snapshot_date:             today,
+          min_price:                 pl.min ?? null,
+          max_price:                 pl.max ?? null,
+          base_price:                pl.base ?? null,
+          recommended_price:         pl.recommended_base_price ?? null,
+          min_stay:                  pl.min_stay ?? null,
+          occupancy_pct_7d:          pct(pl.occupancy_next_7),
+          occupancy_pct_30d:         pct(pl.occupancy_next_30),
+          occupancy_pct_60d:         pct(pl.occupancy_next_60),
+          market_occupancy_pct_7d:   pct(pl.market_occupancy_next_7),
+          market_occupancy_pct_30d:  pct(pl.market_occupancy_next_30),
+          market_occupancy_pct_60d:  pct(pl.market_occupancy_next_60),
+          cleaning_fee:              pl.cleaning_fees ?? null,
+          last_refreshed_at:         pl.last_refreshed_at ?? null,
+          raw:                       pl,
         });
       }
     } catch(e) {
