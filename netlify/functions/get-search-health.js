@@ -360,7 +360,13 @@ exports.handler = async function(event) {
           listing_id:    l._id || l.id,
           snapshot_date: today,
           review_count:  l.reviews.numberOfReviews ?? l.reviews.count ?? l.reviews.reviewsCount ?? l.reviews.total ?? null,
-          avg_rating:    l.reviews.averageScore ?? l.reviews.avgRating ?? l.reviews.rating ?? l.reviews.score ?? null,
+          // Confirmed via real data: the Booking Engine API returns
+          // { avg, total } on a 0-10 scale, not the 1-5 stars the rest
+          // of the app (and Airbnb's own Guest Favorite threshold)
+          // assumes. Convert here so avg_rating is always a 5-point
+          // value everywhere downstream.
+          avg_rating: (l.reviews.avg != null) ? (l.reviews.avg / 2)
+            : (l.reviews.averageScore ?? l.reviews.avgRating ?? l.reviews.rating ?? l.reviews.score ?? null),
           raw:           l.reviews,
         }));
     } catch(e) {
