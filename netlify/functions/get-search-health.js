@@ -204,7 +204,7 @@ exports.handler = async function(event) {
     // 2. Review averages (single batched call for all listings)
     let reviewRows = [];
     try {
-      const qs = listingIds.map(id => `listingIds=${encodeURIComponent(id)}`).join('&');
+      const qs = 'listingIds=' + encodeURIComponent(JSON.stringify(listingIds));
       const revData = await gGet(`/v1/reviews/listings-average?${qs}`, token);
       const revList = revData.results || revData.data || (Array.isArray(revData) ? revData : []);
       reviewRows = revList.map(r => ({
