@@ -11,10 +11,10 @@
 [functions."check-due-tasks"]
   schedule = "0 8 * * *"
 
-# Run every day at 11:00 AM UTC (6 AM Central) — after PriceLabs' own
-# overnight pricing runs, so we capture the day's actual recommendations.
-[functions."get-search-health"]
-  schedule = "0 11 * * *"
+# get-search-health: temporarily unscheduled for one manual debug=1
+# check (reviews cross-check). Re-add after confirming:
+# [functions."get-search-health"]
+#   schedule = "0 11 * * *"
 
 # Runs 10 minutes after get-search-health, giving recommendation
 # generation its own separate execution time budget (see comment in
