@@ -199,9 +199,11 @@ exports.handler = async function(event) {
       },
       body: JSON.stringify({
         model: CLAUDE_MODEL,
-        // Down from 8000 -- only analyzing the top 10 listings now, not
-        // the full ~28, so output is proportionally smaller and faster.
-        max_tokens: 4000,
+        // 6000: enough headroom for 10 full brief+actions entries. 4000
+        // proved too tight and caused Claude to hit the limit mid-JSON,
+        // producing truncated, unparseable output -- not a formatting
+        // bug, genuine truncation.
+        max_tokens: 6000,
         thinking: { type: 'disabled' },
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: JSON.stringify(dataset) }],
@@ -218,11 +220,7 @@ exports.handler = async function(event) {
     let parsed;
     try {
       // Robustly strip markdown code fences regardless of surrounding
-      // whitespace/newlines. The earlier version only matched a fence
-      // anchored to the exact end of the string, so any trailing
-      // whitespace after the closing ``` (common in real responses)
-      // silently broke the strip and JSON.parse failed on the fence
-      // characters themselves.
+      // whitespace/newlines.
       let cleaned = textBlock.text.trim();
       if (cleaned.startsWith('```')) {
         cleaned = cleaned.replace(/^```(?:json)?\s*/, '');
@@ -232,15 +230,16 @@ exports.handler = async function(event) {
       try {
         parsed = JSON.parse(cleaned);
       } catch(e) {
-        // Fallback: extract the outermost {...} in case any stray text
-        // survived the fence strip.
         const start = cleaned.indexOf('{');
         const end = cleaned.lastIndexOf('}');
         if (start === -1 || end === -1) throw e;
         parsed = JSON.parse(cleaned.slice(start, end + 1));
       }
     } catch(e) {
-      throw new Error('Failed to parse Claude output as JSON: ' + textBlock.text.slice(0, 300));
+      // Include stop_reason so a future failure is provably distinguishable
+      // between "genuinely malformed" and "hit max_tokens mid-response"
+      // instead of guessing from the error text alone.
+      throw new Error(`Failed to parse Claude output as JSON (stop_reason=${claudeData.stop_reason}, length=${textBlock.text.length}): ` + textBlock.text.slice(0, 300));
     }
     const listings = parsed.listings || [];
 
