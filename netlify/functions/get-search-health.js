@@ -353,6 +353,18 @@ exports.handler = async function(event) {
       const beListings = beData.results || beData.data || (Array.isArray(beData) ? beData : []);
       if (debugMode) {
         result.beReviewsSample = beListings.slice(0, 3).map(l => ({ id: l._id, reviews: l.reviews }));
+        // Cross-check against the more specific reviews list endpoint for
+        // one known listing (Basildon) to see if it returns a different
+        // (more accurate) count than the aggregate on /api/listings.
+        try {
+          const detailData = await gBeGet(
+            `/api/reviews?channelId=airbnb2&listingId=6512bc9cec806c003db40186`,
+            beToken
+          );
+          result.detailedReviewsCheck = { listingId: '6512bc9cec806c003db40186', response: detailData };
+        } catch(e) {
+          result.detailedReviewsCheck = { error: e.message };
+        }
       }
       reviewRows = beListings
         .filter(l => l.reviews)
