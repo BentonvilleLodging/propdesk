@@ -1,0 +1,407 @@
+// netlify/functions/get-search-health-background.js
+//
+// Netlify Background Function (the "-background" filename suffix gives
+// this a 15-minute execution window instead of the standard ~10s limit).
+// This is the same logic as the old get-search-health.js, converted
+// after adding the per-listing reviews fetch pushed total runtime past
+// the synchronous function limit -- second time this exact failure mode
+// has hit (see get-recommendations-background.js for the first).
+//
+// Since Netlify always returns an empty 202 to the caller regardless of
+// what this handler does, completion status is written to the app_cache
+// table (key: 'search_health_last_run') so the frontend can poll for it
+// instead of waiting on a response body that will never arrive.
+
+const SUPABASE_URL = 'https://wljtpxqdmxszplngdwsc.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_PERqMlyz5OndCT7wVSUgGQ_T4Tpy_OQ';
+const CACHE_KEY    = 'guesty_token';
+const RUN_STATUS_KEY = 'search_health_last_run';
+
+let _mem = { token: null, expiresAt: 0 };
+
+// ── Supabase helpers ────────────────────────────────────────────────────
+async function sbGet(key) {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/app_cache?key=eq.${encodeURIComponent(key)}&select=value,expires_at&limit=1`,
+    { headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY } }
+  );
+  if (!res.ok) return null;
+  const rows = await res.json();
+  return rows && rows[0] ? rows[0] : null;
+}
+
+async function sbUpsert(key, value, expiresAt) {
+  await fetch(`${SUPABASE_URL}/rest/v1/app_cache`, {
+    method: 'POST',
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': 'application/json',
+      Prefer: 'resolution=merge-duplicates',
+    },
+    body: JSON.stringify({ key, value, expires_at: new Date(expiresAt).toISOString() }),
+  });
+}
+
+// Writes the run's outcome to app_cache for the frontend to poll, always
+// including a fresh timestamp so a poll comparing "did this change" works
+// even if the counts happen to be identical to the previous run.
+async function writeRunStatus(result) {
+  const payload = JSON.stringify({ ...result, completedAt: new Date().toISOString() });
+  try { await sbUpsert(RUN_STATUS_KEY, payload, Date.now() + 24 * 3600 * 1000); }
+  catch(e) { console.error('Failed to write run status (non-fatal):', e.message); }
+}
+
+async function sbUpsertRows(table, rows, onConflict) {
+  if (!rows.length) return { ok: true, count: 0 };
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/${table}?on_conflict=${encodeURIComponent(onConflict)}`,
+    {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: 'Bearer ' + SUPABASE_KEY,
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates',
+      },
+      body: JSON.stringify(rows),
+    }
+  );
+  if (!res.ok) {
+    const txt = await res.text();
+    return { ok: false, error: `${table} upsert failed (${res.status}): ${txt.slice(0, 400)}` };
+  }
+  return { ok: true, count: rows.length };
+}
+
+// ── Guesty token management ──────────────────────────────────────────────
+async function getToken() {
+  const now = Date.now();
+  const REFRESH_BEFORE_EXPIRY = 30 * 60 * 1000;
+
+  if (_mem.token && now < _mem.expiresAt - REFRESH_BEFORE_EXPIRY) return _mem.token;
+
+  try {
+    const row = await sbGet(CACHE_KEY);
+    if (row && row.value && row.expires_at) {
+      const exp = new Date(row.expires_at).getTime();
+      if (now < exp - REFRESH_BEFORE_EXPIRY) {
+        _mem.token = row.value;
+        _mem.expiresAt = exp;
+        return _mem.token;
+      }
+    }
+  } catch(e) {
+    console.warn('Supabase cache read failed (non-fatal):', e.message);
+  }
+
+  const clientId     = process.env.GUESTY_CLIENT_ID;
+  const clientSecret = process.env.GUESTY_CLIENT_SECRET;
+  if (!clientId || !clientSecret) throw new Error('GUESTY_CLIENT_ID or GUESTY_CLIENT_SECRET env vars not set');
+
+  const res = await fetch('https://open-api.guesty.com/oauth2/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+    body: new URLSearchParams({
+      grant_type: 'client_credentials',
+      scope: 'open-api',
+      client_id: clientId,
+      client_secret: clientSecret,
+    }),
+  });
+  const raw = await res.text();
+  if (res.status === 429) throw new Error('Guesty token rate limit hit (5/day max).');
+  if (!res.ok) throw new Error(`Token request failed (${res.status}): ${raw}`);
+
+  let data;
+  try { data = JSON.parse(raw); } catch(e) { throw new Error('Token not JSON: ' + raw.slice(0, 200)); }
+  if (!data.access_token) throw new Error('No access_token in response');
+
+  const ttlMs  = Math.min((data.expires_in || 86400) - 3600, 82800) * 1000;
+  const expiry = now + ttlMs;
+  _mem.token = data.access_token;
+  _mem.expiresAt = expiry;
+
+  try { await sbUpsert(CACHE_KEY, data.access_token, expiry); }
+  catch(e) { console.warn('Supabase cache write failed (non-fatal):', e.message); }
+
+  return _mem.token;
+}
+
+async function gGet(path, token) {
+  const url = 'https://open-api.guesty.com' + path;
+  const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' } });
+  const raw = await res.text();
+  if (!res.ok) throw new Error(`Guesty API ${res.status} on ${path.slice(0, 80)}: ${raw.slice(0, 300)}`);
+  try { return JSON.parse(raw); }
+  catch(e) { throw new Error('Non-JSON from ' + path.slice(0, 60)); }
+}
+
+const BE_CACHE_KEY = 'guesty_be_token';
+let _memBe = { token: null, expiresAt: 0 };
+
+async function getBeToken() {
+  const now = Date.now();
+  const REFRESH_BEFORE_EXPIRY = 30 * 60 * 1000;
+
+  if (_memBe.token && now < _memBe.expiresAt - REFRESH_BEFORE_EXPIRY) return _memBe.token;
+
+  try {
+    const row = await sbGet(BE_CACHE_KEY);
+    if (row && row.value && row.expires_at) {
+      const exp = new Date(row.expires_at).getTime();
+      if (now < exp - REFRESH_BEFORE_EXPIRY) {
+        _memBe.token = row.value;
+        _memBe.expiresAt = exp;
+        return _memBe.token;
+      }
+    }
+  } catch(e) {
+    console.warn('BE Supabase cache read failed (non-fatal):', e.message);
+  }
+
+  const clientId     = process.env.GUESTY_BE_CLIENT;
+  const clientSecret = process.env.GUESTY_BE_SECRET;
+  if (!clientId || !clientSecret) throw new Error('GUESTY_BE_CLIENT or GUESTY_BE_SECRET env vars not set');
+
+  const res = await fetch('https://booking.guesty.com/oauth2/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+    body: new URLSearchParams({
+      grant_type: 'client_credentials',
+      scope: 'booking_engine:api',
+      client_id: clientId,
+      client_secret: clientSecret,
+    }),
+  });
+  const raw = await res.text();
+  if (!res.ok) throw new Error(`BE token request failed (${res.status}): ${raw}`);
+
+  let data;
+  try { data = JSON.parse(raw); } catch(e) { throw new Error('BE token not JSON: ' + raw.slice(0, 200)); }
+  if (!data.access_token) throw new Error('No access_token in BE token response');
+
+  const ttlMs  = Math.min((data.expires_in || 86400) - 3600, 82800) * 1000;
+  const expiry = now + ttlMs;
+  _memBe.token = data.access_token;
+  _memBe.expiresAt = expiry;
+
+  try { await sbUpsert(BE_CACHE_KEY, data.access_token, expiry); }
+  catch(e) { console.warn('BE Supabase cache write failed (non-fatal):', e.message); }
+
+  return _memBe.token;
+}
+
+async function gBeGet(path, token) {
+  const url = 'https://booking.guesty.com' + path;
+  const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token, Accept: 'application/json; charset=utf-8' } });
+  const raw = await res.text();
+  if (!res.ok) throw new Error(`Guesty BE API ${res.status} on ${path.slice(0, 80)}: ${raw.slice(0, 300)}`);
+  try { return JSON.parse(raw); }
+  catch(e) { throw new Error('Non-JSON from BE ' + path.slice(0, 60)); }
+}
+
+async function plGet(path) {
+  const apiKey = process.env.PRICE_LABS_SECRET;
+  if (!apiKey) throw new Error('PRICE_LABS_SECRET env var not set');
+  const url = 'https://api.pricelabs.co' + path;
+  const res = await fetch(url, { headers: { 'X-API-Key': apiKey, Accept: 'application/json' } });
+  const raw = await res.text();
+  if (!res.ok) throw new Error(`PriceLabs API ${res.status} on ${path.slice(0, 80)}: ${raw.slice(0, 300)}`);
+  try { return JSON.parse(raw); }
+  catch(e) { throw new Error('Non-JSON from PriceLabs ' + path.slice(0, 60)); }
+}
+
+function analyzeGaps(days) {
+  let gapCount = 0;
+  let gapNights = 0;
+  let runLength = 0;
+  let sawBookedBefore = false;
+
+  for (const day of days) {
+    const blk = day.blocks || {};
+    const isBooked = blk.b === true || blk.m === true || blk.o === true;
+
+    if (!isBooked) {
+      runLength++;
+    } else {
+      if (sawBookedBefore && runLength > 0 && runLength <= 3) {
+        gapCount++;
+        gapNights += runLength;
+      }
+      runLength = 0;
+      sawBookedBefore = true;
+    }
+  }
+  return { gapCount, gapNights };
+}
+
+// ── Handler ─────────────────────────────────────────────────────────────
+exports.handler = async function(event) {
+  const today = new Date().toISOString().slice(0, 10);
+  const gapFrom = today;
+  const gapTo   = new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10);
+
+  const result = { date: today, listings: 0, errors: [] };
+
+  try {
+    const token = await getToken();
+
+    const lData = await gGet(
+      `/v1/listings?limit=100&fields=${encodeURIComponent('_id title nickname isListed status reviews pictures publicDescription amenities bookingSettings integrations tags')}`,
+      token
+    );
+    const allListings = lData.results || lData.data || (Array.isArray(lData) ? lData : []);
+    const listings = allListings.filter(l => l.isListed === true || l.status === 'active');
+    result.listings = listings.length;
+
+    const findInstantBook = (l) => {
+      const bs = l.bookingSettings || {};
+      const candidates = [
+        bs.instantBook, bs.instantBookable, bs.instantable,
+        l.instantBook, l.instantable,
+        (l.integrations && l.integrations.airbnb && l.integrations.airbnb.instantBook),
+      ];
+      const found = candidates.find(v => typeof v === 'boolean');
+      return found !== undefined ? found : null;
+    };
+
+    const completenessRows = listings.map(l => {
+      const lid = l._id || l.id;
+      const photoCount = Array.isArray(l.pictures) ? l.pictures.length : 0;
+      const coverPhoto = Array.isArray(l.pictures) && l.pictures[0]
+        ? (l.pictures[0].original || l.pictures[0].thumbnail || l.pictures[0].url || null)
+        : null;
+      const desc = (l.publicDescription && (l.publicDescription.summary || l.publicDescription.description)) || '';
+      const amenityCount = Array.isArray(l.amenities) ? l.amenities.length : 0;
+      return {
+        listing_id: lid,
+        snapshot_date: today,
+        photo_count: photoCount,
+        description_length: desc.length,
+        amenities_count: amenityCount,
+        instant_book: findInstantBook(l),
+        cover_photo_url: coverPhoto,
+        raw: { pictures: photoCount, description: desc.slice(0, 200), amenities: l.amenities || [] },
+      };
+    });
+    const completenessResult = await sbUpsertRows('listing_completeness_snapshots', completenessRows, 'listing_id,snapshot_date');
+    if (!completenessResult.ok) result.errors.push(completenessResult.error);
+    result.completenessRows = completenessResult.ok ? completenessResult.count : 0;
+
+    // Reviews: real per-listing /api/reviews endpoint, parallelized to
+    // keep wall-clock time down.
+    let reviewRows = [];
+    const beToken = await getBeToken();
+    const reviewResults = await Promise.all(listings.map(async (listing) => {
+      const lid = listing._id || listing.id;
+      try {
+        let allRevs = [];
+        let skip = 0;
+        while (true) {
+          const revData = await gBeGet(`/api/reviews?channelId=airbnb2&listingId=${lid}&limit=100&skip=${skip}`, beToken);
+          const batch = revData.data || [];
+          allRevs = allRevs.concat(batch);
+          if (batch.length < 100) break;
+          skip += 100;
+          if (skip >= 500) break;
+        }
+        const ratings = allRevs
+          .map(r => r.rawReview && r.rawReview.overall_rating)
+          .filter(v => typeof v === 'number');
+        const avgRating = ratings.length ? (ratings.reduce((a, b) => a + b, 0) / ratings.length) : null;
+        return {
+          ok: true, lid,
+          row: {
+            listing_id: lid,
+            snapshot_date: today,
+            review_count: allRevs.length,
+            avg_rating: avgRating,
+            raw: { sample: allRevs.slice(0, 2).map(r => ({ id: r.externalReviewId, rating: r.rawReview && r.rawReview.overall_rating })) },
+          },
+        };
+      } catch(e) {
+        return { ok: false, lid, error: e.message };
+      }
+    }));
+    for (const r of reviewResults) {
+      if (r.ok) reviewRows.push(r.row);
+      else result.errors.push(`reviews ${r.lid}: ${r.error}`);
+    }
+    const reviewResult = await sbUpsertRows('guesty_review_snapshots', reviewRows, 'listing_id,snapshot_date');
+    if (!reviewResult.ok) result.errors.push(reviewResult.error);
+
+    // Calendar gaps: sequential (data calls, not token calls)
+    const gapRows = [];
+    for (const listing of listings) {
+      const lid = listing._id || listing.id;
+      try {
+        const calData = await gGet(
+          `/v1/availability-pricing/api/calendar/listings/${lid}?startDate=${gapFrom}&endDate=${gapTo}`,
+          token
+        );
+        const days = (calData.data && calData.data.days) || calData.days || [];
+        const { gapCount, gapNights } = analyzeGaps(days);
+        gapRows.push({ listing_id: lid, snapshot_date: today, gap_count_60d: gapCount, gap_nights_60d: gapNights });
+      } catch(e) {
+        result.errors.push(`calendar ${lid}: ${e.message}`);
+      }
+    }
+    const gapResult = await sbUpsertRows('calendar_gap_snapshots', gapRows, 'listing_id,snapshot_date');
+    if (!gapResult.ok) result.errors.push(gapResult.error);
+
+    // PriceLabs pricing + market data
+    const priceRows = [];
+    try {
+      const plData = await plGet('/v1/listings');
+      const plListings = plData.listings || plData.data || (Array.isArray(plData) ? plData : []);
+      const pct = v => {
+        if (v === null || v === undefined) return null;
+        const n = parseFloat(String(v).replace('%', '').trim());
+        return Number.isFinite(n) ? n : null;
+      };
+      const num = v => {
+        if (v === null || v === undefined) return null;
+        const n = parseFloat(v);
+        return Number.isFinite(n) ? n : null;
+      };
+      for (const pl of plListings) {
+        priceRows.push({
+          listing_id: pl.id,
+          snapshot_date: today,
+          min_price: num(pl.min),
+          max_price: num(pl.max),
+          base_price: num(pl.base),
+          recommended_price: num(pl.recommended_base_price),
+          min_stay: num(pl.min_stay),
+          occupancy_pct_7d: pct(pl.occupancy_next_7),
+          occupancy_pct_30d: pct(pl.occupancy_next_30),
+          occupancy_pct_60d: pct(pl.occupancy_next_60),
+          market_occupancy_pct_7d: pct(pl.market_occupancy_next_7),
+          market_occupancy_pct_30d: pct(pl.market_occupancy_next_30),
+          market_occupancy_pct_60d: pct(pl.market_occupancy_next_60),
+          cleaning_fee: num(pl.cleaning_fees),
+          last_refreshed_at: pl.last_refreshed_at ?? null,
+          raw: pl,
+        });
+      }
+    } catch(e) {
+      result.errors.push('pricelabs: ' + e.message);
+    }
+    const priceResult = await sbUpsertRows('pricelabs_daily', priceRows, 'listing_id,snapshot_date');
+    if (!priceResult.ok) result.errors.push(priceResult.error);
+
+    result.reviewRows = reviewResult.ok ? reviewResult.count : 0;
+    result.gapRows = gapResult.ok ? gapResult.count : 0;
+    result.priceRows = priceResult.ok ? priceResult.count : 0;
+    result.success = true;
+
+    await writeRunStatus(result);
+
+  } catch(err) {
+    console.error('get-search-health-background error:', err.message);
+    result.success = false;
+    result.fatalError = err.message;
+    await writeRunStatus(result);
+  }
+};
