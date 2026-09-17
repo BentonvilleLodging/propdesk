@@ -77,8 +77,10 @@ async function buildDataset() {
     const pf = perf[lid] || null;
     const reviewCount = rv.review_count ?? null;
     const avgRating = rv.avg_rating ?? null;
+    const airbnbChannel = (p.raw && p.raw.channel_listing_details || []).find(ch => ch.channel_name === 'airbnb');
     return {
       listing: (p.raw && p.raw.name) ? p.raw.name.split(' -- ')[0] : lid,
+      airbnb_url: airbnbChannel ? `https://www.airbnb.com/rooms/${airbnbChannel.channel_listing_id}` : null,
       pricing: {
         your_price: p.base_price,
         pricelabs_recommended_price: p.recommended_price,
@@ -138,18 +140,21 @@ GROUND TRUTH ABOUT HOW AIRBNB RANKS LISTINGS (from current published research):
 - Returning-guest count and wishlist-addition count are NOT available from Airbnb in any exportable or API form. Never reference or estimate these.
 - Price is judged RELATIVE TO COMPARABLE LISTINGS, not in absolute terms. A listing pricing "high" is only a problem if it's high relative to its own market_occupancy comparison in the data.
 - Reviews: both AVERAGE RATING and REVIEW COUNT/VOLUME matter, not rating alone. The "Guest Favorite" badge (which replaced Superhost as the dominant quality signal in 2026, and is now roughly 25% of ranking weight) specifically requires at least 5 reviews AND a 4.9+ average rating. This is precomputed for you as guest_favorite_eligible per listing -- use it as a hard, checkable target, not a vague "get better reviews" appeal.
+- IMPORTANT REVIEW DATA CAVEAT: reviews.count comes from Guesty, which only imports reviews earned AFTER a listing was connected to Guesty -- reviews earned on Airbnb before that connection are invisible to this data and permanently missing from Guesty's own system, not something we failed to fetch. If reviews.count is 0 or unexpectedly low, do NOT confidently assert the listing "needs more reviews" as fact -- phrase it as "Guesty shows N reviews, which may undercount pre-integration history; verify the real count on the live Airbnb listing" using airbnb_url. A review count above 0 is real and can be trusted normally.
 - Calendar gaps (short unbooked stretches under ~3 nights) hurt both occupancy and how "fresh"/available a calendar looks to the algorithm.
 - Listing completeness (photo count, description length, amenity count) is a real if secondary ranking input. Instant Book (listing_completeness.instant_book) is a real, documented ranking boost when true; when false, flag it as a free, zero-cost fix.
 - Response rate/time and acceptance rate are real, high-weight ranking factors that we also cannot measure via API. Do not fabricate these.
 
-Your job: identify the 5-8 highest-priority, most concrete actions the team should take TODAY. Prioritize listings with the clearest, most fixable gaps: pacing behind market occupancy with a plausible calendar-fragmentation or pricing cause, low view_to_contact_rate or contact_to_book_rate where airbnb_performance_manual data exists, listings close to (but not yet at) Guest Favorite eligibility, Instant Book disabled, and listings with real gaps in completeness. Do not just say "lower the price" -- diagnose the likely cause and recommend the specific fix.
+You will be given EVERY active listing, not just the worst-performing ones. For EACH listing, produce:
+1. A "brief" -- 2-4 sentences in plain, direct language: what is this listing's current situation, what does the data suggest is going well or poorly and why (your diagnosis of the likely cause, not just a restatement of the numbers), and why the actions you're recommending (if any) follow from that diagnosis. If a listing looks genuinely healthy with no clear issues, say so plainly instead of inventing a problem.
+2. A list of 0-4 concrete "actions" -- each one specific and doable today. A healthy listing can have zero actions. Do not pad the list with generic advice ("keep up the good work") just to have something there.
 
-Respond with ONLY a JSON array (no prose, no markdown fences) of objects shaped exactly like this:
-[{"priority": 1, "listing": "<listing name>", "issue": "<one sentence, specific, data-grounded>", "action": "<one sentence, concrete, doable today>"}]
+Respond with ONLY a JSON object (no prose, no markdown fences) shaped exactly like this:
+{"listings": [
+  {"listing": "<listing name>", "brief": "<2-4 sentence analysis>", "actions": [{"priority": 1, "issue": "<one sentence, specific, data-grounded>", "action": "<one sentence, concrete, doable today>"}]}
+]}
 
-If a recommendation requires data we don't have, phrase the action as "check Airbnb Insights for X" rather than presenting an invented number as fact.
-
-If the data doesn't clearly support a strong recommendation for a listing, leave it out rather than inventing generic advice.`;
+Include an entry for every listing in the input, in the same order. If a recommendation requires data we don't have, phrase the action as "check Airbnb Insights for X" rather than presenting an invented number as fact.`;
 
 exports.handler = async function(event) {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS, body: '' };
@@ -169,21 +174,13 @@ exports.handler = async function(event) {
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
         'Content-Type': 'application/json',
-        // Only needed if CLAUDE_SECRET is an org-level key not scoped to a
-        // workspace. Preferred fix is to use a workspace-scoped key instead
-        // (Anthropic Console -> API Keys -> create under a specific
-        // workspace), but this covers it either way if ANTHROPIC_WORKSPACE_ID
-        // is set.
         ...(process.env.ANTHROPIC_WORKSPACE_ID ? { 'anthropic-workspace-id': process.env.ANTHROPIC_WORKSPACE_ID } : {}),
       },
       body: JSON.stringify({
         model: CLAUDE_MODEL,
-        max_tokens: 4000,
-        // Explicitly disabled: this is a structured data->JSON task, not
-        // something that benefits from extended reasoning, and leaving
-        // thinking on by default was silently consuming the entire
-        // token budget before any actual output was written (and costing
-        // more per call than necessary in the process).
+        // Raised from 4000 -- now analyzing every listing (~28), not
+        // just the worst 5-8, so output is proportionally larger.
+        max_tokens: 8000,
         thinking: { type: 'disabled' },
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: JSON.stringify(dataset) }],
@@ -196,27 +193,31 @@ exports.handler = async function(event) {
     const claudeData = JSON.parse(raw);
     const textBlock = (claudeData.content || []).find(b => b.type === 'text');
     if (!textBlock) {
-      // Surface the actual raw response instead of a bare error -- this is
-      // what should have happened the first time instead of guessing.
       throw new Error('No text content in Claude response. stop_reason=' + claudeData.stop_reason + ' content=' + JSON.stringify(claudeData.content).slice(0, 500));
     }
 
-    let recommendations;
+    let parsed;
     try {
-      // Strip accidental markdown fences just in case
       const cleaned = textBlock.text.replace(/^```json\s*|```$/g, '').trim();
-      recommendations = JSON.parse(cleaned);
+      parsed = JSON.parse(cleaned);
     } catch(e) {
       throw new Error('Failed to parse Claude output as JSON: ' + textBlock.text.slice(0, 300));
     }
+    const listings = parsed.listings || [];
+
+    // Attach each listing's real Airbnb URL (computed, not from Claude)
+    // so the frontend can link to it without re-deriving the mapping.
+    const urlByName = {};
+    dataset.forEach(d => { urlByName[d.listing] = d.airbnb_url; });
+    listings.forEach(l => { l.airbnb_url = urlByName[l.listing] || null; });
 
     await sbInsert('daily_recommendations', [{
-      recommendations,
+      recommendations: listings,
       model: CLAUDE_MODEL,
       raw_response: textBlock.text,
     }]);
 
-    return { statusCode: 200, headers: CORS, body: JSON.stringify({ recommendations }) };
+    return { statusCode: 200, headers: CORS, body: JSON.stringify({ recommendations: listings }) };
 
   } catch(err) {
     console.error('get-recommendations error:', err.message);
