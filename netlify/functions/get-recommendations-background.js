@@ -217,8 +217,28 @@ exports.handler = async function(event) {
 
     let parsed;
     try {
-      const cleaned = textBlock.text.replace(/^```json\s*|```$/g, '').trim();
-      parsed = JSON.parse(cleaned);
+      // Robustly strip markdown code fences regardless of surrounding
+      // whitespace/newlines. The earlier version only matched a fence
+      // anchored to the exact end of the string, so any trailing
+      // whitespace after the closing ``` (common in real responses)
+      // silently broke the strip and JSON.parse failed on the fence
+      // characters themselves.
+      let cleaned = textBlock.text.trim();
+      if (cleaned.startsWith('```')) {
+        cleaned = cleaned.replace(/^```(?:json)?\s*/, '');
+        cleaned = cleaned.replace(/```\s*$/, '');
+        cleaned = cleaned.trim();
+      }
+      try {
+        parsed = JSON.parse(cleaned);
+      } catch(e) {
+        // Fallback: extract the outermost {...} in case any stray text
+        // survived the fence strip.
+        const start = cleaned.indexOf('{');
+        const end = cleaned.lastIndexOf('}');
+        if (start === -1 || end === -1) throw e;
+        parsed = JSON.parse(cleaned.slice(start, end + 1));
+      }
     } catch(e) {
       throw new Error('Failed to parse Claude output as JSON: ' + textBlock.text.slice(0, 300));
     }
