@@ -2,11 +2,11 @@
 //
 // Netlify Background Function (the "-background" filename suffix is what
 // gives this a 15-minute execution window instead of the standard ~10s
-// limit that a normal function gets). This exists because analyzing all
-// ~28 listings with a full narrative Brief per listing takes long enough
-// to generate that it was killing the regular synchronous function
-// mid-response (see the removed chain-call in get-search-health.js for
-// the first time this exact failure mode showed up).
+// limit that a normal function gets).
+//
+// Only analyzes the top N most urgent listings (by severityScore), not
+// the full ~28 -- keeps this fast, cheap, and focused on what actually
+// needs attention.
 //
 // IMPORTANT TRADE-OFF: Netlify always responds to the HTTP caller with an
 // empty 202 Accepted immediately, regardless of what this handler
@@ -124,6 +124,30 @@ async function buildDataset() {
   });
 }
 
+// Cheap, deterministic severity score computed from data we already
+// have -- used to pick which listings are actually worth spending a
+// Claude call on, instead of analyzing all ~28 every time. Higher score
+// = more urgent. This runs before Claude ever sees the data.
+function severityScore(d) {
+  let score = 0;
+  const occ30 = d.occupancy_pace_vs_market_pct.d30;
+  if (occ30.yours != null && occ30.market != null) {
+    const gap = occ30.yours - occ30.market;
+    if (gap < 0) score += Math.abs(gap) * 2;
+  }
+  if (d.calendar_gaps_next_60d.count) score += d.calendar_gaps_next_60d.count * 5;
+  if (d.reviews.count != null && d.reviews.count < 5) score += 10;
+  else if (d.reviews.guest_favorite_eligible === false) score += 5;
+  if (d.listing_completeness.photo_count != null && d.listing_completeness.photo_count < 15) score += 5;
+  if (d.listing_completeness.instant_book === false) score += 8;
+  if (d.listing_completeness.description_length != null && d.listing_completeness.description_length < 400) score += 3;
+  if (d.airbnb_performance_manual) {
+    if (d.airbnb_performance_manual.view_to_contact_rate_pct != null && d.airbnb_performance_manual.view_to_contact_rate_pct < 5) score += 8;
+    if (d.airbnb_performance_manual.contact_to_book_rate_pct != null && d.airbnb_performance_manual.contact_to_book_rate_pct < 20) score += 8;
+  }
+  return score;
+}
+
 const SYSTEM_PROMPT = `You are a short-term rental revenue and search-visibility analyst for Bentonville Lodging Co, which manages ~30 vacation rental listings on Airbnb and VRBO in Northwest Arkansas. Your job is to help them win Airbnb's actual search algorithm, not generic hosting advice.
 
 GROUND TRUTH ABOUT HOW AIRBNB RANKS LISTINGS (from current published research):
@@ -136,24 +160,34 @@ GROUND TRUTH ABOUT HOW AIRBNB RANKS LISTINGS (from current published research):
 - Listing completeness (photo count, description length, amenity count) is a real if secondary ranking input. Instant Book (listing_completeness.instant_book) is a real, documented ranking boost when true; when false, flag it as a free, zero-cost fix.
 - Response rate/time and acceptance rate are real, high-weight ranking factors that we also cannot measure via API. Do not fabricate these.
 
-You will be given EVERY active listing, not just the worst-performing ones. For EACH listing, produce:
-1. A "brief" -- 2-4 sentences in plain, direct language: what is this listing's current situation, what does the data suggest is going well or poorly and why (your diagnosis of the likely cause, not just a restatement of the numbers), and why the actions you're recommending (if any) follow from that diagnosis. If a listing looks genuinely healthy with no clear issues, say so plainly instead of inventing a problem.
-2. A list of 0-4 concrete "actions" -- each one specific and doable today. A healthy listing can have zero actions. Do not pad the list with generic advice ("keep up the good work") just to have something there.
+You will be given the highest-priority listings only -- the ones with the most fixable issues, already ranked worst-first by a severity score computed from the data. This is NOT the full portfolio; do not assume a listing's absence means it's fine, only that it wasn't among the highest-priority ones this run. For EACH listing given, produce:
+1. A "brief" -- 2-4 sentences in plain, direct language: what is this listing's current situation, what does the data suggest is going well or poorly and why (your diagnosis of the likely cause, not just a restatement of the numbers), and why the actions you're recommending follow from that diagnosis.
+2. A list of 1-4 concrete "actions" -- each one specific and doable today.
 
 Respond with ONLY a JSON object (no prose, no markdown fences) shaped exactly like this:
 {"listings": [
   {"listing": "<listing name>", "brief": "<2-4 sentence analysis>", "actions": [{"priority": 1, "issue": "<one sentence, specific, data-grounded>", "action": "<one sentence, concrete, doable today>"}]}
 ]}
 
-Include an entry for every listing in the input, in the same order. If a recommendation requires data we don't have, phrase the action as "check Airbnb Insights for X" rather than presenting an invented number as fact.`;
+Include an entry for every listing in the input, in the same order (worst first). If a recommendation requires data we don't have, phrase the action as "check Airbnb Insights for X" rather than presenting an invented number as fact.`;
 
 exports.handler = async function(event) {
   try {
     const apiKey = process.env.CLAUDE_SECRET;
     if (!apiKey) throw new Error('CLAUDE_SECRET env var not set');
 
-    const dataset = await buildDataset();
-    if (!dataset.length) return;
+    const fullDataset = await buildDataset();
+    if (!fullDataset.length) return;
+
+    // Only analyze the top N most urgent listings, ranked by severityScore.
+    // Keeps this fast, cheap, and focused on what actually needs attention
+    // instead of generating a Brief for every listing every time.
+    const TOP_N = 10;
+    const dataset = fullDataset
+      .map(d => ({ d, score: severityScore(d) }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, TOP_N)
+      .map(x => x.d);
 
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -165,7 +199,9 @@ exports.handler = async function(event) {
       },
       body: JSON.stringify({
         model: CLAUDE_MODEL,
-        max_tokens: 8000,
+        // Down from 8000 -- only analyzing the top 10 listings now, not
+        // the full ~28, so output is proportionally smaller and faster.
+        max_tokens: 4000,
         thinking: { type: 'disabled' },
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: JSON.stringify(dataset) }],
