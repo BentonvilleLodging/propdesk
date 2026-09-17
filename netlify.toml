@@ -12,14 +12,13 @@
   schedule = "0 8 * * *"
 
 # Run every day at 11:00 AM UTC (6 AM Central) — after PriceLabs' own
-# overnight pricing runs. Reviews now pulled via the real per-listing
-# /api/reviews endpoint (fixed 2026-09-17) instead of the broken
-# aggregate field.
-[functions."get-search-health"]
+# overnight pricing runs. Converted to a Background Function
+# (get-search-health-background.js) since adding the per-listing reviews
+# fetch pushed total runtime past the synchronous function limit.
+[functions."get-search-health-background"]
   schedule = "0 11 * * *"
 
-# Runs 10 minutes after get-search-health, giving recommendation
-# generation its own separate execution time budget (see comment in
-# get-search-health.js for why these were split apart).
+# Runs 10 minutes after get-search-health-background, giving
+# recommendation generation its own separate time budget.
 [functions."daily-recommendations-cron"]
   schedule = "10 11 * * *"
