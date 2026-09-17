@@ -340,49 +340,64 @@ exports.handler = async function(event) {
     if (!completenessResult.ok) result.errors.push(completenessResult.error);
     result.completenessRows = completenessResult.ok ? completenessResult.count : 0;
 
-    // 2. Reviews — fetched via the Booking Engine API (separate credentials,
-    // separate token). Open API's `reviews` field on /v1/listings is
-    // always empty in this account, confirmed via debug run.
+    // 2. Reviews — fetched via the per-listing /api/reviews endpoint on
+    // the Booking Engine API, NOT the aggregate `reviews` field on
+    // /api/listings. Confirmed via direct comparison: the aggregate field
+    // reports {avg:null, total:0} even for listings with a real, full
+    // review history -- it's simply unreliable. /api/reviews?listingId=X
+    // returns the actual review documents with real overall_rating values
+    // (already on a 1-5 scale, no conversion needed). One call per
+    // listing -- these are data calls against the Booking Engine API, not
+    // token calls, so the same generous rate limits as the Open API
+    // calendar loop below should apply.
     let reviewRows = [];
-    try {
-      const beToken = await getBeToken();
-      const beData = await gBeGet(
-        `/api/listings?fields=${encodeURIComponent('_id title reviews')}&limit=100`,
-        beToken
-      );
-      const beListings = beData.results || beData.data || (Array.isArray(beData) ? beData : []);
-      if (debugMode) {
-        result.beReviewsSample = beListings.slice(0, 3).map(l => ({ id: l._id, reviews: l.reviews }));
-        // Cross-check against the more specific reviews list endpoint for
-        // one known listing (Basildon) to see if it returns a different
-        // (more accurate) count than the aggregate on /api/listings.
-        try {
-          const detailData = await gBeGet(
-            `/api/reviews?channelId=airbnb2&listingId=6512bc9cec806c003db40186`,
-            beToken
-          );
-          result.detailedReviewsCheck = { listingId: '6512bc9cec806c003db40186', response: detailData };
-        } catch(e) {
-          result.detailedReviewsCheck = { error: e.message };
+    const beToken = await getBeToken();
+    // Parallelized (unlike the calendar loop below) specifically to keep
+    // total wall-clock time down -- this adds 28 more external calls on
+    // top of the existing 28 sequential calendar calls, and doubling
+    // runtime here risks tripping the same function-timeout failure mode
+    // documented at the top of this file.
+    const reviewResults = await Promise.all(listings.map(async (listing) => {
+      const lid = listing._id || listing.id;
+      try {
+        let allRevs = [];
+        let skip = 0;
+        while (true) {
+          const revData = await gBeGet(`/api/reviews?channelId=airbnb2&listingId=${lid}&limit=100&skip=${skip}`, beToken);
+          const batch = revData.data || [];
+          allRevs = allRevs.concat(batch);
+          if (batch.length < 100) break;
+          skip += 100;
+          if (skip >= 500) break; // sanity cap
         }
+        const ratings = allRevs
+          .map(r => r.rawReview && r.rawReview.overall_rating)
+          .filter(v => typeof v === 'number');
+        const avgRating = ratings.length ? (ratings.reduce((a, b) => a + b, 0) / ratings.length) : null;
+        return {
+          ok: true,
+          lid,
+          row: {
+            listing_id: lid,
+            snapshot_date: today,
+            review_count: allRevs.length,
+            avg_rating: avgRating,
+            raw: { sample: allRevs.slice(0, 2).map(r => ({ id: r.externalReviewId, rating: r.rawReview && r.rawReview.overall_rating })) },
+          },
+        };
+      } catch(e) {
+        return { ok: false, lid, error: e.message };
       }
-      reviewRows = beListings
-        .filter(l => l.reviews)
-        .map(l => ({
-          listing_id:    l._id || l.id,
-          snapshot_date: today,
-          review_count:  l.reviews.numberOfReviews ?? l.reviews.count ?? l.reviews.reviewsCount ?? l.reviews.total ?? null,
-          // Confirmed via real data: the Booking Engine API returns
-          // { avg, total } on a 0-10 scale, not the 1-5 stars the rest
-          // of the app (and Airbnb's own Guest Favorite threshold)
-          // assumes. Convert here so avg_rating is always a 5-point
-          // value everywhere downstream.
-          avg_rating: (l.reviews.avg != null) ? (l.reviews.avg / 2)
-            : (l.reviews.averageScore ?? l.reviews.avgRating ?? l.reviews.rating ?? l.reviews.score ?? null),
-          raw:           l.reviews,
-        }));
-    } catch(e) {
-      result.errors.push('reviews (booking engine): ' + e.message);
+    }));
+    for (const r of reviewResults) {
+      if (r.ok) {
+        reviewRows.push(r.row);
+        if (debugMode && r.lid === '6512bc9cec806c003db40186') {
+          result.basildonCheck = { count: r.row.review_count, avgRating: r.row.avg_rating };
+        }
+      } else {
+        result.errors.push(`reviews ${r.lid}: ${r.error}`);
+      }
     }
     const reviewResult = await sbUpsertRows('guesty_review_snapshots', reviewRows, 'listing_id,snapshot_date');
     if (!reviewResult.ok) result.errors.push(reviewResult.error);
