@@ -28,7 +28,7 @@
 const crypto = require('crypto');
 
 const SUPABASE_URL = 'https://wljtpxqdmxszplngdwsc.supabase.co';
-const { serverKey } = require('../lib/auth');
+const { serverKey, requireTeam } = require('../lib/auth');
 const SUPABASE_KEY = serverKey();
 const CACHE_KEY = 'guesty_token';
 const RUN_STATUS_KEY = 'recap_snapshot_last_run';
@@ -316,7 +316,8 @@ async function pullWebTraffic() {
 }
 
 // ── Handler ─────────────────────────────────────────────────────────────
-exports.handler = async function () {
+exports.handler = async function (event) {
+  if (!(await requireTeam(event || {}, ['staff']))) { console.warn('recap snapshot: unauthorized call ignored'); return; }
   const result = { date: new Date().toISOString().slice(0, 10), errors: [] };
   if (!process.env.RECAP_INGEST_SECRET) {
     result.errors.push('RECAP_INGEST_SECRET env var not set');
