@@ -808,6 +808,50 @@
   .or-table { width:100%; border-collapse:collapse; font-size:12.5px; } .or-table th, .or-table td { border-bottom:1px solid var(--border); padding:6px; text-align:left; vertical-align:top; }
   @media (max-width: 600px) { .li-thumb { width:42px; height:42px; } .li-health { width:38px; height:38px; font-size:13px; } .li-event { flex-direction:column; gap:2px; } }
 
+  /* ===== Property Workspace ===== */
+  .ws-head { margin-bottom:14px; }
+  .ws-title-row { display:flex; align-items:center; gap:12px; margin:12px 0 8px; }
+  .ws-name { font-family:'Playfair Display',Georgia,serif; font-size:1.35rem; font-weight:700; margin-bottom:6px; }
+  .ws-actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:8px; }
+  .ws-actions a.expand-btn { text-decoration:none; display:inline-flex; align-items:center; }
+  .ws-score { font-family:'DM Mono',monospace; font-size:28px; color:var(--accent); white-space:nowrap; }
+  .ws-score span { font-size:12px; color:var(--text-muted); }
+  .ws-sc { display:flex; flex-direction:column; }
+  .ws-sc-row { display:grid; grid-template-columns:28px 220px 1fr; gap:10px; padding:9px 0; border-bottom:1px solid var(--border); font-size:13px; align-items:start; }
+  .ws-sc-row:last-child { border-bottom:none; }
+  .ws-sc-d { font-weight:600; }
+  .ws-sc-f .li-muted { font-size:11.5px; margin-top:2px; }
+  .ws-form-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:10px; }
+  .ws-form-grid label, .ws-field label { display:block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); margin-bottom:4px; }
+  .ws-form-grid input, .ws-field input, .ws-field textarea { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text); padding:9px 11px; font:inherit; font-size:13.5px; box-sizing:border-box; }
+  .ws-field textarea { resize:vertical; line-height:1.5; }
+  .ws-field { margin-top:16px; }
+  .ws-field-head { display:flex; justify-content:space-between; align-items:baseline; }
+  .ws-hint { font-size:11.5px; margin:0 0 5px; }
+  .ws-sugg { margin-top:6px; border:1px dashed var(--accent); border-radius:8px; padding:8px 10px; background:var(--accent-dim); }
+  .ws-sugg-head { display:flex; justify-content:space-between; align-items:center; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--accent); margin-bottom:4px; }
+  .ws-sugg-text { white-space:pre-wrap; font-size:13px; line-height:1.5; }
+  .ws-alt { cursor:pointer; font:inherit; font-size:11px; }
+  .ws-draft-banner { border:1px solid var(--accent); background:var(--accent-dim); border-radius:8px; padding:10px 12px; font-size:13px; margin:8px 0; }
+  .ws-amen-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:6px; }
+  .ws-amen { font-size:13px; padding:6px 8px; border:1px solid var(--border); border-radius:6px; display:flex; align-items:center; gap:6px; text-transform:none; letter-spacing:normal; }
+  .ws-amen input { width:16px !important; height:16px; margin:0; }
+  .ws-amen-miss { color:var(--text); cursor:pointer; border-style:dashed; }
+  .ws-amen-has { color:var(--text-muted); }
+  .ws-price-grid input { font-family:'DM Mono',monospace; font-size:16px; }
+  .ws-rev { padding:10px 0; border-bottom:1px solid var(--border); font-size:13px; line-height:1.5; }
+  .ws-rev-head { margin-bottom:3px; }
+  .ws-rev-private { margin-top:5px; padding:6px 8px; background:var(--surface2); border-radius:6px; font-size:12.5px; }
+  .ws-rev-private span { color:var(--yellow); font-weight:600; font-size:11px; }
+  .ws-rev-reply { font-size:12px; margin-top:4px; }
+  .ws-edit { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--border); font-size:13px; }
+  .ws-edit-reverted strong, .ws-edit-failed strong { text-decoration:line-through; opacity:.6; }
+  .ws-rank-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(62px,1fr)); gap:5px; }
+  .ws-rank-cell { border:1px solid var(--border); border-radius:6px; padding:5px; text-align:center; font-size:10.5px; color:var(--text-muted); }
+  .ws-rank-cell strong { display:block; font-family:'DM Mono',monospace; font-size:13px; color:var(--text); }
+  .ws-r-good { border-color:var(--green); } .ws-r-mid { border-color:var(--yellow); } .ws-r-bad { border-color:var(--red); }
+  @media (max-width: 700px) { .ws-sc-row { grid-template-columns:24px 1fr; } .ws-sc-f { grid-column:2; } }
+
   .time-log-toggle { cursor: pointer; user-select: none; }
   .admin-section { margin-bottom: 32px; }
 
@@ -3627,6 +3671,47 @@
       </ul>
     </div>
   </div>
+</main>
+</div>
+
+<!-- PROPERTY WORKSPACE (Listing Intelligence → one listing) -->
+<div class="page" id="page-listing-ws">
+<main>
+  <div class="ws-head">
+    <button class="expand-btn" onclick="showPage('search-health')">&#8592; Listing Intelligence</button>
+    <div class="ws-title-row">
+      <img id="ws-thumb" class="li-thumb" alt="" style="display:none;">
+      <div style="flex:1;min-width:0;">
+        <div class="ws-name" id="ws-name">—</div>
+        <div class="li-chips" id="ws-chips"></div>
+      </div>
+      <div class="li-health" id="ws-health">—</div>
+    </div>
+    <div class="ws-actions">
+      <a class="expand-btn" id="ws-airbnb-link" target="_blank" rel="noopener" style="display:none;">View on Airbnb ↗</a>
+      <button class="expand-btn" onclick="wsRankNow()">&#128269; Check Airbnb rank now</button>
+      <button class="expand-btn" onclick="liRunAnalysis(window._wsLid).then(function(){ wsOpen(window._wsLid, window._wsTab); })">&#129504; Re-analyze</button>
+      <button class="btn btn-primary" style="font-size:12px;" onclick="liGenerateOwnerReport(window._wsLid)">&#128196; Owner report</button>
+      <span class="li-muted" id="li-or-status-ws"></span>
+    </div>
+    <div id="ws-status" class="li-status"></div>
+  </div>
+
+  <div class="sh-tabs">
+    <button class="sh-tab-btn ws-tab sh-tab-active" data-wstab="overview" onclick="wsTab('overview')">Overview</button>
+    <button class="sh-tab-btn ws-tab" data-wstab="content" onclick="wsTab('content')">&#9998; Listing Content</button>
+    <button class="sh-tab-btn ws-tab" data-wstab="amenities" onclick="wsTab('amenities')">Amenities</button>
+    <button class="sh-tab-btn ws-tab" data-wstab="pricing" onclick="wsTab('pricing')">Pricing</button>
+    <button class="sh-tab-btn ws-tab" data-wstab="reviews" onclick="wsTab('reviews')">Reviews</button>
+    <button class="sh-tab-btn ws-tab" data-wstab="history" onclick="wsTab('history')">History &amp; Rank</button>
+  </div>
+
+  <div class="ws-pane" id="ws-pane-overview"></div>
+  <div class="ws-pane" id="ws-pane-content" style="display:none;"></div>
+  <div class="ws-pane" id="ws-pane-amenities" style="display:none;"></div>
+  <div class="ws-pane" id="ws-pane-pricing" style="display:none;"></div>
+  <div class="ws-pane" id="ws-pane-reviews" style="display:none;"></div>
+  <div class="ws-pane" id="ws-pane-history" style="display:none;"></div>
 </main>
 </div>
 
@@ -8183,15 +8268,7 @@ function liCardBody(l) {
       }).join('') + '</div>';
     }
     // PriceLabs settings
-    var pls = a.pricelabs_settings || [];
-    if (pls.length) {
-      out += '<div class="li-sec"><div class="li-sec-title">PriceLabs settings to change</div><div class="inv-table-wrap"><table class="inv-table li-pl-table"><thead><tr><th></th><th>Setting</th><th>Current</th><th>Recommended</th><th>Why</th></tr></thead><tbody>' +
-        pls.map(function(s) {
-          var key = 'pl-' + liSlug(s.setting + '-' + s.recommended);
-          var done = !!window._shCompletions[l.lid + '::' + key];
-          return '<tr class="' + (done ? 'li-done' : '') + '"><td><input type="checkbox" title="Mark as applied" ' + (done ? 'checked' : '') + ' onchange="liToggleDone(\'' + l.lid + '\',\'' + key + '\',this)" data-text="' + esc(s.setting + ': ' + s.recommended) + '"></td><td><strong>' + esc(s.setting) + '</strong></td><td>' + esc(s.current || '—') + '</td><td class="li-rec">' + esc(s.recommended || '') + '</td><td class="li-why">' + esc(s.why || '') + '</td></tr>';
-        }).join('') + '</tbody></table></div></div>';
-    }
+    if ((a.pricelabs_settings || []).length) out += '<div class="li-sec"><div class="li-sec-title">PriceLabs settings to change</div>' + liPlSettingsTable(l, a) + '</div>';
     // Review themes
     var th = a.review_themes || [];
     if (th.length) {
@@ -8212,11 +8289,22 @@ function liCardBody(l) {
     if ((a.data_gaps || []).length) out += '<div class="li-gaps li-muted"><strong>Data gaps:</strong> ' + a.data_gaps.map(esc).join(' · ') + '</div>';
   }
   out += '<div class="li-card-foot">' +
+    '<button class="btn btn-primary" style="font-size:12px;" onclick="wsOpen(\'' + l.lid + '\')">Open property workspace →</button>' +
     (l.airbnbId ? '<a href="https://www.airbnb.com/rooms/' + esc(l.airbnbId) + '" target="_blank" rel="noopener">View on Airbnb ↗</a>' : '') +
     '<button class="expand-btn" onclick="liRunAnalysis(\'' + l.lid + '\')">&#129504; Re-analyze this listing</button>' +
     (l.intelErrors && l.intelErrors.length ? '<span class="li-muted" title="' + esc(l.intelErrors.join(' | ')) + '">⚠ ' + l.intelErrors.length + ' data warnings</span>' : '') +
   '</div>';
   return out;
+}
+
+function liPlSettingsTable(l, a) {
+  var pls = (a && a.pricelabs_settings) || [];
+  return '<div class="inv-table-wrap"><table class="inv-table li-pl-table"><thead><tr><th></th><th>Setting</th><th>Current</th><th>Recommended</th><th>Why</th></tr></thead><tbody>' +
+    pls.map(function(s) {
+      var key = 'pl-' + liSlug(s.setting + '-' + s.recommended);
+      var done = !!window._shCompletions[l.lid + '::' + key];
+      return '<tr class="' + (done ? 'li-done' : '') + '"><td><input type="checkbox" title="Mark as applied" ' + (done ? 'checked' : '') + ' onchange="liToggleDone(\'' + l.lid + '\',\'' + key + '\',this)" data-text="' + esc(s.setting + ': ' + s.recommended) + '"></td><td><strong>' + esc(s.setting) + '</strong></td><td>' + esc(s.current || '—') + '</td><td class="li-rec">' + esc(s.recommended || '') + '</td><td class="li-why">' + esc(s.why || '') + '</td></tr>';
+    }).join('') + '</tbody></table></div>';
 }
 
 async function liToggleDone(lid, key, cb) {
@@ -8244,7 +8332,7 @@ function liRenderPortfolio() {
   if (!L.length) { tb.innerHTML = '<tr><td colspan="10" class="inv-empty">No data yet.</td></tr>'; return; }
   tb.innerHTML = L.map(function(l) {
     var h = l.analysis && l.analysis.health_score;
-    return '<tr class="inv-row-click" onclick="shSwitchTab(\'listings\');window._liOpen[\'' + l.lid + '\']=true;liRenderListings();setTimeout(function(){var e=document.getElementById(\'li-card-' + l.lid + '\');if(e)e.scrollIntoView({behavior:\'smooth\'});},50);">' +
+    return '<tr class="inv-row-click" onclick="wsOpen(\'' + l.lid + '\')">' +
       '<td><strong>' + esc(l.name) + '</strong></td>' +
       '<td><span class="li-health li-health-sm ' + liHealthClass(h) + '">' + (h != null ? h : '—') + '</span></td>' +
       '<td>' + liOccChip(l.occ30, l.mkt30) + '</td>' +
@@ -8368,8 +8456,8 @@ async function liRunAnalysis(lid) {
 
 // ── Owner reports ───────────────────────────────────────────────────────
 async function liGenerateOwnerReport(lid) {
-  var st = document.getElementById('li-or-status-' + lid);
-  if (st) st.textContent = 'Writing report… (about 1 minute)';
+  var st = (window._wsLid === lid && document.getElementById('page-listing-ws').classList.contains('active')) ? document.getElementById('li-or-status-ws') : document.getElementById('li-or-status-' + lid);
+  if (st) { st.style.color = ''; st.textContent = 'Writing report… (about 1 minute)'; }
   var started = new Date(Date.now() - 5000).toISOString();
   try {
     var t = await authFetch('/.netlify/functions/owner-report-background?listing_id=' + encodeURIComponent(lid));
@@ -8562,6 +8650,418 @@ async function shImportAirbnbCsv() {
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Upload Airbnb CSV'; }
   }
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// PROPERTY WORKSPACE — view + edit one listing to drive search & conversion
+// ════════════════════════════════════════════════════════════════════════
+window._wsLid = null; window._wsTab = 'overview'; window._wsLive = null; window._wsDraft = null;
+
+var WS_SECTIONS = [
+  ['title', 'Title', 50, 'Shown in search results. Lead with the #1 differentiator for your target guest.'],
+  ['summary', 'Summary (listing description)', 500, 'First ~2 lines show before "Show more" — make them the hook.'],
+  ['space', 'The space', 0, 'Rooms, beds, standout features.'],
+  ['access', 'Guest access', 0, ''],
+  ['interactionWithGuests', 'Interaction with guests', 0, ''],
+  ['neighborhood', 'The neighborhood', 0, 'What’s nearby — only verifiable facts.'],
+  ['transit', 'Getting around', 0, ''],
+  ['notes', 'Other things to note', 0, ''],
+  ['houseRules', 'House rules', 0, '']
+];
+
+// High-value Airbnb search-filter amenities (name sent to Guesty, matcher for current list)
+var WS_FILTER_AMENITIES = [
+  ['Hot tub', /hot ?tub|jacuzzi/i], ['Pool', /\bpool\b(?!\s*table)/i], ['EV charger', /ev charg|electric vehicle/i],
+  ['Dedicated workspace', /workspace|laptop friendly|\bdesk\b/i], ['Free parking on premises', /free parking|parking on premises/i],
+  ['Washer', /\bwasher\b|washing machine/i], ['Dryer', /^(?!.*hair).*\bdryer\b/i], ['Self check-in', /self check|keypad|smart lock|lockbox/i],
+  ['Pets allowed', /pets? allowed|pet friendly/i], ['Air conditioning', /air condition/i], ['Wifi', /wi-?fi|wireless internet/i],
+  ['Kitchen', /kitchen/i], ['Fire pit', /fire ?pit/i], ['BBQ grill', /bbq|barbecue|grill/i], ['Patio or balcony', /patio|balcony/i],
+  ['Outdoor dining area', /outdoor dining/i], ['Indoor fireplace', /fireplace/i], ['Crib', /\bcrib\b|pack ?n ?play/i],
+  ['High chair', /high chair/i], ['Gym', /\bgym\b|exercise equipment/i], ['Lake access', /lake access|lakefront/i],
+  ['Waterfront', /waterfront/i], ['TV', /\btv\b|television/i], ['Game room', /game room|pool table|ping pong|arcade/i],
+  ['Bikes', /^(bikes?|bicycles?)$|bikes provided|bicycles provided/i], ['Smoke alarm', /smoke (alarm|detector)/i], ['Carbon monoxide alarm', /carbon monoxide/i]
+];
+
+function wsL() { return (window._shListingData || []).find(function(x) { return x.lid === window._wsLid; }); }
+
+async function wsApi(payload) {
+  var r = await authFetch('/.netlify/functions/listing-workspace', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+  var d = {}; try { d = await r.json(); } catch (e) {}
+  if (!r.ok && !d.ok) throw new Error(d.error || ('HTTP ' + r.status));
+  return d;
+}
+
+function wsStatus(msg, color) { var el = document.getElementById('ws-status'); if (el) { el.style.color = color || 'var(--text-muted)'; el.innerHTML = msg || ''; } }
+
+async function wsOpen(lid, tab) {
+  if (!window._shListingData || !window._shListingData.length) await shLoad();
+  window._wsLid = lid; window._wsLive = null; window._wsDraft = null;
+  var l = wsL();
+  if (!l) { showToast('Listing not found — run Sync Data', 'error'); return; }
+  showPage('listing-ws');
+  window.scrollTo(0, 0);
+  document.getElementById('ws-name').textContent = l.name;
+  var th = document.getElementById('ws-thumb'); if (l.cover) { th.src = l.cover; th.style.display = ''; } else th.style.display = 'none';
+  var h = l.analysis && l.analysis.health_score; var he = document.getElementById('ws-health'); he.textContent = h != null ? h : '—'; he.className = 'li-health ' + liHealthClass(h);
+  document.getElementById('ws-chips').innerHTML = liOccChip(l.occ30, l.mkt30) + '<span class="li-chip">' + liMoney(l.base) + (l.rec ? ' · rec ' + liMoney(l.rec) : '') + '</span>' + (l.reviews != null ? '<span class="li-chip">' + l.reviews + ' reviews' + (l.rating ? ' · ' + l.rating.toFixed(2) + '★' : '') + '</span>' : '') + (l.ranking && l.ranking.avg_page != null ? '<span class="li-chip">Airbnb avg pg ' + l.ranking.avg_page + '</span>' : '');
+  var a = document.getElementById('ws-airbnb-link'); if (l.airbnbId) { a.href = 'https://www.airbnb.com/rooms/' + l.airbnbId; a.style.display = ''; } else a.style.display = 'none';
+  wsStatus('');
+  // side data
+  var q = await Promise.all([
+    db.from('listing_profile').select('*').eq('listing_id', lid).limit(1),
+    db.from('listing_content_drafts').select('*').eq('listing_id', lid).eq('status', 'done').order('created_at', { ascending: false }).limit(1),
+    db.from('listing_edits').select('*').eq('listing_id', lid).order('created_at', { ascending: false }).limit(60),
+    db.from('guesty_reviews').select('review_id,channel,reviewed_at,rating_5,category_ratings,public_review,private_feedback,host_reply').eq('listing_id', lid).order('reviewed_at', { ascending: false }).limit(300),
+    db.from('pricelabs_intel').select('snapshot_date,ranking,calendar,neighborhood,optimizer,customizations').eq('listing_id', lid).order('snapshot_date', { ascending: false }).limit(30),
+    db.from('pricelabs_daily').select('snapshot_date,base_price,min_price,max_price,min_stay,occupancy_pct_30d,market_occupancy_pct_30d,cleaning_fee').eq('listing_id', lid).order('snapshot_date', { ascending: false }).limit(30),
+    db.from('airbnb_performance_import').select('*').eq('listing_id', lid).order('period_end', { ascending: false }).limit(3)
+  ]);
+  window._wsProfile = (q[0].data || [])[0] || null;
+  window._wsDraft = (q[1].data || [])[0] || null;
+  window._wsEdits = q[2].data || [];
+  window._wsReviews = q[3].data || [];
+  window._wsIntelHist = q[4].data || [];
+  window._wsPriceHist = q[5].data || [];
+  window._wsPerf = q[6].data || [];
+  wsTab(tab || 'overview');
+  // live Guesty content in background (needed for content/amenities/scorecard)
+  wsApi({ action: 'get', listing_id: lid }).then(function(d) { if (window._wsLid !== lid) return; window._wsLive = d; if (window._wsTab !== 'pricing' && window._wsTab !== 'reviews') wsTab(window._wsTab); })
+    .catch(function(e) { wsStatus('Could not load live listing content from Guesty: ' + esc(e.message), 'var(--red)'); });
+}
+
+function wsTab(tab) {
+  window._wsTab = tab;
+  document.querySelectorAll('.ws-tab').forEach(function(b) { b.classList.toggle('sh-tab-active', b.getAttribute('data-wstab') === tab); });
+  document.querySelectorAll('.ws-pane').forEach(function(p) { p.style.display = p.id === 'ws-pane-' + tab ? '' : 'none'; });
+  var el = document.getElementById('ws-pane-' + tab);
+  var l = wsL(); if (!l || !el) return;
+  if (tab === 'overview') el.innerHTML = wsOverviewHtml(l);
+  if (tab === 'content') el.innerHTML = wsContentHtml(l);
+  if (tab === 'amenities') el.innerHTML = wsAmenitiesHtml(l);
+  if (tab === 'pricing') el.innerHTML = wsPricingHtml(l);
+  if (tab === 'reviews') el.innerHTML = wsReviewsHtml(l);
+  if (tab === 'history') el.innerHTML = wsHistoryHtml(l);
+}
+
+// ── Scorecard: what drives Airbnb search placement, checked against our data ─
+function wsAmenityAudit() {
+  var live = window._wsLive; if (!live) return null;
+  var cur = (live.amenities.supported || []).concat(live.amenities.other || []);
+  return WS_FILTER_AMENITIES.map(function(f) { return { name: f[0], has: cur.some(function(a) { return f[1].test(a); }) }; });
+}
+
+function wsScorecard(l) {
+  var rows = [], live = window._wsLive;
+  var add = function(st, driver, finding, fix) { rows.push({ st: st, driver: driver, finding: finding, fix: fix }); };
+  // Price
+  if (l.base != null && l.mktP50 != null) {
+    var r = l.base / l.mktP50;
+    add(r > 1.25 || (l.mktP75 && l.base > l.mktP75) ? 'bad' : r > 1.1 ? 'warn' : 'good', 'Price vs comparable homes', 'Base ' + liMoney(l.base) + ' vs market median ' + liMoney(l.mktP50) + (l.mktP25 ? ' (p25–p75 ' + liMoney(l.mktP25) + '–' + liMoney(l.mktP75) + ')' : ''), 'Airbnb ranks total price against similar nearby homes for the same dates.');
+  } else add('na', 'Price vs comparable homes', 'Market percentiles not loaded yet', 'Run Sync Data.');
+  if (l.base != null && l.rec != null) add(l.base > l.rec * 1.1 ? 'warn' : 'good', 'Base vs PriceLabs recommendation', liMoney(l.base) + ' vs ' + liMoney(l.rec), 'Large gaps above the recommendation usually cost conversion.');
+  var ph = (window._wsPriceHist || [])[0];
+  if (ph && ph.cleaning_fee && l.base) { var share = ph.cleaning_fee / (ph.cleaning_fee + l.base * 2); add(share > 0.3 ? 'warn' : 'good', 'Cleaning fee vs 2-night total', liMoney(ph.cleaning_fee) + ' = ' + Math.round(share * 100) + '% of a 2-night stay', 'Search shows total price; a heavy cleaning fee makes short stays look expensive.'); }
+  // Pace & availability
+  if (l.occ30 != null && l.mkt30 != null) { var d = l.occ30 - l.mkt30; add(d <= -10 ? 'bad' : d < -3 ? 'warn' : 'good', 'Booking pace vs market (30d)', Math.round(l.occ30) + '% vs ' + Math.round(l.mkt30) + '%', 'Low pace = weak conversion signal; fix price/min-stay first.'); }
+  if (l.open14 != null) add(l.open14 >= 11 ? 'bad' : l.open14 >= 8 ? 'warn' : 'good', 'Open nights next 14 days', l.open14 + ' of 14', 'Last-minute discount + 1-night minimum fills near-term gaps.');
+  if (l.minStay != null) add(l.minStay > 2 ? 'warn' : 'good', 'Default minimum stay', l.minStay + ' night' + (l.minStay === 1 ? '' : 's'), 'Airbnb favors flexible stay lengths; long minimums hide you from short searches.');
+  if (l.gaps != null) add(l.gaps >= 2 ? 'warn' : 'good', 'Orphan gaps (60d)', l.gaps + ' gaps / ' + (l.gapNights || 0) + ' nights', 'Allow 1-night stays inside gaps (PriceLabs orphan-day rules).');
+  // Reviews
+  if (l.reviews != null) add(l.reviews < 5 ? 'bad' : l.reviews < 15 ? 'warn' : 'good', 'Review volume', l.reviews + ' reviews', 'Guest Favorite and conversion both need review volume.');
+  if (l.rating != null) add(l.rating < 4.8 ? 'bad' : l.rating < 4.9 ? 'warn' : 'good', 'Average rating', l.rating.toFixed(2) + '★', 'Guest Favorite needs a very high rating; protect it with fixes from review themes.');
+  if (l.daysSinceReview != null) add(l.daysSinceReview > 60 ? 'bad' : l.daysSinceReview > 30 ? 'warn' : 'good', 'Review recency', 'Last review ' + l.daysSinceReview + ' days ago', 'Recent reviews carry more weight.');
+  // Content
+  if (live) {
+    var t = live.content.title || '';
+    add(t.length < 30 ? 'warn' : 'good', 'Title', t.length + '/50 chars — "' + esc(t) + '"', 'Use the space: differentiator + place cue for your target guest.');
+    var sl = (live.content.summary || '').length;
+    add(sl < 250 ? 'bad' : sl < 400 ? 'warn' : 'good', 'Summary length', sl + ' chars', 'Hook in the first 2 lines; 400–900 chars.');
+    var empty = WS_SECTIONS.filter(function(s) { return s[0] !== 'title' && s[0] !== 'houseRules' && !(live.content[s[0]] || '').trim(); }).map(function(s) { return s[1]; });
+    add(empty.length > 2 ? 'warn' : 'good', 'Description sections filled', empty.length ? 'Empty: ' + empty.join(', ') : 'All filled', 'Complete listings rank higher and answer guest questions before they bounce.');
+    var aud = wsAmenityAudit() || [];
+    var missing = aud.filter(function(x) { return !x.has; }).map(function(x) { return x.name; });
+    add(missing.length > 12 ? 'warn' : 'good', 'Search-filter amenities ticked', (aud.length - missing.length) + ' of ' + aud.length + ' key filters', 'Each missing filter hides the listing from guests who filter for it — verify in Amenities tab.');
+  } else add('na', 'Title, description & amenities', 'Loading live content from Guesty…', '');
+  if (l.photos != null) add(l.photos < 15 ? 'bad' : l.photos < 25 ? 'warn' : 'good', 'Photos', l.photos + ' photos', 'Strong cover photo drives click-through; show every bedroom and the standout amenity early.');
+  // Rank & optimizer
+  if (l.ranking && l.ranking.avg_page != null) add(l.ranking.avg_page > 3 ? 'bad' : l.ranking.avg_page > 1.5 ? 'warn' : 'good', 'Airbnb search position', 'Avg page ' + l.ranking.avg_page + (l.ranking.pct_dates_page1 != null ? ' · page 1 on ' + l.ranking.pct_dates_page1 + '% of dates' : ''), 'Track daily in History & Rank after each change.');
+  else add('na', 'Airbnb search position', 'No ranking data yet', 'Comes from PriceLabs Listing Optimizer — tap "Check Airbnb rank now".');
+  var op = l.optimizer;
+  if (op && op.categories) {
+    var weak = Object.keys(op.categories).filter(function(k) { var s = String(op.categories[k].score || '').toUpperCase(); return /^[CDF]/.test(s); });
+    add(weak.length ? 'warn' : 'good', 'Listing Optimizer grades', weak.length ? 'Weak: ' + weak.map(function(k) { return k.replace(/_/g, ' ') + ' (' + op.categories[k].score + ')'; }).join(', ') : 'No grades below B', weak.length ? (op.categories[weak[0]].tip || '') : '');
+  }
+  var pf = (window._wsPerf || [])[0];
+  if (pf) add(pf.view_to_contact_rate != null && pf.view_to_contact_rate < 3 ? 'warn' : 'good', 'Airbnb conversion (Insights CSV)', 'View→contact ' + (pf.view_to_contact_rate != null ? pf.view_to_contact_rate + '%' : '—') + ' · contact→book ' + (pf.contact_to_book_rate != null ? pf.contact_to_book_rate + '%' : '—'), 'Low view→contact = photos/title/price; low contact→book = details/price/availability.');
+  else add('na', 'Airbnb conversion', 'Insights CSV not imported', 'Upload monthly in Data & Settings.');
+  add('good', 'Instant Book', 'On (confirmed by team)', '');
+  return rows;
+}
+
+function wsOverviewHtml(l) {
+  var icon = { good: '✅', warn: '⚠️', bad: '❌', na: '❔' };
+  var sc = wsScorecard(l);
+  var score = sc.filter(function(r) { return r.st !== 'na'; });
+  var pts = score.reduce(function(s, r) { return s + (r.st === 'good' ? 1 : r.st === 'warn' ? 0.5 : 0); }, 0);
+  var html = '<div class="li-panel"><div class="li-panel-head"><div><div class="li-panel-title">Search &amp; conversion scorecard</div><div class="li-muted">What Airbnb says drives placement — price vs comparable homes, quality, popularity/conversion, availability — checked against this listing’s data.</div></div><div class="ws-score">' + (score.length ? Math.round(pts / score.length * 100) : '—') + '<span>/100</span></div></div>' +
+    '<div class="ws-sc">' + sc.map(function(r) { return '<div class="ws-sc-row ws-sc-' + r.st + '"><div class="ws-sc-i">' + icon[r.st] + '</div><div class="ws-sc-d">' + esc(r.driver) + '</div><div class="ws-sc-f">' + r.finding + (r.fix ? '<div class="li-muted">' + esc(r.fix) + '</div>' : '') + '</div></div>'; }).join('') + '</div></div>';
+  html += wsPersonaHtml();
+  html += '<div class="li-panel">' + liCardBody(l) + '</div>';
+  return html;
+}
+
+function wsPersonaHtml() {
+  var p = window._wsProfile || {}, s = p.suggested || {};
+  var val = function(k, sk) { return esc(p[k] || ''); };
+  return '<div class="li-panel"><div class="li-panel-title">Target guest</div><div class="li-muted" style="margin-bottom:10px;">Drives the analysis and listing rewrites. ' + (s.primary ? 'Claude suggests: <strong>' + esc(s.primary) + '</strong>' + (s.secondary ? ' · also ' + esc(s.secondary) : '') + ' <button class="expand-btn" onclick="wsUsePersona()">Use suggestion</button>' : 'Write a listing rewrite to get Claude’s suggestion.') + '</div>' +
+    '<div class="ws-form-grid">' +
+      '<div><label>Primary guest</label><input id="ws-p-primary" value="' + val('target_guest') + '" placeholder="e.g. Mountain bikers riding Slaughter Pen & downtown trails"></div>' +
+      '<div><label>Secondary guests</label><input id="ws-p-secondary" value="' + val('secondary_guests') + '" placeholder="e.g. Couples visiting Crystal Bridges"></div>' +
+      '<div><label>Key selling points</label><input id="ws-p-points" value="' + val('selling_points') + '" placeholder="e.g. Trailside, secure bike storage, hot tub"></div>' +
+      '<div><label>Search phrases to rank for</label><input id="ws-p-keywords" value="' + val('keywords') + '" placeholder="e.g. walk to Bentonville Square, bike wash"></div>' +
+    '</div><div style="margin-top:10px;"><button class="btn btn-primary" style="font-size:12px;" onclick="wsSavePersona()">Save target guest</button></div></div>';
+}
+
+function wsUsePersona() {
+  var s = (window._wsProfile || {}).suggested || {};
+  var set = function(id, v) { var e = document.getElementById(id); if (e && v) e.value = Array.isArray(v) ? v.join(', ') : v; };
+  set('ws-p-primary', s.primary); set('ws-p-secondary', s.secondary); set('ws-p-points', s.selling_points); set('ws-p-keywords', s.search_phrases);
+}
+
+async function wsSavePersona() {
+  var row = { listing_id: window._wsLid, target_guest: document.getElementById('ws-p-primary').value.trim() || null, secondary_guests: document.getElementById('ws-p-secondary').value.trim() || null, selling_points: document.getElementById('ws-p-points').value.trim() || null, keywords: document.getElementById('ws-p-keywords').value.trim() || null, updated_at: new Date().toISOString(), updated_by: 'team' };
+  if (window._wsProfile && window._wsProfile.suggested) row.suggested = window._wsProfile.suggested;
+  var r = await db.from('listing_profile').upsert(row, { onConflict: 'listing_id' });
+  if (r.error) { showToast('Could not save: ' + r.error.message, 'error'); return; }
+  window._wsProfile = Object.assign({}, window._wsProfile || {}, row);
+  showToast('Target guest saved', 'success');
+}
+
+// ── Listing content editor ──────────────────────────────────────────────
+function wsContentHtml(l) {
+  var live = window._wsLive;
+  if (!live) return '<div class="empty">Loading live listing content from Guesty…</div>';
+  var draft = window._wsDraft && window._wsDraft.proposal;
+  var html = '<div class="li-panel"><div class="li-panel-head"><div><div class="li-panel-title">Listing content</div><div class="li-muted">Edits publish straight to Guesty, which syncs to Airbnb and Vrbo. Every publish is logged in History with one-click undo.</div></div>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="expand-btn" id="ws-copy-btn" onclick="wsWriteCopy()">✨ Write SEO rewrite with Claude</button><button class="btn btn-primary" style="font-size:12px;" onclick="wsPublishContent()">Publish changes</button></div></div>';
+  if (draft) {
+    html += '<div class="ws-draft-banner">Claude rewrite from ' + liAgo(window._wsDraft.created_at) + ' is shown next to each field. <button class="expand-btn" onclick="wsUseAllDraft()">Use all suggestions</button>' +
+      (draft.rationale ? '<div class="li-muted" style="margin-top:6px;">' + esc(Array.isArray(draft.rationale) ? draft.rationale.join(' ') : draft.rationale) + '</div>' : '') + '</div>';
+  }
+  html += WS_SECTIONS.map(function(s) {
+    var k = s[0], cur = live.content[k] || '', prop = draft ? draft[k] : null;
+    var input = k === 'title'
+      ? '<input id="ws-f-' + k + '" maxlength="50" value="' + esc(cur) + '" oninput="wsCount(\'' + k + '\')">'
+      : '<textarea id="ws-f-' + k + '" rows="' + (k === 'summary' || k === 'space' ? 7 : 4) + '" oninput="wsCount(\'' + k + '\')">' + esc(cur) + '</textarea>';
+    var sugg = '';
+    if (prop != null && prop !== '' && prop !== cur) {
+      sugg = '<div class="ws-sugg"><div class="ws-sugg-head">Claude suggests <button class="expand-btn" onclick="wsUseDraft(\'' + k + '\')">Use this</button></div><div class="ws-sugg-text">' + esc(prop) + '</div>' +
+        (k === 'title' && (draft.title_alternatives || []).length ? '<div class="li-chips" style="margin-top:6px;">' + draft.title_alternatives.map(function(t) { return '<button class="li-chip ws-alt" onclick="document.getElementById(\'ws-f-title\').value=this.textContent;wsCount(\'title\')">' + esc(String(t).slice(0, 50)) + '</button>'; }).join('') + '</div>' : '') + '</div>';
+    }
+    return '<div class="ws-field"><div class="ws-field-head"><label for="ws-f-' + k + '">' + s[1] + '</label><span class="li-muted" id="ws-c-' + k + '">' + cur.length + (s[2] ? '/' + s[2] : '') + '</span></div>' + (s[3] ? '<div class="li-muted ws-hint">' + s[3] + '</div>' : '') + input + sugg + '</div>';
+  }).join('');
+  html += '<div style="margin-top:12px;"><button class="btn btn-primary" style="font-size:12px;" onclick="wsPublishContent()">Publish changes</button></div></div>';
+  return html;
+}
+
+function wsCount(k) { var e = document.getElementById('ws-f-' + k), c = document.getElementById('ws-c-' + k); var lim = (WS_SECTIONS.find(function(s) { return s[0] === k; }) || [])[2]; if (e && c) c.textContent = e.value.length + (lim ? '/' + lim : ''); }
+function wsUseDraft(k) { var d = window._wsDraft && window._wsDraft.proposal; var e = document.getElementById('ws-f-' + k); if (d && e && d[k] != null) { e.value = k === 'title' ? String(d[k]).slice(0, 50) : d[k]; wsCount(k); } }
+function wsUseAllDraft() { WS_SECTIONS.forEach(function(s) { var d = window._wsDraft.proposal; if (d && d[s[0]]) wsUseDraft(s[0]); }); showToast('Suggestions copied into the fields — review, then Publish', 'success'); }
+
+async function wsPublishContent() {
+  var live = window._wsLive; if (!live) return;
+  var fields = {}, names = [];
+  WS_SECTIONS.forEach(function(s) { var e = document.getElementById('ws-f-' + s[0]); if (e && e.value !== (live.content[s[0]] || '')) { fields[s[0]] = e.value; names.push(s[1]); } });
+  if (!names.length) { showToast('No changes to publish', 'info'); return; }
+  if (!confirm('Publish these changes to Guesty (syncs to Airbnb/Vrbo)?\n\n• ' + names.join('\n• ') + '\n\nYou can undo from History.')) return;
+  wsStatus('Publishing to Guesty…');
+  try {
+    var d = await wsApi({ action: 'update_content', listing_id: window._wsLid, fields: fields });
+    if (d.warning) wsStatus(esc(d.warning), 'var(--yellow)'); else wsStatus('Published ' + names.length + ' field' + (names.length > 1 ? 's' : '') + ' to Guesty.', 'var(--green)');
+    var g = await wsApi({ action: 'get', listing_id: window._wsLid }); window._wsLive = g;
+    var ed = await db.from('listing_edits').select('*').eq('listing_id', window._wsLid).order('created_at', { ascending: false }).limit(60); window._wsEdits = ed.data || [];
+    wsTab('content');
+  } catch (e) { wsStatus('Publish failed: ' + esc(e.message), 'var(--red)'); }
+}
+
+async function wsWriteCopy() {
+  var lid = window._wsLid, btn = document.getElementById('ws-copy-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Claude is writing… (~1 min)'; }
+  var started = new Date(Date.now() - 5000).toISOString();
+  try {
+    var t = await authFetch('/.netlify/functions/listing-copy-background?listing_id=' + encodeURIComponent(lid));
+    if (!t.ok && t.status !== 202) throw new Error('HTTP ' + t.status);
+    for (var i = 0; i < 50; i++) {
+      await new Promise(function(r) { setTimeout(r, 4000); });
+      var q = await db.from('listing_content_drafts').select('*').eq('listing_id', lid).gte('created_at', started).order('created_at', { ascending: false }).limit(1);
+      var r = q.data && q.data[0];
+      if (r && r.status === 'done') {
+        window._wsDraft = r;
+        var pr = await db.from('listing_profile').select('*').eq('listing_id', lid).limit(1); window._wsProfile = (pr.data || [])[0] || window._wsProfile;
+        if (window._wsLid === lid) wsTab('content');
+        return;
+      }
+      if (r && r.status === 'error') throw new Error(r.error || 'Rewrite failed');
+    }
+    throw new Error('Still writing — check back in a minute.');
+  } catch (e) { wsStatus('Rewrite: ' + esc(e.message), 'var(--red)'); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = '✨ Write SEO rewrite with Claude'; } }
+}
+
+// ── Amenities ───────────────────────────────────────────────────────────
+function wsAmenitiesHtml(l) {
+  var live = window._wsLive;
+  if (!live) return '<div class="empty">Loading amenities from Guesty…</div>';
+  var aud = wsAmenityAudit();
+  var draft = window._wsDraft && window._wsDraft.proposal;
+  var html = '<div class="li-panel"><div class="li-panel-title">Search-filter amenity audit</div><div class="li-muted" style="margin-bottom:10px;">Guests filter Airbnb search by these. If the home has one that isn’t ticked, it’s invisible to everyone using that filter. Check the ones the home really has and add them.</div><div class="ws-amen-grid">' +
+    aud.map(function(a) { return a.has ? '<div class="ws-amen ws-amen-has">✅ ' + esc(a.name) + '</div>' : '<label class="ws-amen ws-amen-miss"><input type="checkbox" class="ws-amen-cb" value="' + esc(a.name) + '"> ' + esc(a.name) + '</label>'; }).join('') +
+    '</div><div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;"><button class="btn btn-primary" style="font-size:12px;" onclick="wsAddAmenities()">Add checked amenities to Guesty</button><span class="li-muted" style="font-size:11px;">Undo from History.</span></div></div>';
+  if (draft && ((draft.missing_amenities_to_tick || []).length || (draft.amenities_to_add_physically || []).length)) {
+    html += '<div class="li-panel"><div class="li-panel-title">From Claude’s listing review</div>' +
+      ((draft.missing_amenities_to_tick || []).length ? '<div class="li-sec-title">Evidence says the home has these — verify &amp; tick</div><ul class="li-gaps-list">' + draft.missing_amenities_to_tick.map(function(m) { return '<li><strong>' + esc(m.amenity) + '</strong> — ' + esc(m.evidence || '') + '</li>'; }).join('') + '</ul>' : '') +
+      ((draft.amenities_to_add_physically || []).length ? '<div class="li-sec-title" style="margin-top:10px;">Worth adding for the target guest (owner purchase)</div><ul class="li-gaps-list">' + draft.amenities_to_add_physically.map(function(m) { return '<li><strong>' + esc(m.amenity) + '</strong> — ' + esc(m.why || '') + '</li>'; }).join('') + '</ul>' : '') + '</div>';
+  }
+  html += '<div class="li-panel"><div class="li-panel-title">All amenities in Guesty (' + (live.amenities.supported.length + live.amenities.other.length) + ')</div><div class="li-chips">' +
+    live.amenities.supported.map(function(a) { return '<span class="li-chip">' + esc(a) + '</span>'; }).join('') +
+    live.amenities.other.map(function(a) { return '<span class="li-chip li-chip-mid" title="Custom amenity — not a Guesty standard, may not map to an Airbnb filter">' + esc(a) + '</span>'; }).join('') + '</div></div>';
+  return html;
+}
+
+async function wsAddAmenities() {
+  var add = Array.from(document.querySelectorAll('.ws-amen-cb:checked')).map(function(c) { return c.value; });
+  if (!add.length) { showToast('Check at least one amenity', 'info'); return; }
+  if (!confirm('Add to Guesty (syncs to channels)?\n\n• ' + add.join('\n• '))) return;
+  wsStatus('Updating amenities…');
+  try {
+    var d = await wsApi({ action: 'update_amenities', listing_id: window._wsLid, add: add });
+    var msg = 'Added ' + add.length + ' amenit' + (add.length > 1 ? 'ies' : 'y') + '.';
+    if (d.not_standard && d.not_standard.length) msg += ' ⚠ Guesty stored ' + d.not_standard.join(', ') + ' as custom (non-standard) amenities — they may not map to Airbnb filters. Set them in Guesty’s amenity picker instead.';
+    wsStatus(esc(msg), d.not_standard && d.not_standard.length ? 'var(--yellow)' : 'var(--green)');
+    window._wsLive = await wsApi({ action: 'get', listing_id: window._wsLid });
+    var ed = await db.from('listing_edits').select('*').eq('listing_id', window._wsLid).order('created_at', { ascending: false }).limit(60); window._wsEdits = ed.data || [];
+    wsTab('amenities');
+  } catch (e) { wsStatus('Amenities: ' + esc(e.message), 'var(--red)'); }
+}
+
+// ── Pricing ─────────────────────────────────────────────────────────────
+function wsPricingHtml(l) {
+  var it = (window._wsIntelHist || [])[0] || {}, cal = it.calendar || {}, w = cal.windows || {};
+  var a = l.analysis || {}, pls = a.pricelabs_settings || [];
+  var recBase = null; pls.forEach(function(s) { if (/base/i.test(s.setting)) { var m = String(s.recommended || '').match(/\$?\s*(\d[\d,]*)/); if (m) recBase = Number(m[1].replace(/,/g, '')); } });
+  var html = '<div class="li-panel"><div class="li-panel-title">PriceLabs price levels</div><div class="li-muted" style="margin-bottom:10px;">Applies directly in PriceLabs (which pushes to Guesty/channels). Logged with undo.</div>' +
+    '<div class="ws-form-grid ws-price-grid">' +
+      '<div><label>Base price</label><input type="number" id="ws-pl-base" value="' + (l.base != null ? Math.round(l.base) : '') + '"><div class="li-muted ws-hint">PriceLabs rec ' + liMoney(l.rec) + (recBase ? ' · Claude ' + liMoney(recBase) : '') + ' · market median ' + liMoney(l.mktP50) + '</div></div>' +
+      '<div><label>Minimum price</label><input type="number" id="ws-pl-min" value="' + (l.min != null ? Math.round(l.min) : '') + '"><div class="li-muted ws-hint">Market p25 ' + liMoney(l.mktP25) + '</div></div>' +
+      '<div><label>Maximum price</label><input type="number" id="ws-pl-max" value="' + (l.max != null ? Math.round(l.max) : '') + '"><div class="li-muted ws-hint">Market p75 ' + liMoney(l.mktP75) + '</div></div>' +
+    '</div><div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">' +
+      (l.rec ? '<button class="expand-btn" onclick="document.getElementById(\'ws-pl-base\').value=' + Math.round(l.rec) + '">Use PriceLabs rec</button>' : '') +
+      (recBase ? '<button class="expand-btn" onclick="document.getElementById(\'ws-pl-base\').value=' + recBase + '">Use Claude rec</button>' : '') +
+      '<button class="btn btn-primary" style="font-size:12px;" onclick="wsApplyPricing()">Apply to PriceLabs</button></div></div>';
+  if (pls.length) html += '<div class="li-panel"><div class="li-panel-title">Recommended PriceLabs setting changes</div><div class="li-muted" style="margin-bottom:8px;">Minimum-stay, last-minute, orphan-gap and event overrides are set inside PriceLabs — check each off when applied.</div>' + liPlSettingsTable(l, a) + '</div>';
+  html += '<div class="li-panel"><div class="li-panel-title">Next 90 days</div><div class="li-stats">' +
+    ['next14', 'next30', 'next60', 'next90'].map(function(k) { var x = w[k] || {}; return liStat(k.replace('next', 'Next ') + 'd', (x.occupancy_pct != null ? x.occupancy_pct + '% booked' : '—'), (x.open_nights != null ? x.open_nights + ' open · avg open ' + liMoney(x.avg_open_price) : '') + (x.stly_booked_nights != null ? ' · STLY ' + x.stly_booked_nights + ' booked' : '')); }).join('') + '</div>';
+  if (cal.min_stay_counts) html += '<div class="li-muted" style="margin-top:10px;font-size:12px;">Min-stay on open nights (60d): ' + Object.keys(cal.min_stay_counts).map(function(k) { return k + ' night' + (k === '1' ? '' : 's') + ': ' + cal.min_stay_counts[k]; }).join(' · ') + '</div>';
+  if ((cal.high_demand_open_next60 || []).length) html += '<div class="li-muted" style="margin-top:6px;font-size:12px;">High-demand dates still open: ' + cal.high_demand_open_next60.map(function(d) { return new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' (' + liMoney(d.price) + ')'; }).join(', ') + '</div>';
+  html += '</div>';
+  return html;
+}
+
+async function wsApplyPricing() {
+  var l = wsL(); var v = function(id) { var e = document.getElementById(id); return e && e.value !== '' ? Number(e.value) : null; };
+  var b = v('ws-pl-base'), mn = v('ws-pl-min'), mx = v('ws-pl-max');
+  var payload = { action: 'update_pricelabs', listing_id: window._wsLid }, ch = [];
+  if (b != null && b !== Math.round(l.base)) { payload.base = b; ch.push('Base ' + liMoney(l.base) + ' → ' + liMoney(b)); }
+  if (mn != null && mn !== Math.round(l.min)) { payload.min = mn; ch.push('Min ' + liMoney(l.min) + ' → ' + liMoney(mn)); }
+  if (mx != null && mx !== Math.round(l.max)) { payload.max = mx; ch.push('Max ' + liMoney(l.max) + ' → ' + liMoney(mx)); }
+  if (!ch.length) { showToast('No price changes', 'info'); return; }
+  if (!confirm('Apply in PriceLabs?\n\n' + ch.join('\n'))) return;
+  wsStatus('Updating PriceLabs…');
+  try {
+    await wsApi(payload);
+    if (payload.base != null) l.base = payload.base; if (payload.min != null) l.min = payload.min; if (payload.max != null) l.max = payload.max;
+    var ed = await db.from('listing_edits').select('*').eq('listing_id', window._wsLid).order('created_at', { ascending: false }).limit(60); window._wsEdits = ed.data || [];
+    wsStatus('PriceLabs updated: ' + esc(ch.join(', ')), 'var(--green)');
+    wsTab('pricing');
+  } catch (e) { wsStatus('PriceLabs: ' + esc(e.message), 'var(--red)'); }
+}
+
+// ── Reviews ─────────────────────────────────────────────────────────────
+window._wsRevFilter = 'all';
+function wsReviewsHtml(l) {
+  var R = window._wsReviews || [];
+  var cats = {}; R.forEach(function(r) { Object.keys(r.category_ratings || {}).forEach(function(k) { (cats[k] = cats[k] || []).push(Number(r.category_ratings[k])); }); });
+  var html = '<div class="li-panel"><div class="li-panel-title">Category ratings</div><div class="li-stats">' +
+    (Object.keys(cats).length ? Object.keys(cats).map(function(k) { var a = cats[k]; var av = a.reduce(function(s, x) { return s + x; }, 0) / a.length; return liStat(k.replace(/_/g, ' '), av.toFixed(2) + '★', a.filter(function(x) { return x < 5; }).length + ' below 5 of ' + a.length); }).join('') : '<div class="li-muted">No category ratings yet.</div>') + '</div></div>';
+  var f = window._wsRevFilter, term = (document.getElementById('ws-rev-q') || {}).value || '';
+  var list = R.filter(function(r) {
+    if (f === 'low' && !(r.rating_5 != null && r.rating_5 < 5)) return false;
+    if (f === 'private' && !r.private_feedback) return false;
+    if (term && ((r.public_review || '') + ' ' + (r.private_feedback || '')).toLowerCase().indexOf(term.toLowerCase()) < 0) return false;
+    return true;
+  });
+  html += '<div class="li-panel"><div class="li-panel-head"><div class="li-panel-title">Reviews (' + R.length + ')</div><div class="li-toolbar" style="margin:0;">' +
+    '<select onchange="window._wsRevFilter=this.value;wsTab(\'reviews\')"><option value="all"' + (f === 'all' ? ' selected' : '') + '>All</option><option value="low"' + (f === 'low' ? ' selected' : '') + '>Below 5★</option><option value="private"' + (f === 'private' ? ' selected' : '') + '>With private feedback</option></select>' +
+    '<input type="search" id="ws-rev-q" placeholder="Search text (e.g. bed, noise)" value="' + esc(term) + '" onchange="wsTab(\'reviews\')"></div></div>' +
+    (list.length ? list.slice(0, 120).map(function(r) {
+      return '<div class="ws-rev"><div class="ws-rev-head"><strong>' + (r.rating_5 != null ? r.rating_5 + '★' : '—') + '</strong> <span class="li-muted">' + esc((r.reviewed_at || '').slice(0, 10)) + ' · ' + esc(r.channel || '') + '</span></div>' +
+        (r.public_review ? '<div>' + esc(r.public_review) + '</div>' : '') +
+        (r.private_feedback ? '<div class="ws-rev-private"><span>Private feedback (internal):</span> ' + esc(r.private_feedback) + '</div>' : '') +
+        (r.host_reply ? '<div class="li-muted ws-rev-reply">↳ Reply: ' + esc(r.host_reply) + '</div>' : '<div class="li-muted ws-rev-reply" style="color:var(--yellow);">No host reply yet — replying to every review helps.</div>') + '</div>';
+    }).join('') : '<div class="li-muted">No reviews match.</div>') + '</div>';
+  return html;
+}
+
+// ── History & rank ──────────────────────────────────────────────────────
+function wsHistoryHtml(l) {
+  var E = window._wsEdits || [];
+  var html = '<div class="li-panel"><div class="li-panel-title">Change log</div>' + (E.length ? '<div class="ws-edits">' + E.map(function(e) {
+    var canUndo = e.status === 'applied' && !e.revert_of;
+    return '<div class="ws-edit ws-edit-' + esc(e.status) + '"><div><strong>' + esc(e.summary || e.target) + '</strong><div class="li-muted" style="font-size:11.5px;">' + new Date(e.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' · ' + esc(e.edited_by || '') + ' · ' + esc(e.target) + ' · ' + esc(e.status) + (e.error ? ' · ' + esc(e.error) : '') + '</div></div>' +
+      (canUndo ? '<button class="expand-btn" onclick="wsUndo(' + e.id + ')">Undo</button>' : '') + '</div>';
+  }).join('') + '</div>' : '<div class="li-muted">No changes made from PropDesk yet.</div>') + '</div>';
+  // timeline
+  var IH = window._wsIntelHist || [], PH = window._wsPriceHist || [];
+  var byDate = {};
+  PH.forEach(function(p) { byDate[p.snapshot_date] = Object.assign(byDate[p.snapshot_date] || {}, { base: p.base_price, occ: p.occupancy_pct_30d, mkt: p.market_occupancy_pct_30d }); });
+  IH.forEach(function(i) { byDate[i.snapshot_date] = Object.assign(byDate[i.snapshot_date] || {}, { page: i.ranking && i.ranking.avg_page, rank: i.ranking && i.ranking.avg_rank, p1: i.ranking && i.ranking.pct_dates_page1 }); });
+  var editDays = {}; E.forEach(function(e) { if (e.status !== 'failed') { var d = (e.created_at || '').slice(0, 10); (editDays[d] = editDays[d] || []).push(e.summary); } });
+  var dates = Object.keys(byDate).sort().reverse().slice(0, 21);
+  html += '<div class="li-panel"><div class="li-panel-title">Did it work? Daily trend</div><div class="li-muted" style="margin-bottom:8px;">Airbnb rank (PriceLabs Listing Optimizer), 30-day occupancy vs market, and base price by day — with PropDesk changes marked.</div><div class="inv-table-wrap"><table class="inv-table"><thead><tr><th>Date</th><th>Avg rank</th><th>Avg page</th><th>Page-1 dates</th><th>Occ 30d / mkt</th><th>Base</th><th>Changes</th></tr></thead><tbody>' +
+    (dates.length ? dates.map(function(d) { var x = byDate[d]; return '<tr><td>' + d + '</td><td class="amount">' + (x.rank != null ? '#' + x.rank : '—') + '</td><td class="amount">' + (x.page != null ? x.page : '—') + '</td><td class="amount">' + (x.p1 != null ? x.p1 + '%' : '—') + '</td><td class="amount">' + liPct(x.occ) + ' / ' + liPct(x.mkt) + '</td><td class="amount">' + liMoney(x.base) + '</td><td style="font-size:11.5px;">' + (editDays[d] ? esc(editDays[d].join('; ')) : '') + '</td></tr>'; }).join('') : '<tr><td colspan="7" class="inv-empty">No history yet — builds daily.</td></tr>') +
+    '</tbody></table></div></div>';
+  html += '<div class="li-panel" id="ws-rank-panel"><div class="li-panel-head"><div class="li-panel-title">Airbnb search rank by date</div><button class="expand-btn" onclick="wsRankNow()">&#128269; Check now</button></div><div id="ws-rank-body" class="li-muted">Tap “Check now” to pull the latest rank for each upcoming date and guest count from PriceLabs.</div></div>';
+  return html;
+}
+
+async function wsUndo(id) {
+  if (!confirm('Undo this change? The previous values will be re-applied.')) return;
+  wsStatus('Undoing…');
+  try {
+    await wsApi({ action: 'revert', listing_id: window._wsLid, edit_id: id });
+    var ed = await db.from('listing_edits').select('*').eq('listing_id', window._wsLid).order('created_at', { ascending: false }).limit(60); window._wsEdits = ed.data || [];
+    wsApi({ action: 'get', listing_id: window._wsLid }).then(function(g) { window._wsLive = g; });
+    wsStatus('Change undone.', 'var(--green)');
+    wsTab('history');
+  } catch (e) { wsStatus('Undo failed: ' + esc(e.message), 'var(--red)'); }
+}
+
+async function wsRankNow() {
+  if (window._wsTab !== 'history') wsTab('history');
+  var el = document.getElementById('ws-rank-body');
+  if (el) el.innerHTML = 'Checking PriceLabs…';
+  try {
+    var d = await wsApi({ action: 'rank_now', listing_id: window._wsLid });
+    var segs = d.segments || [];
+    if (!segs.length) { el.innerHTML = 'PriceLabs returned no ranking segments for this listing yet.'; return; }
+    el.innerHTML = '<div class="li-muted" style="margin-bottom:8px;">Updated ' + (d.updated_at ? liAgo(d.updated_at) : '—') + (d.best_rank != null ? ' · best rank #' + d.best_rank : '') + (d.neighborhood_count ? ' · ' + d.neighborhood_count + ' listings in the search area' : '') + '</div>' +
+      segs.map(function(s) {
+        return '<div class="li-sec-title" style="margin-top:10px;">' + (s.guest_count || '?') + ' guests · ' + (s.los || '?') + ' nights</div><div class="ws-rank-grid">' + s.dates.map(function(x) {
+          var cls = x.page == null ? '' : x.page <= 1 ? 'ws-r-good' : x.page <= 3 ? 'ws-r-mid' : 'ws-r-bad';
+          return '<div class="ws-rank-cell ' + cls + '" title="' + esc(x.date) + (x.price ? ' · $' + x.price : '') + '"><div>' + new Date(x.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' }) + '</div><strong>' + (x.rank != null ? '#' + x.rank : '—') + '</strong><div>pg ' + (x.page != null ? x.page : '—') + '</div></div>';
+        }).join('') + '</div>';
+      }).join('');
+  } catch (e) { if (el) el.innerHTML = '<span style="color:var(--red);">' + esc(e.message) + '</span>'; }
 }
 </script>
 

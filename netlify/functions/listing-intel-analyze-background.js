@@ -48,6 +48,9 @@ Rules:
 - "review_themes": recurring topics across reviews (positive and negative). Private feedback is internal only.
 - "owner_items": physical improvements or purchases the OWNER should consider, only when supported by reviews, category ratings, amenities vs market, or optimizer scores (e.g. repeated bed complaints → replace mattresses; no hot tub in a market segment that values it). Include a rough cost range and the expected benefit.
 - "health_score" 0–100: overall booking health vs its market (pace, pricing position, reviews, content).
+- AMENITY FILTERS: Airbnb guests filter heavily by amenities (hot tub, pool, EV charger, dedicated workspace, free parking, washer/dryer, self check-in, pets allowed, king bed, fire pit, BBQ grill, crib, gym, lake access/waterfront). If reviews or the description show an amenity that is missing from the amenities list, recommend ticking it (missed search filter). If the target guest would expect an amenity the home lacks, put it in owner_items.
+- Write for the listing's target guest (target_guest; team-set values override Claude's suggestion).
+- recent_changes_by_team lists what was already changed; don't re-recommend it — instead say whether it appears to be working (rank/occupancy since) when the data allows.
 - Never invent data. If something important is missing, list it in "data_gaps".
 - Keep "summary" to 3–5 sentences: the situation, the likely cause, and the single most important move.
 
@@ -112,6 +115,9 @@ async function buildPacks(onlyId) {
     I.sbSelect('airbnb_performance_import', 'select=*&order=period_end.desc'),
     I.sbSelect('listing_fee_config', 'select=listing_id,mgmt_fee_pct'),
   ]);
+  const profiles = await I.sbSelect('listing_profile', 'select=*').catch(() => []);
+  const PROF = {}; profiles.forEach((r) => { PROF[r.listing_id] = r; });
+  const edits = await I.sbSelect('listing_edits', `select=listing_id,target,summary,created_at,status&created_at=gte.${daysAgo(45)}&order=created_at.desc`).catch(() => []);
   const P = latestBy(price, 'listing_id'), PO = latestBy(priceOld, 'listing_id'), IN = latestBy(intel, 'listing_id'), G = latestBy(gaps, 'listing_id'), RS = latestBy(revSnap, 'listing_id'), C = latestBy(comp, 'listing_id'), PF = latestBy(perf, 'listing_id');
 
   const listings = reg.filter((l) => !onlyId || l.listing_id === onlyId);
@@ -171,6 +177,8 @@ async function buildPacks(onlyId) {
         },
         listing_content: { photos: c.photo_count, photos_missing_captions: raw.photo_captions_missing, description_chars: c.description_length, amenities_count: c.amenities_count, amenities: (raw.amenities || []).slice(0, 120), summary_excerpt: clip(raw.summary, 600) },
         airbnb_insights_csv: pf ? { period: `${pf.period_start} to ${pf.period_end}`, bookings: pf.bookings, nights: pf.nights_booked, adr: num(pf.avg_daily_rate), booking_window_days: num(pf.avg_booking_window), view_to_contact_pct: num(pf.view_to_contact_rate), contact_to_book_pct: num(pf.contact_to_book_rate) } : 'not imported',
+        target_guest: PROF[lid] ? { team_set: { primary: PROF[lid].target_guest, secondary: PROF[lid].secondary_guests, selling_points: PROF[lid].selling_points }, claude_suggested: PROF[lid].suggested } : null,
+        recent_changes_by_team: edits.filter((e) => e.listing_id === lid && e.status !== 'failed').slice(0, 12).map((e) => ({ date: (e.created_at || '').slice(0, 10), what: e.summary, status: e.status })),
         data_errors: it.errors || null,
       },
     });
