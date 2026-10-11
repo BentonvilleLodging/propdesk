@@ -17,6 +17,9 @@ async function sbSelect(table, query) {
 
 async function sbUpsert(table, rows, onConflict) {
   if (!rows || !rows.length) return 0;
+  // PostgREST bulk writes require every object to have the same keys — fill gaps with null.
+  const keys = Array.from(new Set(rows.flatMap((r) => Object.keys(r))));
+  rows = rows.map((r) => { const o = {}; keys.forEach((k) => { o[k] = r[k] === undefined ? null : r[k]; }); return o; });
   for (let i = 0; i < rows.length; i += 200) {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}${onConflict ? `?on_conflict=${encodeURIComponent(onConflict)}` : ''}`, {
       method: 'POST',
@@ -127,29 +130,38 @@ function extractJson(text) {
 async function claude({ system, user, maxTokens, tools, model }) {
   const apiKey = process.env.CLAUDE_SECRET;
   if (!apiKey) throw new Error('CLAUDE_SECRET env var not set');
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'Content-Type': 'application/json',
-      ...(process.env.ANTHROPIC_WORKSPACE_ID ? { 'anthropic-workspace-id': process.env.ANTHROPIC_WORKSPACE_ID } : {}),
-    },
-    body: JSON.stringify({
+  const call = async (noThinkingParam) => {
+    const body = {
       model: model || CLAUDE_MODEL,
-      max_tokens: maxTokens || 4000,
+      // Generous ceiling: newer models may spend output tokens on reasoning before the JSON.
+      max_tokens: Math.max(maxTokens || 0, 16000),
       system,
       messages: [{ role: 'user', content: typeof user === 'string' ? user : JSON.stringify(user) }],
       ...(tools ? { tools } : {}),
-    }),
-  });
-  const raw = await res.text();
+      ...(noThinkingParam ? {} : { thinking: { type: 'disabled' } }),
+    };
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'Content-Type': 'application/json',
+        ...(process.env.ANTHROPIC_WORKSPACE_ID ? { 'anthropic-workspace-id': process.env.ANTHROPIC_WORKSPACE_ID } : {}),
+      },
+      body: JSON.stringify(body),
+    });
+    return { res, raw: await res.text() };
+  };
+  let { res, raw } = await call(false);
+  // If this model rejects the thinking parameter, retry without it.
+  if (res.status === 400 && /thinking/i.test(raw)) ({ res, raw } = await call(true));
   if (!res.ok) throw new Error(`Claude API ${res.status}: ${raw.slice(0, 400)}`);
   const data = JSON.parse(raw);
   const text = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n');
   let json = null;
   try { json = extractJson(text); } catch (e) {
-    throw new Error(`Claude output not JSON (stop_reason=${data.stop_reason}): ${text.slice(0, 200)}`);
+    const types = (data.content || []).map((b) => b.type).join(',');
+    throw new Error(`Claude output not JSON (stop_reason=${data.stop_reason}, blocks=${types}, out_tokens=${data.usage && data.usage.output_tokens}): ${text.slice(0, 160)}`);
   }
   return { json, text, usage: data.usage, stop_reason: data.stop_reason, content: data.content };
 }
