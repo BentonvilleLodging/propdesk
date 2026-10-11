@@ -1,6 +1,8 @@
 /* PropDesk — Property Workspace extensions (loaded after index.html's main script).
  * - Overview: "Do these now" — the top actions to lift Airbnb search placement immediately
  * - Pricing: performance windows vs market (7/14/30/60/90) + PriceLabs changes (Claude + rule engine)
+ * - Recommendations: one-tap push (PriceLabs base/min/max, Guesty amenities) or mark done;
+ *   every completion is saved to the listing with a baseline snapshot (History & Rank)
  * - History & Rank: clear explanation when PriceLabs isn't tracking rank yet
  * Safe to load on any page: does nothing unless the workspace functions exist.
  */
@@ -12,7 +14,7 @@
 
   // ── data: latest PriceLabs metrics + customizations for the open listing ──
   window.wsOpen = async function (lid, tab) {
-    window._wsMetrics = null; window._wsCust = null;
+    window._wsMetrics = null; window._wsCust = null; window._wsDone = [];
     await origOpen(lid, tab);
     try {
       var q = await db.from('pricelabs_intel').select('snapshot_date,metrics,customizations,calendar,optimizer,errors').eq('listing_id', lid).order('snapshot_date', { ascending: false }).limit(1);
@@ -21,7 +23,9 @@
       window._wsMetrics = r.metrics || null;
       window._wsCust = r.customizations || null;
       window._wsIntelRow = r;
-      if (window._wsTab === 'overview' || window._wsTab === 'pricing') wsTab(window._wsTab);
+      var dq = await db.from('recommendation_completions').select('*').eq('listing_id', lid).order('completed_at', { ascending: false }).limit(200);
+      window._wsDone = dq.data || [];
+      if (window._wsTab === 'overview' || window._wsTab === 'pricing' || window._wsTab === 'history') wsTab(window._wsTab);
     } catch (e) { /* non-fatal */ }
   };
 
@@ -82,7 +86,7 @@
         var cat = op.categories[k] || {}, g = String(cat.score || '').toUpperCase();
         if (!/^[A-F]/.test(g)) return;
         var tip = cat.tip ? String(cat.tip) : '';
-        if (k === 'amenities') { var mm = tip.match(/consider adding them:\s*(.+?)\.?$/i); if (mm) { add(1, 'Add amenities Airbnb sees in your photos/text but not your list: ' + mm[1].replace(/'/g, ''), 'Unticked amenities hide the listing from guests who filter for them.', 'amenities', 'Amenities'); return; } }
+        if (k === 'amenities') { var mm = tip.match(/consider adding them:\s*(.+?)\.?$/i); if (mm) { var names2 = mm[1].replace(/'/g, '').split(/,\s*|\s+and\s+/).map(function (x) { return x.trim().replace(/\.$/, ''); }).filter(Boolean); add(1, 'Add amenities Airbnb sees in your photos/text but not your list: ' + names2.join(', '), 'Unticked amenities hide the listing from guests who filter for them. Only add what the home really has.', 'amenities', 'Amenities'); out[out.length - 1].push = { kind: 'amen', add: names2.map(function (n) { return n.replace(/\b\w/g, function (c) { return c.toUpperCase(); }); }), label: 'Add to Guesty' }; return; } }
         if (/^[CDF]/.test(g)) add(/^[DF]/.test(g) ? 1 : 2, 'Fix ' + (names[k] || k.replace(/_/g, ' ')) + ' (PriceLabs grade ' + g + ')', tip.slice(0, 320), tabs[k] || 'content', names[k] || 'Listing');
       });
     }
@@ -108,7 +112,7 @@
       var tab = /pric|availab/i.test(x.category || '') ? 'pricing' : /amenit/i.test(x.category || '') ? 'amenities' : /review|guest/i.test(x.category || '') ? 'reviews' : 'content';
       items.push({ title: x.action, why: x.why || '', tab: tab, tag: x.category || 'Claude', src: 'Claude' });
     });
-    var pr = plRules(l).filter(function (r) { return r.prio === 1; }).map(function (r) { return { title: 'PriceLabs: ' + r.setting + ' → ' + r.recommended, why: r.why, tab: 'pricing', tag: 'PriceLabs', src: 'data' }; });
+    var pr = plRules(l).filter(function (r) { return r.prio === 1; }).map(function (r) { return { title: 'PriceLabs: ' + r.setting + ' → ' + r.recommended, why: r.why, tab: 'pricing', tag: 'PriceLabs', src: 'data', push: plPushFor(r) }; });
     var sr = searchRules(l).map(function (r) { r.src = 'data'; return r; });
     // interleave: highest-priority data rules first after Claude
     var rules = pr.concat(sr.filter(function (r) { return r.prio === 1; })).concat(sr.filter(function (r) { return r.prio !== 1; }));
@@ -118,15 +122,16 @@
 
   function nowPanel(l) {
     var items = nowActions(l);
-    var html = '<div class="li-panel ws-now"><div class="li-panel-head"><div><div class="li-panel-title">&#9889; Do these now to lift search</div><div class="li-muted">The highest-impact moves from this listing’s data' + (l.analysis ? ' and the latest Claude analysis' : ' (Claude analysis adds more once it runs)') + '. Check off when done.</div></div></div>';
+    var html = '<div class="li-panel ws-now"><div class="li-panel-head"><div><div class="li-panel-title">&#9889; Do these now to lift search</div><div class="li-muted">The highest-impact moves from this listing’s data' + (l.analysis ? ' and the latest Claude analysis' : ' (Claude analysis adds more once it runs)') + '. Push it live where there’s a button, or tick it when done — it’s saved to this listing’s history.</div></div></div>';
     if (!items.length) return html + '<div class="li-muted">Nothing urgent — this listing’s core signals look healthy. Run Sync Data to refresh.</div></div>';
     html += '<ol class="ws-now-list">' + items.map(function (x) {
       var key = 'now-' + liSlug(x.title);
       var done = !!(window._shCompletions && window._shCompletions[l.lid + '::' + key]);
-      return '<li class="li-action' + (done ? ' li-done' : '') + '"><input type="checkbox" ' + (done ? 'checked' : '') + ' onchange="liToggleDone(\'' + l.lid + '\',\'' + key + '\',this)" data-text="' + esc(x.title) + '">' +
+      if (x.push) regPush(key, x.push);
+      return '<li class="li-action' + (done ? ' li-done' : '') + '"><input type="checkbox" ' + (done ? 'checked' : '') + ' onchange="liToggleDone(\'' + l.lid + '\',\'' + key + '\',this)" data-text="' + esc(x.title) + '" data-src="' + (x.src === 'Claude' ? 'claude' : 'data') + '" data-cat="' + esc(x.tag || '') + '">' +
         '<div style="flex:1;min-width:0;"><div class="li-action-text">' + esc(x.title) + '</div>' + (x.why ? '<div class="li-action-why">' + esc(x.why) + '</div>' : '') +
-        '<div class="li-action-tags"><span>' + esc(x.tag || '') + '</span><span>' + (x.src === 'Claude' ? 'Claude' : 'From data') + '</span></div></div>' +
-        '<button class="expand-btn ws-now-go" onclick="wsTab(\'' + x.tab + '\')">Go &#8594;</button></li>';
+        '<div class="li-action-tags"><span>' + esc(x.tag || '') + '</span><span>' + (x.src === 'Claude' ? 'Claude' : 'From data') + '</span></div>' + doneLine(key) + '</div>' +
+        '<div class="ws-now-btns">' + actionBtns(l, key, x.push, done, x.tab) + '<button class="expand-btn ws-now-go" onclick="wsTab(\'' + x.tab + '\')">Go &#8594;</button></div></li>';
     }).join('') + '</ol></div>';
     return html;
   }
@@ -159,12 +164,14 @@
     var a = l.analysis || {}, rows = [];
     (a.pricelabs_settings || []).forEach(function (s) { rows.push({ setting: s.setting, current: s.current, recommended: s.recommended, why: s.why, src: 'Claude' }); });
     plRules(l).forEach(function (r) { if (!rows.some(function (x) { return liSlug(x.setting) === liSlug(r.setting); })) rows.push({ setting: r.setting, current: r.current, recommended: r.recommended, why: r.why, src: 'From data' }); });
-    var html = '<div class="li-panel"><div class="li-panel-title">Recommended PriceLabs changes</div><div class="li-muted" style="margin-bottom:8px;">Base / min / max can be applied above. Minimum-stay, last-minute, gap and day-of-week rules are set in PriceLabs → Customizations — check each off when done.</div>';
+    var html = '<div class="li-panel"><div class="li-panel-title">Recommended PriceLabs changes</div><div class="li-muted" style="margin-bottom:8px;">Base and minimum price changes can be pushed live to PriceLabs with one tap (logged with undo). Minimum-stay, last-minute, gap and day-of-week rules are set in PriceLabs → Customizations — tick each when done so it’s tracked on this listing.</div>';
     if (!rows.length) return html + '<div class="li-muted">No changes recommended — current settings fit this listing’s pace vs market.' + (cust() ? '' : ' (Run Sync Data to load current PriceLabs customizations.)') + '</div></div>';
     return html + '<div class="inv-table-wrap"><table class="inv-table li-pl-table"><thead><tr><th></th><th>Setting</th><th>Current</th><th>Recommended</th><th>Why</th></tr></thead><tbody>' + rows.map(function (s) {
       var key = 'pl-' + liSlug(s.setting + '-' + s.recommended);
       var done = !!(window._shCompletions && window._shCompletions[l.lid + '::' + key]);
-      return '<tr class="' + (done ? 'li-done' : '') + '"><td><input type="checkbox" title="Mark as applied" ' + (done ? 'checked' : '') + ' onchange="liToggleDone(\'' + l.lid + '\',\'' + key + '\',this)" data-text="' + esc(s.setting + ': ' + s.recommended) + '"></td><td><strong>' + esc(s.setting) + '</strong><div class="li-muted" style="font-size:11px;">' + esc(s.src) + '</div></td><td>' + esc(s.current || '—') + '</td><td class="li-rec">' + esc(s.recommended || '') + '</td><td class="li-why">' + esc(s.why || '') + '</td></tr>';
+      var push = plPushFor(s);
+      if (push) regPush(key, push);
+      return '<tr class="' + (done ? 'li-done' : '') + '"><td><input type="checkbox" title="Mark as done" ' + (done ? 'checked' : '') + ' onchange="liToggleDone(\'' + l.lid + '\',\'' + key + '\',this)" data-text="' + esc(s.setting + ': ' + s.recommended) + '" data-src="' + (s.src === 'Claude' ? 'claude' : 'data') + '" data-cat="PriceLabs"></td><td><strong>' + esc(s.setting) + '</strong><div class="li-muted" style="font-size:11px;">' + esc(s.src) + '</div></td><td>' + esc(s.current || '—') + '</td><td class="li-rec">' + esc(s.recommended || '') + actionBtns(l, key, push, done, 'pricelabs') + '</td><td class="li-why">' + esc(s.why || '') + doneLine(key) + '</td></tr>';
     }).join('') + '</tbody></table></div></div>';
   }
 
@@ -177,6 +184,117 @@
     if (!cal || !cal.windows) base = base.replace(/(<div class="li-panel-title">Next 90 days<\/div>)/, '$1<div class="li-muted" style="margin-bottom:8px;">Open-night calendar loads with the next Sync Data.</div>');
     var parts = base.split('<div class="li-panel"><div class="li-panel-title">Next 90 days');
     return parts[0] + perfTable(l) + plTable(l) + (parts[1] ? '<div class="li-panel"><div class="li-panel-title">Open nights &amp; prices — next 90 days' + parts[1] : '');
+  };
+
+
+  // ── Recommendation tracking & one-tap push ───────────────────────────────
+  window._wsPush = window._wsPush || {};
+  function regPush(key, push) { window._wsPush[key] = push; }
+  function money(str) { var m = String(str || '').match(/\$\s*(\d[\d,]*)/); return m ? Number(m[1].replace(/,/g, '')) : null; }
+  function plPushFor(r) {
+    var v = money(r.recommended);
+    if (!v) return null;
+    if (/^\s*base( price)?\s*$/i.test(r.setting)) return { kind: 'pl', field: 'base', value: v, label: 'Apply ' + liMoney(v) + ' in PriceLabs' };
+    if (/^\s*min(imum)? price\s*$/i.test(r.setting)) return { kind: 'pl', field: 'min', value: v, label: 'Apply ' + liMoney(v) + ' in PriceLabs' };
+    if (/^\s*max(imum)? price\s*$/i.test(r.setting)) return { kind: 'pl', field: 'max', value: v, label: 'Apply ' + liMoney(v) + ' in PriceLabs' };
+    return null;
+  }
+  function doneRow(key) { return (window._wsDone || []).find(function (d) { return d.action_key === key; }); }
+  function doneLine(key) {
+    var d = doneRow(key); if (!d) return '';
+    return '<div class="ws-done-line">&#10003; ' + (d.method === 'pushed' ? 'Pushed live' : 'Marked done') + ' by ' + esc((d.completed_by || 'team').split('@')[0]) + ' · ' + new Date(d.completed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + '</div>';
+  }
+  function actionBtns(l, key, push, done, tab) {
+    if (done || !push) return '';
+    return '<button class="btn btn-primary ws-push-btn" onclick="wsPushRec(\'' + l.lid + '\',\'' + key + '\',this)">' + esc(push.label || 'Apply') + '</button>';
+  }
+  function baselineFor(lid) {
+    var l = (window._shListingData || []).find(function (x) { return x.lid === lid; }) || {};
+    return { occ7: l.occ7, mkt7: l.mkt7, occ30: l.occ30, mkt30: l.mkt30, base: l.base, min: l.min, rec: l.rec, open14: l.open14, reviews: l.reviews, rating: l.rating,
+      avg_rank: l.ranking ? l.ranking.avg_rank : null, avg_page: l.ranking ? l.ranking.avg_page : null, health: l.analysis ? l.analysis.health_score : null, photos: l.photos, date: new Date().toISOString().slice(0, 10) };
+  }
+  async function saveDone(lid, key, text, opts) {
+    opts = opts || {};
+    var row = { listing_id: lid, action_key: key, action_text: text || key, source: opts.src || 'intel', category: opts.cat || null, method: opts.method || 'manual', edit_id: opts.edit_id || null, baseline: baselineFor(lid) };
+    var r = await db.from('recommendation_completions').insert([row]).select().single();
+    if (r.error) throw r.error;
+    window._shCompletions = window._shCompletions || {};
+    window._shCompletions[lid + '::' + key] = true;
+    if (window._wsLid === lid) (window._wsDone = window._wsDone || []).unshift(r.data);
+    return r.data;
+  }
+  window.liToggleDone = async function (lid, key, cb) {
+    var checked = cb.checked, text = cb.getAttribute('data-text') || '';
+    var row = cb.closest('.li-action') || cb.closest('tr');
+    try {
+      if (checked) {
+        await saveDone(lid, key, text, { src: cb.getAttribute('data-src') || 'intel', cat: cb.getAttribute('data-cat') || null });
+      } else {
+        var r2 = await db.from('recommendation_completions').delete().match({ listing_id: lid, action_key: key });
+        if (r2.error) throw r2.error;
+        delete window._shCompletions[lid + '::' + key];
+        window._wsDone = (window._wsDone || []).filter(function (d) { return !(d.listing_id === lid && d.action_key === key); });
+      }
+      if (row) row.classList.toggle('li-done', checked);
+      if (window._wsLid === lid && window._wsTab && document.getElementById('page-listing-ws').classList.contains('active')) wsTab(window._wsTab);
+      showToast(checked ? 'Saved to this listing’s action history' : 'Unmarked', 'success');
+    } catch (e) { cb.checked = !checked; showToast('Could not save: ' + (e.message || e), 'error'); }
+  };
+  window.wsPushRec = async function (lid, key, btn) {
+    var p = window._wsPush[key]; if (!p) return;
+    var l = (window._shListingData || []).find(function (x) { return x.lid === lid; }) || {};
+    var msg = p.kind === 'pl' ? 'Change PriceLabs ' + (p.field === 'base' ? 'base price' : p.field === 'min' ? 'minimum price' : 'maximum price') + ' for ' + (l.name || 'this listing') + ' from ' + liMoney(l[p.field]) + ' to ' + liMoney(p.value) + '?\n\nThis goes live now (PriceLabs pushes to the channels) and can be undone in History & Rank.'
+      : 'Add these amenities to ' + (l.name || 'this listing') + ' in Guesty (syncs to Airbnb/Vrbo)?\n\n' + p.add.join(', ') + '\n\nOnly continue if the home really has them. Can be undone in History & Rank.';
+    if (!confirm(msg)) return;
+    if (btn) { btn.disabled = true; btn.textContent = 'Pushing…'; }
+    try {
+      var res, payload = { listing_id: lid };
+      if (p.kind === 'pl') { payload.action = 'update_pricelabs'; payload[p.field] = p.value; }
+      else { payload.action = 'update_amenities'; payload.add = p.add; }
+      res = await wsApi(payload);
+      await saveDone(lid, key, p.kind === 'pl' ? 'PriceLabs ' + p.field + ' → ' + liMoney(p.value) : 'Added amenities: ' + p.add.join(', '), { src: 'intel', cat: p.kind === 'pl' ? 'PriceLabs' : 'Amenities', method: 'pushed', edit_id: res.edit && res.edit.id });
+      if (p.kind === 'pl') { l[p.field] = p.value; }
+      if (res.edit) (window._wsEdits = window._wsEdits || []).unshift(res.edit);
+      var warn = res.not_standard && res.not_standard.length ? ' Not standard Guesty amenities (may not show as Airbnb filters): ' + res.not_standard.join(', ') + '.' : '';
+      showToast('Pushed live and saved to this listing’s history.' + warn, warn ? 'info' : 'success');
+      if (p.kind === 'amen') wsApi({ action: 'get', listing_id: lid }).then(function (g) { window._wsLive = g; });
+      if (window._wsLid === lid) wsTab(window._wsTab);
+    } catch (e) {
+      showToast('Push failed: ' + (e.message || e), 'error');
+      if (btn) { btn.disabled = false; btn.textContent = p.label || 'Apply'; }
+    }
+  };
+
+  // History: completed recommendations with baseline → now
+  var origHistory = window.wsHistoryHtml;
+  window.wsHistoryHtml = function (l) {
+    var D = window._wsDone || [];
+    var now = baselineFor(l.lid);
+    var fmtOcc = function (b) { return b && b.occ30 != null ? Math.round(b.occ30) + '%' + (b.mkt30 != null ? ' vs ' + Math.round(b.mkt30) + '%' : '') : '—'; };
+    var html = '<div class="li-panel"><div class="li-panel-title">Completed recommendations</div><div class="li-muted" style="margin-bottom:8px;">Every recommendation the team pushed or marked done, with the listing’s numbers at that moment and today — so you can see what moved the needle.</div>';
+    html += D.length ? '<div class="inv-table-wrap"><table class="inv-table"><thead><tr><th>Date</th><th>Action</th><th>Who / how</th><th>Occ 30d vs mkt<br>then → now</th><th>Base<br>then → now</th><th>Rating · reviews<br>then → now</th><th>Avg rank<br>then → now</th><th></th></tr></thead><tbody>' + D.map(function (d) {
+      var b = d.baseline || {};
+      return '<tr><td>' + new Date(d.completed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + '</td><td style="max-width:280px;">' + esc(d.action_text) + (d.category ? '<div class="li-muted" style="font-size:11px;">' + esc(d.category) + '</div>' : '') + '</td><td style="font-size:12px;">' + esc((d.completed_by || 'team').split('@')[0]) + '<div class="li-muted">' + (d.method === 'pushed' ? 'Pushed live' : 'Marked done') + '</div></td>' +
+        '<td class="amount">' + fmtOcc(b) + '<br>→ ' + fmtOcc(now) + '</td><td class="amount">' + liMoney(b.base) + ' → ' + liMoney(now.base) + '</td>' +
+        '<td class="amount">' + (b.rating != null ? Number(b.rating).toFixed(2) : '—') + ' · ' + (b.reviews != null ? b.reviews : '—') + '<br>→ ' + (now.rating != null ? Number(now.rating).toFixed(2) : '—') + ' · ' + (now.reviews != null ? now.reviews : '—') + '</td>' +
+        '<td class="amount">' + (b.avg_rank != null ? '#' + b.avg_rank : '—') + ' → ' + (now.avg_rank != null ? '#' + now.avg_rank : '—') + '</td>' +
+        '<td>' + (d.method !== 'pushed' ? '<button class="expand-btn" onclick="wsUnmark(' + d.id + ')">Unmark</button>' : '') + '</td></tr>';
+    }).join('') + '</tbody></table></div>' : '<div class="li-muted">Nothing completed yet. Tick a recommendation or use an Apply button and it will appear here.</div>';
+    html += '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;"><input id="ws-manual-done" placeholder="Log something else you did (e.g. replaced mattresses, new cover photo)" style="flex:1;min-width:220px;"><button class="expand-btn" onclick="wsLogManual()">Log it</button></div></div>';
+    return html + origHistory(l);
+  };
+  window.wsUnmark = async function (id) {
+    var d = (window._wsDone || []).find(function (x) { return x.id === id; }); if (!d) return;
+    var r = await db.from('recommendation_completions').delete().eq('id', id);
+    if (r.error) { showToast('Could not unmark: ' + r.error.message, 'error'); return; }
+    window._wsDone = window._wsDone.filter(function (x) { return x.id !== id; });
+    if (window._shCompletions) delete window._shCompletions[d.listing_id + '::' + d.action_key];
+    wsTab(window._wsTab);
+  };
+  window.wsLogManual = async function () {
+    var el = document.getElementById('ws-manual-done'); var t = el && el.value.trim(); if (!t) return;
+    try { await saveDone(window._wsLid, 'manual-' + Date.now(), t, { src: 'manual', cat: 'Manual' }); showToast('Logged', 'success'); wsTab('history'); }
+    catch (e) { showToast('Could not save: ' + (e.message || e), 'error'); }
   };
 
   // ── Rank ─────────────────────────────────────────────────────────────────
@@ -198,7 +316,7 @@
 
   // styles
   var st = document.createElement('style');
-  st.textContent = '.ws-now{border-left:4px solid var(--accent, #c8a96e);} .ws-now-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;} .ws-now-list li{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg, transparent);} .ws-now-list li input{margin-top:3px;flex-shrink:0;} .ws-now-go{flex-shrink:0;align-self:center;white-space:nowrap;} @media (max-width:600px){.ws-now-list li{flex-wrap:wrap;} .ws-now-go{margin-left:26px;}}';
+  st.textContent = '.ws-now{border-left:4px solid var(--accent, #c8a96e);} .ws-now-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;} .ws-now-list li{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg, transparent);} .ws-now-list li input{margin-top:3px;flex-shrink:0;} .ws-now-go{flex-shrink:0;white-space:nowrap;} .ws-now-btns{display:flex;flex-direction:column;gap:6px;align-items:stretch;flex-shrink:0;align-self:center;} .ws-push-btn{font-size:11.5px;padding:6px 10px;white-space:nowrap;margin-top:6px;display:inline-block;} .ws-now-btns .ws-push-btn{margin-top:0;} .ws-done-line{font-size:11.5px;color:var(--green);margin-top:4px;font-weight:600;} @media (max-width:600px){.ws-now-list li{flex-wrap:wrap;} .ws-now-btns{margin-left:26px;flex-direction:row;}}';
   document.head.appendChild(st);
 
   // If the workspace is already open (script loaded late), re-render.
