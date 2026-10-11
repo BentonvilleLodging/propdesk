@@ -66,22 +66,20 @@
 [functions."check-due-tasks"]
   schedule = "0 8 * * *"
 
-# Run every day at 11:00 AM UTC (6 AM Central) — after PriceLabs' own
-# overnight pricing runs. Converted to a Background Function
-# (get-search-health-background.js) since adding the per-listing reviews
-# fetch pushed total runtime past the synchronous function limit.
-[functions."get-search-health-background"]
+# Daily jobs. Scheduled functions can't be invoked by URL (Sync/Analyze buttons need
+# that) and are limited to 30s, so each schedule runs a tiny cron-* function that
+# starts the real Background Function with the internal key.
+# 11:00 UTC (6 AM Central): Listing Intelligence data collection
+[functions."cron-search-health"]
   schedule = "0 11 * * *"
 
-# Listing Intelligence analysis (Claude) — runs after the 11:00 data collection.
-# Replaces the old daily-recommendations-cron.
-[functions."listing-intel-analyze-background"]
-  schedule = "40 11 * * *"
-
-# Daily recap data pull (Guesty reservations + GA4 traffic) for the
-# 8 AM ET chief-of-staff recap. Reuses the Guesty token cached at 11:00.
-[functions."daily-recap-snapshot-background"]
+# 11:25 UTC: daily recap data pull (Guesty reservations + GA4) for the 8 AM ET recap
+[functions."cron-recap-snapshot"]
   schedule = "25 11 * * *"
+
+# 11:40 UTC: Listing Intelligence analysis (Claude)
+[functions."cron-listing-intel"]
+  schedule = "40 11 * * *"
 
 [[headers]]
   for = "/*"
