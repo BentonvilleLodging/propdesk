@@ -136,28 +136,32 @@ function summarizeCalendar(entry) {
   const days = (entry && entry.data) || [];
   const t0 = new Date(); t0.setHours(0, 0, 0, 0);
   const s = { horizon_days: days.length, windows: {}, demand_open_next60: {}, min_stay_counts: {}, open_weekend_nights_next30: 0, high_demand_open_next60: [], last_refreshed_at: entry && entry.last_refreshed_at };
-  const isBooked = (d) => /booked/i.test(d.booking_status || '') || d.unbookable === 1 || d.unbookable === true;
+  const isBooked = (d) => /booked/i.test(d.booking_status || '');
+  // Owner/maintenance blocks and unbookable nights are neither open nor booked.
+  const isBlocked = (d) => !isBooked(d) && (/block|unavail/i.test(d.booking_status || '') || /unavail/i.test(d.demand_desc || '') || d.unbookable === 1 || d.unbookable === true);
   [14, 30, 60, 90].forEach((n) => {
     const w = days.slice(0, n);
-    const open = w.filter((d) => !isBooked(d));
     const booked = w.filter((d) => isBooked(d));
+    const blocked = w.filter((d) => isBlocked(d));
+    const open = w.filter((d) => !isBooked(d) && !isBlocked(d));
+    const sellable = w.length - blocked.length;
     s.windows['next' + n] = {
-      open_nights: open.length, booked_nights: booked.length,
-      occupancy_pct: w.length ? round((booked.length / w.length) * 100, 0) : null,
+      open_nights: open.length, booked_nights: booked.length, blocked_nights: blocked.length,
+      occupancy_pct: sellable > 0 ? round((booked.length / sellable) * 100, 0) : null,
       avg_open_price: round(avg(open.map((d) => num(d.price))), 0),
       avg_booked_adr: round(avg(booked.map((d) => num(d.ADR))), 0),
       stly_booked_nights: w.filter((d) => /booked/i.test(d.booking_status_STLY || '')).length,
     };
   });
   days.slice(0, 60).forEach((d) => {
-    if (isBooked(d)) return;
+    if (isBooked(d) || isBlocked(d)) return;
     const k = d.demand_desc || 'Unknown';
     s.demand_open_next60[k] = (s.demand_open_next60[k] || 0) + 1;
     if (/high|very/i.test(k) && s.high_demand_open_next60.length < 12) s.high_demand_open_next60.push({ date: d.date, price: num(d.price), demand: k });
     const ms = d.min_stay != null ? String(d.min_stay) : '?';
     s.min_stay_counts[ms] = (s.min_stay_counts[ms] || 0) + 1;
   });
-  days.slice(0, 30).forEach((d) => { const dow = new Date(d.date + 'T12:00:00').getDay(); if ((dow === 5 || dow === 6) && !isBooked(d)) s.open_weekend_nights_next30++; });
+  days.slice(0, 30).forEach((d) => { const dow = new Date(d.date + 'T12:00:00').getDay(); if ((dow === 5 || dow === 6) && !isBooked(d) && !isBlocked(d)) s.open_weekend_nights_next30++; });
   return s;
 }
 
@@ -179,7 +183,12 @@ function trimOptimizer(op) {
   if (d.payment_restricted) return { payment_restricted: true };
   const scores = d.scores || {};
   const out = { overall_score: scores.overall_score != null ? scores.overall_score : d.overall_score, categories: {} };
-  Object.keys(scores).forEach((k) => { if (k === 'overall_score') return; const c = scores[k] || {}; out.categories[k] = { score: c.score, tip: c.improvements || c.description || null }; });
+  Object.keys(scores).forEach((k) => {
+    const c = scores[k];
+    if (k === 'overall_score' || !c || typeof c !== 'object' || c.score == null) return;
+    out.categories[k] = { score: c.score, tip: c.improvements || c.description || null };
+  });
+  if (scores.listing_overview && scores.listing_overview.target_segment_tags) out.target_segments = scores.listing_overview.target_segment_tags;
   if (d.previous_scores) out.previous_overall = d.previous_scores.overall_score;
   return out;
 }
