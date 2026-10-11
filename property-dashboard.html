@@ -3428,10 +3428,12 @@ async function logout() {
 
 // ========== INIT ==========
 (async function() {
+  // Sign-in happens on the main PropDesk page (email code); this page reuses that session.
   var sess = (await db.auth.getSession()).data.session;
-  if (!sess) return;
+  var t = 0; try { t = parseInt(localStorage.getItem('pd_login_at'), 10) || 0; } catch(e) {}
+  if (!sess || !t || (Date.now() - t) > 30 * 86400000) { window.location.href = '/'; return; }
   var role = await fetchTeamRole();
-  if (role !== 'staff') return;
+  if (role !== 'staff') { window.location.href = '/'; return; }
   currentRole = role;
   showApp();
 })();
