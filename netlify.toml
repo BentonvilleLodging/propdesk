@@ -22,3 +22,8 @@
 # recommendation generation its own separate time budget.
 [functions."daily-recommendations-cron"]
   schedule = "10 11 * * *"
+
+# Daily recap data pull (Guesty reservations + GA4 traffic) for the
+# 8 AM ET chief-of-staff recap. Reuses the Guesty token cached at 11:00.
+[functions."daily-recap-snapshot-background"]
+  schedule = "25 11 * * *"
