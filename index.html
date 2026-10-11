@@ -723,6 +723,91 @@
   .cd-danger { color: var(--red) !important; border-color: var(--red) !important; margin-right: auto; }
   @media (max-width: 600px) { .cd-row { grid-template-columns: 1fr; gap: 4px; } }
 
+  /* ===== Listing Intelligence ===== */
+  .sh-tabs { display:flex; gap:2px; border-bottom:2px solid var(--border); margin-bottom:18px; overflow-x:auto; }
+  .sh-tab-btn { background:none; border:none; padding:10px 16px; font-size:13px; font-weight:600; color:var(--text-muted); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; white-space:nowrap; font-family:inherit; }
+  .sh-tab-btn.sh-tab-active { color:var(--accent); border-bottom-color:var(--accent); }
+  .sh-tab-content { display:none; }
+  .sh-tab-content.sh-tab-visible { display:block; }
+  .li-status { font-size:12.5px; margin-bottom:14px; min-height:1px; }
+  .li-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin-bottom:18px; }
+  .li-muted { color:var(--text-muted); }
+  .li-toolbar { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+  .li-toolbar input, .li-toolbar select { background:var(--surface); border:1px solid var(--border); color:var(--text); border-radius:var(--radius-sm); padding:8px 10px; font:inherit; font-size:13px; }
+  .li-toolbar input { flex:1 1 220px; width:auto !important; min-width:160px; margin:0; }
+  .li-toolbar select { flex:0 0 auto; width:auto !important; margin:0; }
+  .li-action input, .li-pl-table input, .li-track-item input { width:16px !important; height:16px; margin:3px 0 0; }
+  .li-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); margin-bottom:10px; overflow:hidden; }
+  .li-card.open { border-color:var(--accent); }
+  .li-card-head { display:flex; align-items:center; gap:12px; padding:12px 14px; cursor:pointer; }
+  .li-card-head:hover { background:var(--surface2); }
+  .li-thumb { width:54px; height:54px; border-radius:8px; object-fit:cover; flex-shrink:0; background:var(--surface2); }
+  .li-thumb-empty { display:flex; align-items:center; justify-content:center; font-size:22px; }
+  .li-card-main { flex:1; min-width:0; }
+  .li-card-name { font-weight:700; font-size:14.5px; margin-bottom:5px; }
+  .li-chips { display:flex; flex-wrap:wrap; gap:5px; }
+  .li-chip { font-size:11px; padding:2px 8px; border-radius:999px; background:var(--surface2); color:var(--text-muted); border:1px solid var(--border); white-space:nowrap; }
+  .li-chip-bad { color:var(--red); border-color:var(--red); background:var(--red-dim); }
+  .li-chip-mid { color:var(--yellow); border-color:var(--yellow); }
+  .li-chip-good { color:var(--green); border-color:var(--green); background:var(--green-dim); }
+  .li-health { width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'DM Mono',monospace; font-weight:700; font-size:15px; flex-shrink:0; border:2px solid var(--border); }
+  .li-health-sm { width:32px; height:32px; font-size:12px; }
+  .li-h-good { color:var(--green); border-color:var(--green); } .li-h-mid { color:var(--yellow); border-color:var(--yellow); } .li-h-bad { color:var(--red); border-color:var(--red); } .li-h-na { color:var(--text-dim); }
+  .li-card-body { border-top:1px solid var(--border); padding:16px; }
+  .li-summary p { margin:6px 0 0; line-height:1.6; font-size:14px; }
+  .li-sec { margin-top:18px; }
+  .li-sec-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--accent); margin-bottom:8px; }
+  .li-stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; margin-top:14px; }
+  .li-stat { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:8px 10px; }
+  .li-stat-l { font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); }
+  .li-stat-v { font-family:'DM Mono',monospace; font-size:14px; margin-top:2px; }
+  .li-stat-s { font-size:11px; color:var(--text-dim); margin-top:2px; }
+  .li-action, .li-track-item { text-transform:none !important; letter-spacing:normal !important; font-weight:400; color:var(--text); }
+  .li-action { display:flex; gap:10px; padding:10px 12px; border:1px solid var(--border); border-radius:8px; margin-bottom:6px; cursor:pointer; background:var(--surface); }
+  .li-action input { margin-top:3px; width:16px; height:16px; flex-shrink:0; }
+  .li-action-text { font-weight:600; font-size:13.5px; line-height:1.4; }
+  .li-action-why { font-size:12.5px; color:var(--text-muted); margin-top:3px; line-height:1.45; }
+  .li-action-tags { display:flex; gap:5px; flex-wrap:wrap; margin-top:6px; }
+  .li-action-tags span, .li-pill { font-size:10px; padding:1px 7px; border-radius:999px; background:var(--surface2); color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em; }
+  .li-imp-high { color:var(--green) !important; } .li-imp-medium { color:var(--yellow) !important; }
+  .li-done .li-action-text, tr.li-done td { text-decoration:line-through; opacity:.55; }
+  .li-pl-table td { font-size:12.5px; vertical-align:top; }
+  .li-rec { color:var(--accent); font-weight:600; }
+  .li-why { color:var(--text-muted); max-width:340px; }
+  .li-themes { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:8px; }
+  .li-theme { border:1px solid var(--border); border-left:3px solid var(--text-dim); border-radius:8px; padding:8px 10px; font-size:12.5px; }
+  .li-theme-positive { border-left-color:var(--green); } .li-theme-negative { border-left-color:var(--red); } .li-theme-mixed { border-left-color:var(--yellow); }
+  .li-owner-item { padding:8px 0; border-bottom:1px solid var(--border); font-size:13px; }
+  .li-owner-item:last-child { border-bottom:none; }
+  .li-prio { font-size:10px; text-transform:uppercase; padding:1px 7px; border-radius:999px; background:var(--surface2); }
+  .li-prio-high { color:var(--red); } .li-prio-medium { color:var(--yellow); } .li-prio-low { color:var(--text-muted); }
+  .li-owner-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:10px; }
+  .li-gaps { font-size:12px; margin-top:14px; }
+  .li-card-foot { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-top:16px; padding-top:12px; border-top:1px solid var(--border); font-size:12.5px; }
+  .li-card-foot a { color:var(--accent); }
+  .li-panel { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px 18px; margin-bottom:14px; font-size:13px; }
+  .li-panel-head { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:8px; }
+  .li-panel-title { font-weight:700; font-size:14px; margin-bottom:8px; }
+  .li-events { display:flex; flex-direction:column; gap:8px; }
+  .li-event { display:flex; gap:12px; padding:8px 0; border-bottom:1px solid var(--border); font-size:13px; }
+  .li-event-date { font-family:'DM Mono',monospace; font-size:12px; color:var(--accent); min-width:110px; }
+  .li-event a { color:var(--accent); }
+  .li-tracked { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:6px; }
+  .li-track-item { display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; }
+  .li-gaps-list { margin:0; padding-left:18px; line-height:1.6; color:var(--text-muted); }
+  .li-gaps-list strong { color:var(--text); }
+  .or-doc { font-size:14px; line-height:1.6; }
+  .or-brand { font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--accent); }
+  .or-h { margin:4px 0 2px; font-size:22px; }
+  .or-date { font-size:12px; color:var(--text-muted); }
+  .or-headline { font-size:15px; margin:12px 0; }
+  .or-doc h3 { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--accent); margin:20px 0 6px; border-bottom:1px solid var(--border); padding-bottom:4px; }
+  .or-stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; }
+  .or-stat { border:1px solid var(--border); border-radius:8px; padding:8px 10px; }
+  .or-stat-v { font-family:'DM Mono',monospace; font-size:16px; } .or-stat-l { font-size:10.5px; text-transform:uppercase; color:var(--text-muted); } .or-stat-c { font-size:11px; color:var(--text-dim); }
+  .or-table { width:100%; border-collapse:collapse; font-size:12.5px; } .or-table th, .or-table td { border-bottom:1px solid var(--border); padding:6px; text-align:left; vertical-align:top; }
+  @media (max-width: 600px) { .li-thumb { width:42px; height:42px; } .li-health { width:38px; height:38px; font-size:13px; } .li-event { flex-direction:column; gap:2px; } }
+
   .time-log-toggle { cursor: pointer; user-select: none; }
   .admin-section { margin-bottom: 32px; }
 
@@ -2488,8 +2573,8 @@
   <div class="action-cards" style="grid-template-columns:1fr;margin-bottom:20px;">
     <div class="action-card" style="cursor:pointer;" onclick="showPage('search-health')">
       <div class="card-icon" style="background:var(--accent-dim);">&#128200;</div>
-      <div class="card-title">Search Health &amp; Daily Recommendations</div>
-      <div class="card-desc">Pricing, occupancy vs. market, calendar gaps, and AI-generated priority actions across all listings.</div>
+      <div class="card-title">Listing Intelligence</div>
+      <div class="card-desc">Claude-analyzed search, pricing and guest-review insights for every listing, PriceLabs setting changes, and owner improvement reports.</div>
       <button class="card-cta" style="background:var(--accent-dim);color:var(--accent);">Open &#8594;</button>
     </div>
   </div>
@@ -3436,169 +3521,125 @@
   <div class="section-header" style="margin-bottom:12px;">
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
       <button class="expand-btn" onclick="showPage('dashboard')">&#8592; Dashboard</button>
-      <span class="section-title" style="font-size:1.2rem;">&#128200; Search Health</span>
-      <span id="sh-updated-label" style="font-size:13px;color:var(--text-muted);"></span>
+      <span class="section-title" style="font-size:1.2rem;">&#128200; Listing Intelligence</span>
+      <span id="sh-updated-label" style="font-size:12px;color:var(--text-muted);"></span>
     </div>
-    <div style="display:flex;gap:8px;">
-      <button class="btn btn-primary" id="sh-sync-btn" onclick="shSyncNow()" style="font-size:12px;">&#8635; Sync Now</button>
-      <button class="expand-btn" onclick="shLoad()">Refresh View</button>
-    </div>
-  </div>
-  <div id="sh-sync-status" style="font-size:12.5px;margin-bottom:16px;"></div>
-
-  <div id="sh-summary-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:20px;">
-    <div class="inv-stat"><div class="inv-stat-label">Listings Tracked</div><div class="inv-stat-value" id="sh-count-total">&#8212;</div></div>
-    <div class="inv-stat"><div class="inv-stat-label">Behind Market Pace</div><div class="inv-stat-value" id="sh-count-behind" style="color:var(--red);">&#8212;</div></div>
-    <div class="inv-stat"><div class="inv-stat-label">Calendar Gaps (60d)</div><div class="inv-stat-value" id="sh-count-gaps" style="color:var(--yellow);">&#8212;</div></div>
-    <div class="inv-stat"><div class="inv-stat-label">Avg. Occupancy (30d)</div><div class="inv-stat-value" id="sh-avg-occ">&#8212;</div></div>
-  </div>
-
-  <div class="sh-tabs" style="display:flex;gap:2px;border-bottom:2px solid var(--border);margin-bottom:20px;overflow-x:auto;">
-    <button class="sh-tab-btn sh-tab-active" data-tab="actions" onclick="shSwitchTab('actions')">&#129504; Priority Actions</button>
-    <button class="sh-tab-btn" data-tab="pricing" onclick="shSwitchTab('pricing')">Pricing &amp; Occupancy</button>
-    <button class="sh-tab-btn" data-tab="reviews" onclick="shSwitchTab('reviews')">Reviews &amp; Completeness</button>
-    <button class="sh-tab-btn" data-tab="instant" onclick="shSwitchTab('instant')">Instant Book</button>
-    <button class="sh-tab-btn" data-tab="insights" onclick="shSwitchTab('insights')">Airbnb Insights</button>
-  </div>
-  <style>
-    .sh-tab-btn { background:none; border:none; padding:10px 16px; font-size:13px; font-weight:600; color:var(--text-muted); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; white-space:nowrap; }
-    .sh-tab-btn.sh-tab-active { color:var(--accent); border-bottom-color:var(--accent); }
-    .sh-tab-content { display:none; }
-    .sh-tab-content.sh-tab-visible { display:block; }
-    .sh-card-checkbox { display:flex; align-items:flex-start; gap:10px; padding:12px 16px; border-bottom:1px solid var(--border); }
-    .sh-card-checkbox:last-child { border-bottom:none; }
-    .sh-card-checkbox input[type=checkbox] { margin-top:2px; flex-shrink:0; width:16px; height:16px; }
-    .sh-card-checkbox.sh-done .sh-card-checkbox-text { text-decoration:line-through; color:var(--text-muted); }
-  </style>
-
-  <!-- TAB: Priority Actions (carousel) -->
-  <div class="sh-tab-content sh-tab-visible" id="sh-tab-actions">
-    <div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:10px;">
-      <button class="btn btn-primary" id="sh-rec-btn" onclick="shRegenerateRecommendations()" style="font-size:12px;">&#129504; Regenerate Recommendations</button>
-    </div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-      <button class="expand-btn" onclick="shCarouselPrev()">&#8592; Prev</button>
-      <span id="sh-carousel-position" style="font-size:13px;color:var(--text-muted);font-weight:600;"></span>
-      <button class="expand-btn" onclick="shCarouselNext()">Next &#8594;</button>
-    </div>
-    <div id="sh-carousel-card" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
-      <div class="empty">Loading&#8230;</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="expand-btn" id="sh-sync-btn" onclick="shSyncNow()">&#8635; Sync Data</button>
+      <button class="btn btn-primary" id="li-analyze-btn" onclick="liRunAnalysis()" style="font-size:12px;">&#129504; Re-run Analysis</button>
     </div>
   </div>
+  <div id="sh-sync-status" class="li-status"></div>
 
-  <!-- TAB: Pricing & Occupancy -->
-  <div class="sh-tab-content" id="sh-tab-pricing">
-    <div class="inv-table-section">
-      <div class="inv-table-header">
-        <div class="inv-table-title">All Listings <span class="section-subtitle">worst pacing vs. market first</span></div>
+  <div class="li-kpis">
+    <div class="inv-stat"><div class="inv-stat-label">Listings Tracked</div><div class="inv-stat-value" id="li-k-count">&#8212;</div></div>
+    <div class="inv-stat"><div class="inv-stat-label">Behind Market (30d)</div><div class="inv-stat-value" id="li-k-behind" style="color:var(--red);">&#8212;</div><div class="inv-stat-sub">10+ pts below market occupancy</div></div>
+    <div class="inv-stat"><div class="inv-stat-label">Avg Health Score</div><div class="inv-stat-value" id="li-k-health">&#8212;</div></div>
+    <div class="inv-stat"><div class="inv-stat-label">Open Nights · Next 14d</div><div class="inv-stat-value" id="li-k-open" style="color:var(--yellow);">&#8212;</div></div>
+    <div class="inv-stat"><div class="inv-stat-label">Reviews Analyzed</div><div class="inv-stat-value" id="li-k-reviews">&#8212;</div></div>
+  </div>
+
+  <div class="sh-tabs li-tabs">
+    <button class="sh-tab-btn sh-tab-active" data-tab="listings" onclick="shSwitchTab('listings')">&#127968; Listings</button>
+    <button class="sh-tab-btn" data-tab="portfolio" onclick="shSwitchTab('portfolio')">&#128202; Portfolio</button>
+    <button class="sh-tab-btn" data-tab="market" onclick="shSwitchTab('market')">&#128197; Market &amp; Events</button>
+    <button class="sh-tab-btn" data-tab="data" onclick="shSwitchTab('data')">&#9881; Data &amp; Settings</button>
+  </div>
+
+  <!-- LISTINGS -->
+  <div class="sh-tab-content sh-tab-visible" id="sh-tab-listings">
+    <div class="li-toolbar">
+      <input type="search" id="li-search" placeholder="Search listings…" oninput="liRenderListings()">
+      <select id="li-sort" onchange="liRenderListings()">
+        <option value="health">Needs attention first</option>
+        <option value="behind">Most behind market</option>
+        <option value="open">Most open nights (14d)</option>
+        <option value="name">A–Z</option>
+      </select>
+    </div>
+    <div id="li-list"><div class="empty">Loading&#8230;</div></div>
+  </div>
+
+  <!-- PORTFOLIO -->
+  <div class="sh-tab-content" id="sh-tab-portfolio">
+    <div class="inv-table-wrap">
+      <table class="inv-table li-table">
+        <thead><tr>
+          <th>Listing</th><th>Health</th><th>Occ 30d vs Mkt</th><th>Base / PL Rec</th><th>Mkt Median</th><th>Open 14d</th><th>Gaps 60d</th><th>Reviews</th><th>Airbnb Rank</th><th>Last Booking</th>
+        </tr></thead>
+        <tbody id="li-portfolio-body"><tr><td colspan="10" class="inv-empty">Loading&#8230;</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- MARKET -->
+  <div class="sh-tab-content" id="sh-tab-market">
+    <div class="li-panel">
+      <div class="li-panel-head">
+        <div><div class="li-panel-title">Upcoming NWA demand drivers</div><div class="li-muted" id="li-market-meta"></div></div>
+        <button class="expand-btn" id="li-market-btn" onclick="liRefreshMarket()">&#8635; Refresh research</button>
       </div>
-      <div class="inv-table-wrap">
+      <div class="li-muted" id="li-market-notes" style="margin-bottom:10px;"></div>
+      <div id="li-market-events"><div class="empty">No market research yet.</div></div>
+      <div class="li-muted" id="li-market-sources" style="margin-top:12px;font-size:11px;"></div>
+    </div>
+  </div>
+
+  <!-- DATA & SETTINGS -->
+  <div class="sh-tab-content" id="sh-tab-data">
+    <div class="li-panel">
+      <div class="li-panel-title">Feed status</div>
+      <div id="li-feed-status" class="li-muted">Loading&#8230;</div>
+    </div>
+
+    <div class="li-panel">
+      <div class="li-panel-title">Tracked listings</div>
+      <div class="li-muted" style="margin-bottom:10px;">Only listings that are listed in Guesty appear. Uncheck a listing to hide it from Listing Intelligence (e.g. seasonal or retired units). Takes effect on the next Sync.</div>
+      <div id="li-tracked-list" class="li-tracked"></div>
+    </div>
+
+    <div class="li-panel">
+      <div class="li-panel-title">Airbnb Insights import (conversion data)</div>
+      <div class="li-muted" style="margin-bottom:12px;line-height:1.5;">
+        Airbnb doesn't share search impressions or conversion through any API, and they're the strongest signal for whether photos, title and price are working. In Airbnb go to <strong>Insights → Performance → Download CSV</strong> (one export covers every tab) and upload it here monthly. The analysis uses view-to-contact and contact-to-book rates when they're available.
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+        <input type="file" id="sh-csv-input" accept=".csv" style="font-size:12px;color:var(--text-muted);">
+        <button class="btn btn-primary" id="sh-csv-btn" onclick="shImportAirbnbCsv()" style="font-size:12px;">Upload Airbnb CSV</button>
+      </div>
+      <div id="sh-csv-status" style="font-size:12.5px;"></div>
+      <div class="inv-table-wrap" style="margin-top:12px;">
         <table class="inv-table">
-          <thead><tr>
-            <th>Listing</th>
-            <th>Your Occ. (30d)</th>
-            <th>Market Occ. (30d)</th>
-            <th>Gap vs Market</th>
-            <th>Calendar Gaps (60d)</th>
-            <th>Your Price</th>
-            <th>PriceLabs Rec.</th>
-          </tr></thead>
-          <tbody id="sh-table-body">
-            <tr><td colspan="7" class="inv-empty">Loading&#8230;</td></tr>
-          </tbody>
+          <thead><tr><th>Listing</th><th>Bookings</th><th>Nights</th><th>ADR</th><th>Booking Window</th><th>View&#8594;Contact</th><th>Contact&#8594;Book</th></tr></thead>
+          <tbody id="sh-airbnb-perf-table-body"><tr><td colspan="7" class="inv-empty">No data imported yet.</td></tr></tbody>
         </table>
       </div>
+      <div class="li-muted" style="margin-top:6px;font-size:11px;">Period: <span id="sh-airbnb-period-label">—</span></div>
     </div>
-  </div>
 
-  <!-- TAB: Reviews & Completeness -->
-  <div class="sh-tab-content" id="sh-tab-reviews">
-    <div class="inv-table-section">
-      <div class="inv-table-header">
-        <div class="inv-table-title">Reviews &amp; Listing Completeness <span class="section-subtitle">Guest Favorite needs 5+ reviews and a 4.9+ rating</span></div>
-      </div>
-      <div class="inv-table-wrap">
-        <table class="inv-table">
-          <thead><tr>
-            <th>Listing</th>
-            <th>Reviews</th>
-            <th>Avg Rating</th>
-            <th>Guest Favorite</th>
-            <th>Verify</th>
-            <th>Photos</th>
-            <th>Description</th>
-            <th>Amenities</th>
-          </tr></thead>
-          <tbody id="sh-reviews-table-body">
-            <tr><td colspan="8" class="inv-empty">Loading&#8230;</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- TAB: Instant Book -->
-  <div class="sh-tab-content" id="sh-tab-instant">
-    <div class="inv-table-section">
-      <div class="inv-table-header">
-        <div class="inv-table-title">Instant Book Status <span class="section-subtitle">a real, documented Airbnb ranking boost -- zero cost to enable</span></div>
-      </div>
-      <div class="inv-table-wrap">
-        <table class="inv-table">
-          <thead><tr>
-            <th>Listing</th>
-            <th>Instant Book</th>
-          </tr></thead>
-          <tbody id="sh-instant-table-body">
-            <tr><td colspan="2" class="inv-empty">Loading&#8230;</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- TAB: Airbnb Insights -->
-  <div class="sh-tab-content" id="sh-tab-insights">
-    <div class="inv-table-section">
-      <div class="inv-table-header">
-        <div class="inv-table-title">&#128200; Airbnb Performance Import</div>
-      </div>
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;">
-        <div style="font-size:12.5px;color:var(--text-muted);margin-bottom:12px;line-height:1.5;">
-          From Airbnb, go to Insights &#8594; Performance, and click Download CSV (it exports the same underlying report regardless of which tab -- Bookings, Lead Time, Views, etc. -- is showing, so one download covers it). Upload the raw file below exactly as downloaded, no editing needed. This covers real booking conversion (view-to-contact and contact-to-book rates) and booking lead time (average booking window) per listing.
-          <br><br>
-          <strong>Not available from Airbnb in any exportable form:</strong> returning-guest count and wishlist-addition count. These are dashboard-only visuals with no CSV or API path -- if that changes on Airbnb's side, tell me and I'll wire it in.
-        </div>
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
-          <input type="file" id="sh-csv-input" accept=".csv" style="font-size:12px;color:var(--text-muted);">
-          <button class="btn btn-primary" id="sh-csv-btn" onclick="shImportAirbnbCsv()" style="font-size:12px;">Upload Airbnb CSV</button>
-        </div>
-        <div id="sh-csv-status" style="font-size:12.5px;"></div>
-      </div>
-    </div>
-    <div class="inv-table-section" style="margin-top:16px;">
-      <div class="inv-table-header">
-        <div class="inv-table-title">Last Imported Period <span class="section-subtitle" id="sh-airbnb-period-label"></span></div>
-      </div>
-      <div class="inv-table-wrap">
-        <table class="inv-table">
-          <thead><tr>
-            <th>Listing</th>
-            <th>Bookings</th>
-            <th>Nights</th>
-            <th>ADR</th>
-            <th>Booking Window</th>
-            <th>View&#8594;Contact</th>
-            <th>Contact&#8594;Book</th>
-          </tr></thead>
-          <tbody id="sh-airbnb-perf-table-body">
-            <tr><td colspan="7" class="inv-empty">No data imported yet.</td></tr>
-          </tbody>
-        </table>
-      </div>
+    <div class="li-panel">
+      <div class="li-panel-title">Data that would sharpen the edge</div>
+      <ul class="li-gaps-list">
+        <li><strong>AirDNA comps</strong> — top-performing comparable listings within ~2 miles (their ADR, occupancy, amenities, review counts). Would let the analysis say "the top 3 comps all have a hot tub and average $40 more." Needs your AirDNA API key added in Netlify as <code>AIRDNA_API_KEY</code>.</li>
+        <li><strong>Airbnb conversion funnel</strong> — monthly Insights CSV above (impressions → views → bookings).</li>
+        <li><strong>PriceLabs Listing Optimizer</strong> — already pulled if enabled on your PriceLabs account; if cards show "payment restricted", turn on Listing Optimizer in PriceLabs to get title/photo/amenity scores and Airbnb search rank per date.</li>
+        <li><strong>Response rate &amp; time</strong> — not exposed by Airbnb's API; Guesty's inbox metrics could be added later.</li>
+      </ul>
     </div>
   </div>
 </main>
+</div>
+
+<!-- OWNER REPORT MODAL -->
+<div class="modal-overlay" id="modal-owner-report">
+  <div class="modal" style="max-width:820px;">
+    <div class="modal-header">
+      <span class="modal-title" id="or-title">Owner Report</span>
+      <button class="modal-close" onclick="closeModal('modal-owner-report')">&#x2715;</button>
+    </div>
+    <div class="modal-body" id="or-body"></div>
+    <div class="modal-footer" id="or-footer"></div>
+  </div>
 </div>
 <!-- END SEARCH HEALTH PAGE -->
 
@@ -7936,509 +7977,462 @@ function teardownRealtime() {
 
 
 <!-- ============================================================ -->
-<!-- ============================================================ -->
-<!-- SEARCH HEALTH — standalone script, does not touch existing   -->
-<!-- pages/functions. Reads pricelabs_daily, calendar_gap_        -->
-<!-- snapshots, guesty_review_snapshots, listing_completeness_    -->
-<!-- snapshots, daily_recommendations, and recommendation_        -->
-<!-- completions (all populated by get-search-health.js /         -->
-<!-- get-recommendations.js) via the existing global `db` client. -->
+<!-- LISTING INTELLIGENCE (Search Health) — reads listing_registry, pricelabs_daily,   -->
+<!-- pricelabs_intel, guesty_review_snapshots, calendar_gap_snapshots,                  -->
+<!-- listing_completeness_snapshots, listing_analyses, owner_reports, market_intel.     -->
+<!-- Data: get-search-health-background · Analysis: listing-intel-analyze-background   -->
 <!-- ============================================================ -->
 <script>
-window._shListingData = [];   // consolidated per-listing metrics, built by shLoad()
-window._shCompletions = {};   // "listingId::actionKey" -> true, built by shLoad()
-window._shRecommendations = []; // latest AI recommendations array
-window._shCarouselIndex = 0;
+window._shListingData = [];
+window._shCompletions = {};
+window._shAirbnbIdToGuestyId = {};
+window._liOpen = {};
+window._liReports = {};
 
 function shSwitchTab(tab) {
-  document.querySelectorAll('.sh-tab-btn').forEach(function(b) {
-    b.classList.toggle('sh-tab-active', b.getAttribute('data-tab') === tab);
-  });
-  document.querySelectorAll('.sh-tab-content').forEach(function(c) {
-    c.classList.toggle('sh-tab-visible', c.id === 'sh-tab-' + tab);
-  });
+  document.querySelectorAll('.sh-tab-btn').forEach(function(b) { b.classList.toggle('sh-tab-active', b.getAttribute('data-tab') === tab); });
+  document.querySelectorAll('.sh-tab-content').forEach(function(c) { c.classList.toggle('sh-tab-visible', c.id === 'sh-tab-' + tab); });
 }
 
-// ── Manual "Sync Now" -- pulls fresh data from Guesty + PriceLabs right
-// now, instead of waiting for the scheduled daily run.
-async function shSyncNow() {
-  var btn = document.getElementById('sh-sync-btn');
-  var status = document.getElementById('sh-sync-status');
-  if (btn) { btn.disabled = true; btn.textContent = 'Syncing\u2026'; }
-
-  // Record the current run-status timestamp so polling can detect a
-  // genuinely NEW completion, not a stale one from a previous run.
-  var beforeCompletedAt = null;
-  try {
-    var beforeRes = await db.from('app_cache').select('value').eq('key', 'search_health_last_run').limit(1);
-    if (beforeRes.data && beforeRes.data.length) {
-      try { beforeCompletedAt = JSON.parse(beforeRes.data[0].value).completedAt; } catch(e) {}
-    }
-  } catch(e) { /* fine, treat any result as new */ }
-
-  if (status) { status.style.color = 'var(--text-muted)'; status.textContent = 'Pulling fresh data from Guesty and PriceLabs \u2014 this now checks full review history per listing, so it can take 1-2 minutes.'; }
-
-  try {
-    // This is a Netlify Background Function -- it returns an empty 202
-    // almost immediately regardless of how long the actual sync takes.
-    // Poll app_cache for the completion marker it writes when finished.
-    var triggerRes = await authFetch('/.netlify/functions/get-search-health-background');
-    if (!triggerRes.ok && triggerRes.status !== 202) {
-      throw new Error('Failed to start sync (HTTP ' + triggerRes.status + ')');
-    }
-
-    var maxAttempts = 40; // ~2 minutes at 3s intervals
-    var data = null;
-    for (var i = 0; i < maxAttempts; i++) {
-      await new Promise(function(resolve) { setTimeout(resolve, 3000); });
-      var pollRes = await db.from('app_cache').select('value').eq('key', 'search_health_last_run').limit(1);
-      if (pollRes.data && pollRes.data.length) {
-        var parsed = null;
-        try { parsed = JSON.parse(pollRes.data[0].value); } catch(e) {}
-        if (parsed && (!beforeCompletedAt || parsed.completedAt !== beforeCompletedAt)) {
-          data = parsed;
-          break;
-        }
-      }
-    }
-
-    if (!data) {
-      throw new Error('Still syncing after 2 minutes \u2014 it may still finish in the background. Try Refresh View shortly.');
-    }
-    if (data.success === false) {
-      throw new Error(data.fatalError || 'Sync failed with an unknown error.');
-    }
-
-    var msg = 'Synced: ' + (data.priceRows || 0) + ' pricing, ' + (data.gapRows || 0) + ' calendar, ' + (data.reviewRows || 0) + ' review, ' + (data.completenessRows || 0) + ' completeness rows.';
-    if (data.errors && data.errors.length) {
-      msg += ' ' + data.errors.length + ' warning' + (data.errors.length !== 1 ? 's' : '') + ': ' + data.errors.slice(0, 3).join(' | ');
-    }
-    if (status) { status.style.color = (data.errors && data.errors.length) ? 'var(--yellow)' : 'var(--green)'; status.textContent = msg; }
-    await shLoad();
-    await shLoadRecommendations();
-  } catch(e) {
-    if (status) { status.style.color = 'var(--red)'; status.textContent = 'Sync failed: ' + (e.message || e); }
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '\u21bb Sync Now'; }
-  }
+function liNum(v) { if (v === null || v === undefined || v === '') return null; var n = parseFloat(v); return isFinite(n) ? n : null; }
+function liMoney(v) { var n = liNum(v); return n == null ? '—' : '$' + Math.round(n).toLocaleString(); }
+function liPct(v) { var n = liNum(v); return n == null ? '—' : Math.round(n) + '%'; }
+function liDaysAgoISO(n) { var d = new Date(Date.now() - n * 86400000); return d.toISOString().slice(0, 10); }
+function liLatest(rows, key) { var m = {}; (rows || []).forEach(function(r) { if (!m[r[key]]) m[r[key]] = r; }); return m; }
+function liSlug(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 80); }
+function liName(n) { var t = document.createElement('textarea'); t.innerHTML = n || ''; return t.value; }
+function liHealthClass(h) { return h == null ? 'li-h-na' : h >= 75 ? 'li-h-good' : h >= 55 ? 'li-h-mid' : 'li-h-bad'; }
+function liAgo(iso) {
+  if (!iso) return '';
+  var m = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  if (m < 60) return m + ' min ago';
+  var h = Math.round(m / 60); if (h < 48) return h + 'h ago';
+  return Math.round(h / 24) + 'd ago';
 }
 
-// ── Main data load: pulls all snapshot tables, builds the consolidated
-// per-listing dataset used by every tab, and renders each tab's view.
+// ── Load everything ─────────────────────────────────────────────────────
 async function shLoad() {
-  var tbody = document.getElementById('sh-table-body');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="inv-empty">Loading&#8230;</td></tr>';
+  var since = liDaysAgoISO(4);
+  var q = await Promise.all([
+    db.from('listing_registry').select('*'),
+    db.from('pricelabs_daily').select('listing_id,snapshot_date,base_price,recommended_price,min_price,max_price,min_stay,occupancy_pct_7d,occupancy_pct_30d,occupancy_pct_60d,market_occupancy_pct_7d,market_occupancy_pct_30d,market_occupancy_pct_60d,last_refreshed_at,raw').gte('snapshot_date', since).order('snapshot_date', { ascending: false }),
+    db.from('pricelabs_intel').select('*').gte('snapshot_date', since).order('snapshot_date', { ascending: false }),
+    db.from('guesty_review_snapshots').select('*').gte('snapshot_date', since).order('snapshot_date', { ascending: false }),
+    db.from('calendar_gap_snapshots').select('*').gte('snapshot_date', since).order('snapshot_date', { ascending: false }),
+    db.from('listing_completeness_snapshots').select('listing_id,snapshot_date,photo_count,description_length,amenities_count,cover_photo_url').gte('snapshot_date', since).order('snapshot_date', { ascending: false }),
+    db.from('listing_analyses').select('*').order('created_at', { ascending: false }).limit(400),
+    db.from('recommendation_completions').select('listing_id,action_key'),
+    db.from('owner_reports').select('id,listing_id,status,created_at,completed_at,error,report').order('created_at', { ascending: false }).limit(150),
+    db.from('market_intel').select('*').order('created_at', { ascending: false }).limit(1),
+    db.from('app_cache').select('key,value').in('key', ['search_health_last_run', 'listing_intel_last_run']),
+    db.from('airbnb_performance_import').select('*').order('period_end', { ascending: false }).limit(200),
+    db.from('booking_reservations').select('listing_id,created_at_guesty,status').eq('status', 'confirmed').order('created_at_guesty', { ascending: false }).limit(1500)
+  ]);
+  var reg = q[0].data || [];
+  var P = liLatest(q[1].data, 'listing_id'), IN = liLatest(q[2].data, 'listing_id'), RS = liLatest(q[3].data, 'listing_id'),
+      G = liLatest(q[4].data, 'listing_id'), C = liLatest(q[5].data, 'listing_id'), A = liLatest(q[6].data, 'listing_id');
+  var lastBooking = {}; (q[12].data || []).forEach(function(r) { if (!lastBooking[r.listing_id]) lastBooking[r.listing_id] = r.created_at_guesty; });
 
-  try {
-    var pl    = await db.from('pricelabs_daily').select('*').order('snapshot_date', { ascending: false });
-    var gaps  = await db.from('calendar_gap_snapshots').select('*').order('snapshot_date', { ascending: false });
-    var revs  = await db.from('guesty_review_snapshots').select('*').order('snapshot_date', { ascending: false });
-    var comps = await db.from('listing_completeness_snapshots').select('*').order('snapshot_date', { ascending: false });
-    var dones = await db.from('recommendation_completions').select('listing_id,action_key');
+  window._shCompletions = {};
+  (q[7].data || []).forEach(function(r) { window._shCompletions[r.listing_id + '::' + r.action_key] = true; });
+  window._liReports = {};
+  (q[8].data || []).forEach(function(r) { (window._liReports[r.listing_id] = window._liReports[r.listing_id] || []).push(r); });
+  window._liRegistry = reg;
 
-    if (pl.error) throw pl.error;
+  window._shAirbnbIdToGuestyId = {};
+  reg.forEach(function(r) { if (r.airbnb_listing_id) window._shAirbnbIdToGuestyId[String(r.airbnb_listing_id)] = r.listing_id; });
+  (q[1].data || []).forEach(function(p) { ((p.raw && p.raw.channel_listing_details) || []).forEach(function(ch) { if (ch.channel_name === 'airbnb' && ch.channel_listing_id && !window._shAirbnbIdToGuestyId[ch.channel_listing_id]) window._shAirbnbIdToGuestyId[String(ch.channel_listing_id)] = p.listing_id; }); });
 
-    var latest = function(rows) {
-      var map = {};
-      (rows || []).forEach(function(r) { if (!map[r.listing_id]) map[r.listing_id] = r; });
-      return map;
+  var live = reg.filter(function(r) { return r.is_listed && r.tracked !== false; });
+  window._shListingData = live.map(function(r) {
+    var lid = r.listing_id, p = P[lid] || {}, it = IN[lid] || {}, rs = RS[lid] || {}, g = G[lid] || {}, c = C[lid] || {}, a = A[lid] || null;
+    var cal = it.calendar || {}, w14 = (cal.windows && cal.windows.next14) || {}, w30 = (cal.windows && cal.windows.next30) || {};
+    var nb = it.neighborhood || {}, bpp = nb.base_price_percentiles || {};
+    return {
+      lid: lid, name: liName(r.nickname || r.title || lid), title: r.title, bedrooms: r.bedrooms, airbnbId: r.airbnb_listing_id,
+      base: liNum(p.base_price), rec: liNum(p.recommended_price), min: liNum(p.min_price), max: liNum(p.max_price), minStay: liNum(p.min_stay),
+      occ7: liNum(p.occupancy_pct_7d), mkt7: liNum(p.market_occupancy_pct_7d), occ30: liNum(p.occupancy_pct_30d), mkt30: liNum(p.market_occupancy_pct_30d), occ60: liNum(p.occupancy_pct_60d), mkt60: liNum(p.market_occupancy_pct_60d),
+      pushEnabled: p.raw ? p.raw.push_enabled : null,
+      mktP50: liNum(bpp.p50), mktP25: liNum(bpp.p25), mktP75: liNum(bpp.p75),
+      open14: liNum(w14.open_nights), open30: liNum(w30.open_nights), highDemandOpen: (cal.high_demand_open_next60 || []).length,
+      gaps: liNum(g.gap_count_60d), gapNights: liNum(g.gap_nights_60d),
+      reviews: liNum(rs.review_count), rating: liNum(rs.avg_rating), daysSinceReview: liNum(rs.days_since_review), reviewChannels: rs.raw && rs.raw.by_channel,
+      photos: liNum(c.photo_count), cover: c.cover_photo_url, descLen: liNum(c.description_length), amenities: liNum(c.amenities_count),
+      ranking: it.ranking || null, optimizer: it.optimizer || null, intelErrors: it.errors || null,
+      lastBooking: lastBooking[lid] || null,
+      analysis: a
     };
-    var latestPrice = latest(pl.data);
-    var latestGaps = latest(gaps.data);
-    var latestRevs = latest(revs.data);
-    var latestComps = latest(comps.data);
-
-    window._shCompletions = {};
-    (dones.data || []).forEach(function(d) { window._shCompletions[d.listing_id + '::' + d.action_key] = true; });
-
-    var rows = Object.keys(latestPrice).map(function(lid) {
-      var p = latestPrice[lid];
-      var g = latestGaps[lid] || {};
-      var r = latestRevs[lid] || {};
-      var c = latestComps[lid] || {};
-      var name = (p.raw && p.raw.name) ? p.raw.name.split(' -- ')[0] : lid;
-      var yourOcc = p.occupancy_pct_30d;
-      var marketOcc = p.market_occupancy_pct_30d;
-      var gapVsMarket = (yourOcc != null && marketOcc != null) ? (yourOcc - marketOcc) : null;
-      var reviewCount = r.review_count != null ? r.review_count : null;
-      var avgRating = r.avg_rating != null ? r.avg_rating : null;
-      var airbnbChannel = ((p.raw && p.raw.channel_listing_details) || []).find(function(ch) { return ch.channel_name === 'airbnb'; });
-      return {
-        lid: lid, name: name,
-        yourOcc: yourOcc, marketOcc: marketOcc, gapVsMarket: gapVsMarket,
-        gapCount: (g.gap_count_60d != null) ? g.gap_count_60d : null,
-        gapNights: (g.gap_nights_60d != null) ? g.gap_nights_60d : null,
-        basePrice: p.base_price, recPrice: p.recommended_price,
-        snapshotDate: p.snapshot_date,
-        reviewCount: reviewCount, avgRating: avgRating,
-        guestFavEligible: (reviewCount != null && avgRating != null) ? (reviewCount >= 5 && avgRating >= 4.9) : null,
-        photoCount: c.photo_count != null ? c.photo_count : null,
-        descLength: c.description_length != null ? c.description_length : null,
-        amenitiesCount: c.amenities_count != null ? c.amenities_count : null,
-        instantBook: c.instant_book === true ? true : (c.instant_book === false ? false : null),
-        coverPhotoUrl: c.cover_photo_url || null,
-        airbnbUrl: airbnbChannel ? ('https://www.airbnb.com/rooms/' + airbnbChannel.channel_listing_id) : null,
-      };
-    });
-
-    // Worst pacing vs market first; listings we can't compare go last
-    rows.sort(function(a, b) {
-      if (a.gapVsMarket == null && b.gapVsMarket == null) return 0;
-      if (a.gapVsMarket == null) return 1;
-      if (b.gapVsMarket == null) return -1;
-      return a.gapVsMarket - b.gapVsMarket;
-    });
-
-    window._shListingData = rows;
-    window._shNameToId = {};
-    rows.forEach(function(r) { window._shNameToId[r.name.toLowerCase()] = r.lid; });
-
-    // Map Airbnb's own numeric listing ID (as it appears in Airbnb's CSV
-    // exports) to our Guesty listing_id, via the channel_listing_details
-    // PriceLabs already gives us. This lets CSV imports match by ID
-    // instead of fragile name matching.
-    window._shAirbnbIdToGuestyId = {};
-    Object.keys(latestPrice).forEach(function(lid) {
-      var raw = latestPrice[lid].raw || {};
-      var channels = raw.channel_listing_details || [];
-      channels.forEach(function(ch) {
-        if (ch.channel_name === 'airbnb' && ch.channel_listing_id) {
-          window._shAirbnbIdToGuestyId[String(ch.channel_listing_id)] = lid;
-        }
-      });
-    });
-
-    var behindCount = rows.filter(function(r) { return r.gapVsMarket != null && r.gapVsMarket < 0; }).length;
-    var totalGaps = rows.reduce(function(s, r) { return s + (r.gapCount || 0); }, 0);
-    var occVals = rows.map(function(r) { return r.yourOcc; }).filter(function(v) { return v != null; });
-    var avgOcc = occVals.length ? (occVals.reduce(function(s,v){return s+v;},0) / occVals.length) : null;
-
-    var setText = function(id, text) { var el = document.getElementById(id); if (el) el.textContent = text; };
-    setText('sh-count-total', rows.length);
-    setText('sh-count-behind', behindCount);
-    setText('sh-count-gaps', totalGaps);
-    setText('sh-avg-occ', avgOcc != null ? avgOcc.toFixed(0) + '%' : '\u2014');
-    setText('sh-updated-label', rows.length ? 'Last synced ' + rows[0].snapshotDate : '');
-
-    shRenderPricingTable();
-    shRenderReviewsTable();
-    shRenderInstantBookTable();
-    shRenderCarousel();
-
-    // Show whatever Airbnb performance data was imported most recently
-    try {
-      var latestPeriod = await db.from('airbnb_performance_import').select('period_start,period_end').order('period_start', { ascending: false }).limit(1);
-      if (latestPeriod.data && latestPeriod.data.length) {
-        var ps = latestPeriod.data[0].period_start, pe = latestPeriod.data[0].period_end;
-        var perfRows = await db.from('airbnb_performance_import').select('*').eq('period_start', ps).eq('period_end', pe);
-        shRenderAirbnbPerfTable(perfRows.data || [], ps, pe);
-      }
-    } catch(e) { /* non-fatal, tab just shows empty state */ }
-
-  } catch (e) {
-    if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="inv-empty">Error: ' + esc(e.message) + '</td></tr>';
-  }
-}
-
-function shRenderPricingTable() {
-  var tbody = document.getElementById('sh-table-body');
-  if (!tbody) return;
-  var rows = window._shListingData;
-  if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="inv-empty">No data yet. Click Sync Now above.</td></tr>';
-    return;
-  }
-  tbody.innerHTML = rows.map(function(r) {
-    var gapColor = r.gapVsMarket == null ? 'var(--text-muted)' : (r.gapVsMarket < 0 ? 'var(--red)' : 'var(--green)');
-    var gapLabel = r.gapVsMarket == null ? '\u2014' : (r.gapVsMarket > 0 ? '+' : '') + r.gapVsMarket.toFixed(0) + ' pts';
-    var gapCountColor = (r.gapCount != null && r.gapCount >= 3) ? 'var(--yellow)' : 'var(--text)';
-    return '<tr>' +
-      '<td><span class="inv-prop-name">' + esc(r.name) + '</span></td>' +
-      '<td class="amount">' + (r.yourOcc != null ? r.yourOcc.toFixed(0) + '%' : '\u2014') + '</td>' +
-      '<td class="amount">' + (r.marketOcc != null ? r.marketOcc.toFixed(0) + '%' : '\u2014') + '</td>' +
-      '<td class="amount" style="color:' + gapColor + ';font-weight:600;">' + gapLabel + '</td>' +
-      '<td class="amount" style="color:' + gapCountColor + ';">' + (r.gapCount != null ? r.gapCount : '\u2014') + '</td>' +
-      '<td class="amount">' + (r.basePrice != null ? '$' + r.basePrice : '\u2014') + '</td>' +
-      '<td class="amount">' + (r.recPrice != null ? '$' + r.recPrice : '\u2014') + '</td>' +
-    '</tr>';
-  }).join('');
-}
-
-function shRenderReviewsTable() {
-  var tbody = document.getElementById('sh-reviews-table-body');
-  if (!tbody) return;
-  var rows = window._shListingData;
-  if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="8" class="inv-empty">No data yet.</td></tr>';
-    return;
-  }
-  tbody.innerHTML = rows.map(function(r) {
-    var favColor = r.guestFavEligible === true ? 'var(--green)' : (r.guestFavEligible === false ? 'var(--yellow)' : 'var(--text-muted)');
-    var favLabel = r.guestFavEligible === true ? '\u2713 Eligible' : (r.guestFavEligible === false ? 'Not yet' : '\u2014');
-    var photoColor = (r.photoCount != null && r.photoCount < 15) ? 'var(--yellow)' : 'var(--text)';
-    var descColor = (r.descLength != null && r.descLength < 400) ? 'var(--yellow)' : 'var(--text)';
-    var reviewCell = (r.reviewCount != null ? r.reviewCount : '\u2014');
-    if (r.reviewCount === 0 || r.reviewCount == null) {
-      reviewCell += ' <span title="Guesty only imports reviews earned after a listing connects to it -- may undercount real Airbnb history" style="cursor:help;color:var(--text-muted);">&#9432;</span>';
-    }
-    var verifyCell = r.airbnbUrl
-      ? '<a href="' + esc(r.airbnbUrl) + '" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;font-size:12px;">Airbnb &#8599;</a>'
-      : '\u2014';
-    return '<tr>' +
-      '<td><span class="inv-prop-name">' + esc(r.name) + '</span></td>' +
-      '<td class="amount">' + reviewCell + '</td>' +
-      '<td class="amount">' + (r.avgRating != null ? r.avgRating : '\u2014') + '</td>' +
-      '<td class="amount" style="color:' + favColor + ';font-weight:600;">' + favLabel + '</td>' +
-      '<td class="amount">' + verifyCell + '</td>' +
-      '<td class="amount" style="color:' + photoColor + ';">' + (r.photoCount != null ? r.photoCount : '\u2014') + '</td>' +
-      '<td class="amount" style="color:' + descColor + ';">' + (r.descLength != null ? r.descLength + ' chars' : '\u2014') + '</td>' +
-      '<td class="amount">' + (r.amenitiesCount != null ? r.amenitiesCount : '\u2014') + '</td>' +
-    '</tr>';
-  }).join('');
-}
-
-function shRenderInstantBookTable() {
-  var tbody = document.getElementById('sh-instant-table-body');
-  if (!tbody) return;
-  var rows = window._shListingData;
-  if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="2" class="inv-empty">No data yet.</td></tr>';
-    return;
-  }
-  tbody.innerHTML = rows.map(function(r) {
-    var color = r.instantBook === true ? 'var(--green)' : (r.instantBook === false ? 'var(--red)' : 'var(--text-muted)');
-    var label = r.instantBook === true ? '\u2713 On' : (r.instantBook === false ? '\u2717 Off' : 'Unknown \u2014 field unconfirmed, see below');
-    return '<tr>' +
-      '<td><span class="inv-prop-name">' + esc(r.name) + '</span></td>' +
-      '<td class="amount" style="color:' + color + ';font-weight:600;">' + label + '</td>' +
-    '</tr>';
-  }).join('') + (rows.some(function(r){return r.instantBook === null;}) ?
-    '<tr><td colspan="2" style="padding:12px 16px;font-size:12px;color:var(--text-muted);">Some listings show "Unknown" because Guesty does not clearly document a single field for this. Run Sync Now, then check with your developer using the raw debug output to confirm the correct field before trusting this column fully.</td></tr>' : '');
-}
-
-// ── Priority Actions carousel ────────────────────────────────────────
-function shSlug(s) {
-  return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40);
-}
-
-function shRuleActions(r) {
-  var actions = [];
-  if (r.instantBook === false) {
-    actions.push({ key: 'instant_book_off', text: 'Enable Instant Book \u2014 real ranking boost, zero cost' });
-  }
-  if (r.reviewCount != null && r.reviewCount < 5) {
-    actions.push({ key: 'low_reviews', text: 'Reach 5+ reviews for Guest Favorite eligibility (' + r.reviewCount + '/5)' });
-  } else if (r.reviewCount != null && r.reviewCount >= 5 && r.avgRating != null && r.avgRating < 4.9) {
-    actions.push({ key: 'rating_below_favorite', text: 'Raise avg rating to 4.9+ for Guest Favorite (currently ' + r.avgRating + ')' });
-  }
-  if (r.gapCount != null && r.gapCount > 0) {
-    actions.push({ key: 'calendar_gaps', text: 'Close ' + r.gapCount + ' calendar gap(s), ' + (r.gapNights || 0) + ' night(s) in next 60 days' });
-  }
-  if (r.photoCount != null && r.photoCount > 0 && r.photoCount < 15) {
-    actions.push({ key: 'low_photos', text: 'Add more photos \u2014 currently ' + r.photoCount + ', aim for 25+' });
-  }
-  if (r.descLength != null && r.descLength > 0 && r.descLength < 400) {
-    actions.push({ key: 'short_description', text: 'Expand description \u2014 currently ' + r.descLength + ' characters, aim for 400+' });
-  }
-  if (r.gapVsMarket != null && r.gapVsMarket < -5) {
-    actions.push({ key: 'behind_market', text: 'Pacing ' + Math.abs(r.gapVsMarket).toFixed(0) + ' pts behind market at 30 days' });
-  }
-  return actions;
-}
-
-function shFindAiListing(name) {
-  var nameLower = (name || '').toLowerCase();
-  return (window._shRecommendations || []).find(function(rec) {
-    return rec.listing && (rec.listing.toLowerCase().indexOf(nameLower) !== -1 || nameLower.indexOf(rec.listing.toLowerCase()) !== -1);
-  }) || null;
-}
-
-function shAiActionsFor(name) {
-  var match = shFindAiListing(name);
-  if (!match || !match.actions) return [];
-  return match.actions.map(function(a) {
-    return { key: 'ai-' + shSlug(a.issue || a.action), text: a.action, issue: a.issue, source: 'ai' };
   });
+
+  // Header + KPIs
+  var statusRows = {}; (q[10].data || []).forEach(function(r) { try { statusRows[r.key] = JSON.parse(r.value); } catch (e) {} });
+  window._liStatus = statusRows;
+  var sync = statusRows.search_health_last_run, anal = statusRows.listing_intel_last_run;
+  var lbl = document.getElementById('sh-updated-label');
+  if (lbl) lbl.textContent = 'Data ' + (sync && sync.completedAt ? liAgo(sync.completedAt) : 'not synced') + ' · Analysis ' + (anal && anal.completedAt ? liAgo(anal.completedAt) : 'not run');
+  var L = window._shListingData;
+  var behind = L.filter(function(l) { return l.occ30 != null && l.mkt30 != null && l.occ30 < l.mkt30 - 10; }).length;
+  var hs = L.map(function(l) { return l.analysis && l.analysis.health_score; }).filter(function(x) { return x != null; });
+  var setK = function(id, v) { var e = document.getElementById(id); if (e) e.textContent = v; };
+  setK('li-k-count', L.length);
+  setK('li-k-behind', behind);
+  setK('li-k-health', hs.length ? Math.round(hs.reduce(function(s, x) { return s + x; }, 0) / hs.length) : '—');
+  setK('li-k-open', L.reduce(function(s, l) { return s + (l.open14 || 0); }, 0));
+  setK('li-k-reviews', L.reduce(function(s, l) { return s + (l.reviews || 0); }, 0));
+
+  liRenderListings();
+  liRenderPortfolio();
+  liRenderMarket(q[9].data && q[9].data[0]);
+  liRenderDataTab(statusRows);
+  var perf = q[11].data || [];
+  if (perf.length) { var pe = perf[0].period_end, ps = perf[0].period_start; shRenderAirbnbPerfTable(perf.filter(function(r) { return r.period_end === pe && r.period_start === ps; }), ps, pe); }
 }
 
-function shRenderCarousel() {
-  var wrap = document.getElementById('sh-carousel-card');
-  var posEl = document.getElementById('sh-carousel-position');
-  var rows = window._shListingData;
-  if (!wrap) return;
-  if (!rows.length) {
-    wrap.innerHTML = '<div class="empty">No data yet. Click Sync Now above.</div>';
-    if (posEl) posEl.textContent = '';
-    return;
+// kept for showPage() compatibility
+async function shLoadRecommendations() { /* analyses load inside shLoad */ }
+
+// ── Listings tab ────────────────────────────────────────────────────────
+function liSorted() {
+  var term = (document.getElementById('li-search') || {}).value || '';
+  var sort = (document.getElementById('li-sort') || {}).value || 'health';
+  var L = window._shListingData.filter(function(l) { return !term || l.name.toLowerCase().indexOf(term.toLowerCase()) >= 0; });
+  var behindBy = function(l) { return (l.mkt30 != null && l.occ30 != null) ? l.mkt30 - l.occ30 : -999; };
+  L.sort(function(a, b) {
+    if (sort === 'name') return a.name.localeCompare(b.name);
+    if (sort === 'behind') return behindBy(b) - behindBy(a);
+    if (sort === 'open') return (b.open14 || 0) - (a.open14 || 0);
+    var ha = a.analysis && a.analysis.health_score != null ? a.analysis.health_score : 999, hb = b.analysis && b.analysis.health_score != null ? b.analysis.health_score : 999;
+    return ha - hb || behindBy(b) - behindBy(a);
+  });
+  return L;
+}
+
+function liRenderListings() {
+  var el = document.getElementById('li-list');
+  if (!el) return;
+  var L = liSorted();
+  if (!L.length) { el.innerHTML = '<div class="empty">No tracked listings yet — run Sync Data.</div>'; return; }
+  el.innerHTML = L.map(liCardHtml).join('');
+}
+
+function liOccChip(o, m) {
+  if (o == null || m == null) return '<span class="li-chip">Occ —</span>';
+  var d = Math.round(o - m), cls = d <= -10 ? 'li-chip-bad' : d >= 5 ? 'li-chip-good' : 'li-chip-mid';
+  return '<span class="li-chip ' + cls + '" title="Next 30 days: listing ' + Math.round(o) + '% vs market ' + Math.round(m) + '%">Occ ' + Math.round(o) + '% vs ' + Math.round(m) + '%</span>';
+}
+
+function liCardHtml(l) {
+  var a = l.analysis, open = !!window._liOpen[l.lid];
+  var h = a && a.health_score != null ? a.health_score : null;
+  var chips = liOccChip(l.occ30, l.mkt30) +
+    '<span class="li-chip">' + liMoney(l.base) + (l.rec ? ' · rec ' + liMoney(l.rec) : '') + '</span>' +
+    '<span class="li-chip">' + (l.reviews != null ? l.reviews + ' reviews' + (l.rating ? ' · ' + l.rating.toFixed(2) + '★' : '') : 'reviews —') + '</span>' +
+    (l.open14 != null ? '<span class="li-chip' + (l.open14 >= 8 ? ' li-chip-bad' : '') + '">' + l.open14 + ' open / 14d</span>' : '') +
+    (l.ranking && l.ranking.avg_page != null ? '<span class="li-chip">Airbnb pg ' + l.ranking.avg_page + '</span>' : '') +
+    (l.pushEnabled === false ? '<span class="li-chip li-chip-bad" title="PriceLabs sync is turned off for this listing">PriceLabs sync OFF</span>' : '');
+  var html = '<div class="li-card' + (open ? ' open' : '') + '" id="li-card-' + l.lid + '">' +
+    '<div class="li-card-head" onclick="liToggleCard(\'' + l.lid + '\')">' +
+      (l.cover ? '<img class="li-thumb" src="' + esc(l.cover) + '" alt="" loading="lazy">' : '<div class="li-thumb li-thumb-empty">&#127968;</div>') +
+      '<div class="li-card-main"><div class="li-card-name">' + esc(l.name) + '</div><div class="li-chips">' + chips + '</div></div>' +
+      '<div class="li-health ' + liHealthClass(h) + '" title="Health score (0–100) from the latest analysis">' + (h != null ? h : '—') + '</div>' +
+      '<span class="chevron' + (open ? ' open' : '') + '">&#9662;</span>' +
+    '</div>';
+  if (open) html += '<div class="li-card-body">' + liCardBody(l) + '</div>';
+  return html + '</div>';
+}
+
+function liToggleCard(lid) { window._liOpen[lid] = !window._liOpen[lid]; var l = window._shListingData.find(function(x) { return x.lid === lid; }); var el = document.getElementById('li-card-' + lid); if (el && l) el.outerHTML = liCardHtml(l); }
+
+function liStat(label, val, sub) { return '<div class="li-stat"><div class="li-stat-l">' + label + '</div><div class="li-stat-v">' + val + '</div>' + (sub ? '<div class="li-stat-s">' + sub + '</div>' : '') + '</div>'; }
+
+function liCardBody(l) {
+  var a = l.analysis;
+  var out = '';
+  // Summary
+  if (a && a.summary) {
+    out += '<div class="li-summary"><div class="li-sec-title">Situation <span class="li-muted">· analyzed ' + liAgo(a.created_at) + '</span></div><p>' + esc(a.summary) + '</p></div>';
+  } else {
+    out += '<div class="li-summary li-muted">No analysis yet for this listing. <button class="expand-btn" onclick="liRunAnalysis(\'' + l.lid + '\')">Analyze now</button></div>';
   }
-  if (window._shCarouselIndex >= rows.length) window._shCarouselIndex = 0;
-  if (window._shCarouselIndex < 0) window._shCarouselIndex = rows.length - 1;
-  var r = rows[window._shCarouselIndex];
-  if (posEl) posEl.textContent = (window._shCarouselIndex + 1) + ' of ' + rows.length;
+  // Key numbers
+  out += '<div class="li-stats">' +
+    liStat('Base / Rec', liMoney(l.base) + ' / ' + liMoney(l.rec), 'min ' + liMoney(l.min) + ' · max ' + liMoney(l.max)) +
+    liStat('Market base (p25–p75)', liMoney(l.mktP50), (l.mktP25 ? liMoney(l.mktP25) + '–' + liMoney(l.mktP75) : '')) +
+    liStat('Occ 7 / 30 / 60', liPct(l.occ7) + ' · ' + liPct(l.occ30) + ' · ' + liPct(l.occ60), 'mkt ' + liPct(l.mkt7) + ' · ' + liPct(l.mkt30) + ' · ' + liPct(l.mkt60)) +
+    liStat('Open nights', (l.open14 != null ? l.open14 : '—') + ' / 14d', (l.open30 != null ? l.open30 + ' / 30d' : '') + (l.highDemandOpen ? ' · ' + l.highDemandOpen + ' high-demand open' : '')) +
+    liStat('Gaps (60d)', (l.gaps != null ? l.gaps : '—'), l.gapNights ? l.gapNights + ' orphan nights' : '') +
+    liStat('Reviews', (l.reviews != null ? l.reviews : '—') + (l.rating ? ' · ' + l.rating.toFixed(2) + '★' : ''), l.daysSinceReview != null ? 'last ' + l.daysSinceReview + 'd ago' : '') +
+    liStat('Airbnb search', l.ranking && l.ranking.avg_rank != null ? 'avg #' + l.ranking.avg_rank : '—', l.ranking && l.ranking.pct_dates_page1 != null ? l.ranking.pct_dates_page1 + '% of dates on page 1' : '') +
+    liStat('Listing Optimizer', l.optimizer ? (l.optimizer.payment_restricted ? 'not enabled' : (l.optimizer.overall_score != null ? l.optimizer.overall_score : '—')) : '—', l.photos != null ? l.photos + ' photos · ' + (l.amenities || 0) + ' amenities' : '') +
+    liStat('Last booking made', l.lastBooking ? new Date(l.lastBooking).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—', l.lastBooking ? liAgo(l.lastBooking) : '') +
+  '</div>';
 
-  var aiMatch = shFindAiListing(r.name);
-  var aiActions = shAiActionsFor(r.name).map(function(a) { return Object.assign({}, a, { source: 'ai' }); });
-  var ruleActions = shRuleActions(r).map(function(a) { return Object.assign({}, a, { source: 'rule' }); });
-  var allActions = aiActions.concat(ruleActions);
-  var airbnbUrl = aiMatch && aiMatch.airbnb_url;
-
-  var coverHtml = r.coverPhotoUrl
-    ? '<img src="' + esc(r.coverPhotoUrl) + '" style="width:100%;height:200px;object-fit:cover;display:block;" alt="">'
-    : '<div style="width:100%;height:120px;background:var(--bg-secondary);display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:13px;">No cover photo</div>';
-
-  var badge = function(label, val, color) {
-    return '<span style="display:inline-block;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;background:' + color + '22;color:' + color + ';margin-right:6px;margin-bottom:6px;">' + label + ': ' + val + '</span>';
-  };
-  var gapColor = r.gapVsMarket == null ? '#888' : (r.gapVsMarket < 0 ? 'var(--red)' : 'var(--green)');
-  var ibColor = r.instantBook === true ? 'var(--green)' : (r.instantBook === false ? 'var(--red)' : '#888');
-  var favColor = r.guestFavEligible === true ? 'var(--green)' : '#888';
-
-  var badgesHtml =
-    badge('Occ 30d', (r.yourOcc != null ? r.yourOcc.toFixed(0) + '% vs ' + (r.marketOcc != null ? r.marketOcc.toFixed(0) + '%' : '?') : '\u2014'), gapColor) +
-    badge('Reviews', (r.reviewCount != null ? r.reviewCount + ' (' + (r.avgRating != null ? r.avgRating : '?') + '\u2605)' : '\u2014'), '#888') +
-    badge('Instant Book', r.instantBook === true ? 'On' : (r.instantBook === false ? 'Off' : '?'), ibColor) +
-    badge('Guest Favorite', r.guestFavEligible === true ? 'Yes' : (r.guestFavEligible === false ? 'No' : '?'), favColor);
-
-  var briefHtml = (aiMatch && aiMatch.brief)
-    ? '<div style="background:var(--bg-secondary);border-radius:8px;padding:12px 14px;margin:10px 0 4px;font-size:13px;line-height:1.5;color:var(--text);"><strong style="color:var(--accent);">Brief:</strong> ' + esc(aiMatch.brief) + '</div>'
-    : '';
-
-  var reviewCaveatHtml = (r.reviewCount === 0 || r.reviewCount == null)
-    ? '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">Guesty only imports reviews earned after a listing connects to it \u2014 this count may undercount real Airbnb history.</div>'
-    : '';
-
-  var airbnbLinkHtml = airbnbUrl
-    ? '<a href="' + esc(airbnbUrl) + '" target="_blank" rel="noopener" style="font-size:12.5px;color:var(--accent);text-decoration:none;">View live on Airbnb &#8599;</a>'
-    : '';
-
-  var actionsHtml = allActions.length
-    ? allActions.map(function(a) {
-        var doneKey = r.lid + '::' + a.key;
-        var isDone = !!window._shCompletions[doneKey];
-        var issueHtml = a.issue ? '<div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">' + esc(a.issue) + '</div>' : '';
-        return '<div class="sh-card-checkbox' + (isDone ? ' sh-done' : '') + '">' +
-          '<input type="checkbox" ' + (isDone ? 'checked' : '') + ' onchange="shToggleAction(\'' + r.lid + '\',\'' + a.key + '\',' + JSON.stringify(a.text) + ',\'' + a.source + '\',this.checked,this)">' +
-          '<div class="sh-card-checkbox-text"><span style="' + (a.source === 'ai' ? 'font-weight:600;' : '') + '">' + (a.source === 'ai' ? '\u2728 ' : '') + esc(a.text) + '</span>' + issueHtml + '</div>' +
-        '</div>';
-      }).join('')
-    : '<div style="padding:16px;color:var(--text-muted);font-size:13px;">No flagged actions for this listing right now \u2014 looking healthy.</div>';
-
-  wrap.innerHTML =
-    coverHtml +
-    '<div style="padding:16px;">' +
-      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px;">' +
-        '<div style="font-size:16px;font-weight:700;">' + esc(r.name) + '</div>' +
-        airbnbLinkHtml +
-      '</div>' +
-      '<div style="margin-bottom:4px;">' + badgesHtml + '</div>' +
-      reviewCaveatHtml +
-      briefHtml +
-    '</div>' +
-    '<div>' + actionsHtml + '</div>';
+  if (a) {
+    // Search actions
+    var acts = (a.search_actions || []).slice().sort(function(x, y) { return (x.priority || 9) - (y.priority || 9); });
+    if (acts.length) {
+      out += '<div class="li-sec"><div class="li-sec-title">Do this to rank &amp; book better</div>' + acts.map(function(x) {
+        var key = 'intel-' + liSlug(x.action);
+        var done = !!window._shCompletions[l.lid + '::' + key];
+        return '<label class="li-action' + (done ? ' li-done' : '') + '">' +
+          '<input type="checkbox" ' + (done ? 'checked' : '') + ' onchange="liToggleDone(\'' + l.lid + '\',\'' + key + '\',this)" data-text="' + esc(x.action) + '">' +
+          '<div><div class="li-action-text">' + esc(x.action) + '</div>' +
+          '<div class="li-action-why">' + esc(x.why || '') + '</div>' +
+          '<div class="li-action-tags">' + (x.category ? '<span>' + esc(x.category) + '</span>' : '') + (x.impact ? '<span class="li-imp-' + esc(x.impact) + '">' + esc(x.impact) + ' impact</span>' : '') + (x.effort ? '<span>' + esc(x.effort) + ' effort</span>' : '') + (x.owner ? '<span>' + esc(x.owner) + '</span>' : '') + '</div></div>' +
+        '</label>';
+      }).join('') + '</div>';
+    }
+    // PriceLabs settings
+    var pls = a.pricelabs_settings || [];
+    if (pls.length) {
+      out += '<div class="li-sec"><div class="li-sec-title">PriceLabs settings to change</div><div class="inv-table-wrap"><table class="inv-table li-pl-table"><thead><tr><th></th><th>Setting</th><th>Current</th><th>Recommended</th><th>Why</th></tr></thead><tbody>' +
+        pls.map(function(s) {
+          var key = 'pl-' + liSlug(s.setting + '-' + s.recommended);
+          var done = !!window._shCompletions[l.lid + '::' + key];
+          return '<tr class="' + (done ? 'li-done' : '') + '"><td><input type="checkbox" title="Mark as applied" ' + (done ? 'checked' : '') + ' onchange="liToggleDone(\'' + l.lid + '\',\'' + key + '\',this)" data-text="' + esc(s.setting + ': ' + s.recommended) + '"></td><td><strong>' + esc(s.setting) + '</strong></td><td>' + esc(s.current || '—') + '</td><td class="li-rec">' + esc(s.recommended || '') + '</td><td class="li-why">' + esc(s.why || '') + '</td></tr>';
+        }).join('') + '</tbody></table></div></div>';
+    }
+    // Review themes
+    var th = a.review_themes || [];
+    if (th.length) {
+      out += '<div class="li-sec"><div class="li-sec-title">What guests are saying</div><div class="li-themes">' + th.map(function(t) {
+        return '<div class="li-theme li-theme-' + esc(t.sentiment || 'mixed') + '"><div><strong>' + esc(t.theme) + '</strong>' + (t.mentions ? ' <span class="li-muted">· ' + t.mentions + '×</span>' : '') + '</div><div class="li-muted">' + esc(t.evidence || '') + '</div></div>';
+      }).join('') + '</div></div>';
+    }
+    // Owner items
+    var oi = a.owner_items || [];
+    out += '<div class="li-sec"><div class="li-sec-title">Property improvements to propose to the owner</div>' +
+      (oi.length ? '<div class="li-owner-items">' + oi.map(function(o) {
+        return '<div class="li-owner-item"><div><span class="li-prio li-prio-' + esc(o.priority || 'medium') + '">' + esc(o.priority || '') + '</span> <strong>' + esc(o.item) + '</strong>' + (o.est_cost ? ' <span class="li-muted">· ' + esc(o.est_cost) + '</span>' : '') + '</div><div class="li-muted">' + esc(o.evidence || '') + (o.expected_benefit ? ' → ' + esc(o.expected_benefit) : '') + '</div></div>';
+      }).join('') + '</div>' : '<div class="li-muted">Nothing the data clearly supports yet.</div>');
+    var reps = (window._liReports[l.lid] || []).filter(function(r) { return r.status === 'done'; });
+    out += '<div class="li-owner-actions"><button class="btn btn-primary" style="font-size:12px;" onclick="liGenerateOwnerReport(\'' + l.lid + '\')">&#128196; Generate Owner Report</button>' +
+      (reps.length ? '<button class="expand-btn" onclick="liShowOwnerReport(' + reps[0].id + ')">View last report (' + new Date(reps[0].created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ')</button>' : '') +
+      '<span class="li-muted" id="li-or-status-' + l.lid + '"></span></div></div>';
+    if ((a.data_gaps || []).length) out += '<div class="li-gaps li-muted"><strong>Data gaps:</strong> ' + a.data_gaps.map(esc).join(' · ') + '</div>';
+  }
+  out += '<div class="li-card-foot">' +
+    (l.airbnbId ? '<a href="https://www.airbnb.com/rooms/' + esc(l.airbnbId) + '" target="_blank" rel="noopener">View on Airbnb ↗</a>' : '') +
+    '<button class="expand-btn" onclick="liRunAnalysis(\'' + l.lid + '\')">&#129504; Re-analyze this listing</button>' +
+    (l.intelErrors && l.intelErrors.length ? '<span class="li-muted" title="' + esc(l.intelErrors.join(' | ')) + '">⚠ ' + l.intelErrors.length + ' data warnings</span>' : '') +
+  '</div>';
+  return out;
 }
 
-function shCarouselNext() { window._shCarouselIndex++; shRenderCarousel(); }
-function shCarouselPrev() { window._shCarouselIndex--; shRenderCarousel(); }
-
-async function shToggleAction(lid, key, text, source, checked, checkboxEl) {
-  var row = checkboxEl ? checkboxEl.closest('.sh-card-checkbox') : null;
+async function liToggleDone(lid, key, cb) {
+  var checked = cb.checked, text = cb.getAttribute('data-text') || '';
+  var row = cb.closest('.li-action') || cb.closest('tr');
   try {
     if (checked) {
-      var res = await db.from('recommendation_completions').insert([{ listing_id: lid, action_key: key, action_text: text, source: source }]);
-      if (res.error) throw res.error;
+      var r1 = await db.from('recommendation_completions').insert([{ listing_id: lid, action_key: key, action_text: text, source: 'intel' }]);
+      if (r1.error) throw r1.error;
       window._shCompletions[lid + '::' + key] = true;
-      if (row) row.classList.add('sh-done');
     } else {
-      var res2 = await db.from('recommendation_completions').delete().match({ listing_id: lid, action_key: key });
-      if (res2.error) throw res2.error;
+      var r2 = await db.from('recommendation_completions').delete().match({ listing_id: lid, action_key: key });
+      if (r2.error) throw r2.error;
       delete window._shCompletions[lid + '::' + key];
-      if (row) row.classList.remove('sh-done');
     }
-  } catch(e) {
-    console.error('shToggleAction failed:', e);
-    if (checkboxEl) checkboxEl.checked = !checked; // revert on failure
+    if (row) row.classList.toggle('li-done', checked);
+  } catch (e) { cb.checked = !checked; showToast('Could not save: ' + (e.message || e), 'error'); }
+}
+
+// ── Portfolio tab ───────────────────────────────────────────────────────
+function liRenderPortfolio() {
+  var tb = document.getElementById('li-portfolio-body');
+  if (!tb) return;
+  var L = liSorted();
+  if (!L.length) { tb.innerHTML = '<tr><td colspan="10" class="inv-empty">No data yet.</td></tr>'; return; }
+  tb.innerHTML = L.map(function(l) {
+    var h = l.analysis && l.analysis.health_score;
+    return '<tr class="inv-row-click" onclick="shSwitchTab(\'listings\');window._liOpen[\'' + l.lid + '\']=true;liRenderListings();setTimeout(function(){var e=document.getElementById(\'li-card-' + l.lid + '\');if(e)e.scrollIntoView({behavior:\'smooth\'});},50);">' +
+      '<td><strong>' + esc(l.name) + '</strong></td>' +
+      '<td><span class="li-health li-health-sm ' + liHealthClass(h) + '">' + (h != null ? h : '—') + '</span></td>' +
+      '<td>' + liOccChip(l.occ30, l.mkt30) + '</td>' +
+      '<td class="amount">' + liMoney(l.base) + ' / ' + liMoney(l.rec) + '</td>' +
+      '<td class="amount">' + liMoney(l.mktP50) + '</td>' +
+      '<td class="amount">' + (l.open14 != null ? l.open14 : '—') + '</td>' +
+      '<td class="amount">' + (l.gaps != null ? l.gaps : '—') + '</td>' +
+      '<td class="amount">' + (l.reviews != null ? l.reviews : '—') + (l.rating ? ' · ' + l.rating.toFixed(2) : '') + '</td>' +
+      '<td class="amount">' + (l.ranking && l.ranking.avg_rank != null ? '#' + l.ranking.avg_rank : '—') + '</td>' +
+      '<td class="amount">' + (l.lastBooking ? liAgo(l.lastBooking) : '—') + '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+// ── Market tab ──────────────────────────────────────────────────────────
+function liRenderMarket(mi) {
+  var ev = document.getElementById('li-market-events'), meta = document.getElementById('li-market-meta');
+  if (!ev) return;
+  if (!mi) { ev.innerHTML = '<div class="empty">No market research yet — it runs weekly with the analysis, or tap Refresh research.</div>'; return; }
+  if (meta) meta.textContent = 'Researched ' + liAgo(mi.created_at);
+  var notes = document.getElementById('li-market-notes'); if (notes) notes.textContent = mi.notes || '';
+  var today = new Date().toISOString().slice(0, 10);
+  var events = (mi.events || []).filter(function(e) { return (e.end_date || e.start_date) >= today; });
+  ev.innerHTML = events.length ? '<div class="li-events">' + events.map(function(e) {
+    var d1 = new Date(e.start_date + 'T12:00:00'), d2 = e.end_date ? new Date(e.end_date + 'T12:00:00') : null;
+    var ds = d1.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + (d2 && e.end_date !== e.start_date ? ' – ' + d2.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '');
+    return '<div class="li-event"><div class="li-event-date">' + ds + '</div><div><div><strong>' + esc(e.name) + '</strong> <span class="li-imp-' + esc(e.demand_impact || 'low') + ' li-pill">' + esc(e.demand_impact || '') + '</span></div><div class="li-muted">' + esc(e.location || '') + (e.notes ? ' · ' + esc(e.notes) : '') + (e.source_url ? ' · <a href="' + esc(e.source_url) + '" target="_blank" rel="noopener">source</a>' : '') + '</div></div></div>';
+  }).join('') + '</div>' : '<div class="empty">No upcoming events found.</div>';
+}
+
+async function liRefreshMarket() {
+  var btn = document.getElementById('li-market-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Researching…'; }
+  try { await liTriggerAndWait('/.netlify/functions/listing-intel-analyze-background?market_only=1', 'listing_intel_last_run', 180); await shLoad(); }
+  catch (e) { showToast(e.message || String(e), 'error'); }
+  finally { if (btn) { btn.disabled = false; btn.innerHTML = '&#8635; Refresh research'; } }
+}
+
+// ── Data tab ────────────────────────────────────────────────────────────
+function liRenderDataTab(st) {
+  var el = document.getElementById('li-feed-status');
+  if (el) {
+    var s = st.search_health_last_run, a = st.listing_intel_last_run, h = '';
+    if (s) {
+      h += '<div><strong>Data sync:</strong> ' + (s.success ? '<span style="color:var(--green);">OK</span>' : '<span style="color:var(--red);">Failed</span>') + ' · ' + liAgo(s.completedAt) + (s.listings != null ? ' · ' + s.listings + ' listings' : '') + '</div>';
+      if (s.steps) h += '<div class="li-muted" style="font-size:12px;margin:4px 0 8px;">' + Object.keys(s.steps).map(function(k) { return esc(k) + ': ' + esc(JSON.stringify(s.steps[k])); }).join(' · ') + '</div>';
+      if (s.fatalError) h += '<div style="color:var(--red);font-size:12px;">' + esc(s.fatalError) + '</div>';
+      if (s.errors && s.errors.length) h += '<details style="font-size:12px;margin-bottom:8px;"><summary>' + s.errors.length + ' warnings</summary><div class="li-muted">' + s.errors.map(esc).join('<br>') + '</div></details>';
+    } else h += '<div>Data sync has not run yet.</div>';
+    if (a) {
+      h += '<div><strong>Analysis:</strong> ' + (a.running && !a.completedAt ? 'running…' : a.success ? '<span style="color:var(--green);">OK</span>' : '<span style="color:var(--red);">Failed</span>') + (a.completedAt ? ' · ' + liAgo(a.completedAt) : '') + (a.total != null ? ' · ' + (a.done || 0) + '/' + a.total + ' listings' : '') + ' · model ' + esc(a.model || '') + '</div>';
+      if (a.fatalError) h += '<div style="color:var(--red);font-size:12px;">' + esc(a.fatalError) + (/credit balance/i.test(a.fatalError) ? ' — add credits to the Anthropic API account used by CLAUDE_SECRET.' : '') + '</div>';
+      if (a.failed && a.failed.length) h += '<div class="li-muted" style="font-size:12px;">' + a.failed.map(function(f) { return esc(f.listing) + ': ' + esc(f.error); }).join('<br>') + '</div>';
+    } else h += '<div>Analysis has not run yet.</div>';
+    el.innerHTML = h;
+  }
+  var tl = document.getElementById('li-tracked-list');
+  if (tl) {
+    var reg = (window._liRegistry || []).filter(function(r) { return r.is_listed; }).sort(function(x, y) { return liName(x.nickname || x.title).localeCompare(liName(y.nickname || y.title)); });
+    var unlisted = (window._liRegistry || []).filter(function(r) { return !r.is_listed; }).length;
+    tl.innerHTML = reg.map(function(r) {
+      return '<label class="li-track-item"><input type="checkbox" ' + (r.tracked !== false ? 'checked' : '') + ' onchange="liSetTracked(\'' + r.listing_id + '\',this)"> ' + esc(liName(r.nickname || r.title)) + '</label>';
+    }).join('') + (unlisted ? '<div class="li-muted" style="grid-column:1/-1;font-size:11px;margin-top:6px;">' + unlisted + ' unlisted Guesty listings are excluded automatically.</div>' : '') || '<div class="li-muted">Run Sync Data to load listings.</div>';
   }
 }
 
-// ── AI Daily Recommendations (loaded separately from shLoad, since it
-// hits its own table and feeds the carousel once both are ready) ──────
-async function shLoadRecommendations() {
-  try {
-    var res = await db.from('daily_recommendations').select('*').order('generated_at', { ascending: false }).limit(1);
-    if (res.error) throw res.error;
-    var row = (res.data || [])[0];
-    window._shRecommendations = row ? (row.recommendations || []) : [];
-  } catch(e) {
-    window._shRecommendations = [];
-  }
-  shRenderCarousel();
+async function liSetTracked(lid, cb) {
+  var res = await db.from('listing_registry').update({ tracked: cb.checked }).eq('listing_id', lid);
+  if (res.error) { cb.checked = !cb.checked; showToast('Could not save: ' + res.error.message, 'error'); return; }
+  var r = (window._liRegistry || []).find(function(x) { return x.listing_id === lid; }); if (r) r.tracked = cb.checked;
+  showToast(cb.checked ? 'Listing will be tracked' : 'Listing hidden from Listing Intelligence', 'success');
+  shLoad();
 }
 
-async function shRegenerateRecommendations() {
-  var wrap = document.getElementById('sh-carousel-card');
-  var btn = document.getElementById('sh-rec-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Analyzing\u2026'; }
-
-  // Record the newest existing recommendation timestamp so polling can
-  // detect when a genuinely NEW one shows up, rather than picking up a
-  // stale row that predates this click.
-  var beforeTimestamp = null;
-  try {
-    var beforeRes = await db.from('daily_recommendations').select('generated_at').order('generated_at', { ascending: false }).limit(1);
-    if (beforeRes.data && beforeRes.data.length) beforeTimestamp = beforeRes.data[0].generated_at;
-  } catch(e) { /* fine, just means we treat any row as new */ }
-
-  if (wrap) wrap.innerHTML = '<div class="empty">Analyzing your top priority listings\u2026 usually done in 15-30 seconds.</div>';
-
-  try {
-    // This is a Netlify Background Function -- it returns an empty 202
-    // almost immediately regardless of how long the actual work takes.
-    // We only use this to confirm the trigger succeeded, then poll
-    // Supabase directly for the real result.
-    var triggerRes = await authFetch('/.netlify/functions/get-recommendations-background');
-    if (!triggerRes.ok && triggerRes.status !== 202) {
-      throw new Error('Failed to start analysis (HTTP ' + triggerRes.status + ')');
-    }
-
-    var maxAttempts = 40; // ~2 minutes at 3s intervals
-    var found = null;
-    for (var i = 0; i < maxAttempts; i++) {
-      await new Promise(function(resolve) { setTimeout(resolve, 3000); });
-      var pollRes = await db.from('daily_recommendations').select('*').order('generated_at', { ascending: false }).limit(1);
-      if (pollRes.data && pollRes.data.length) {
-        var row = pollRes.data[0];
-        if (!beforeTimestamp || row.generated_at !== beforeTimestamp) {
-          found = row;
-          break;
-        }
+// ── Running jobs ────────────────────────────────────────────────────────
+async function liTriggerAndWait(url, statusKey, maxSec) {
+  var before = null;
+  try { var b = await db.from('app_cache').select('value').eq('key', statusKey).limit(1); if (b.data && b.data[0]) before = JSON.parse(b.data[0].value).completedAt || null; } catch (e) {}
+  var started = Date.now();
+  var t = await authFetch(url);
+  if (!t.ok && t.status !== 202) throw new Error('Could not start (HTTP ' + t.status + ')');
+  while (Date.now() - started < maxSec * 1000) {
+    await new Promise(function(r) { setTimeout(r, 4000); });
+    var p = await db.from('app_cache').select('value').eq('key', statusKey).limit(1);
+    if (p.data && p.data[0]) {
+      var v = null; try { v = JSON.parse(p.data[0].value); } catch (e) {}
+      if (v && v.completedAt && v.completedAt !== before && new Date(v.completedAt).getTime() >= started - 5000) {
+        if (v.success === false) throw new Error(v.fatalError || 'Job failed — see Data & Settings.');
+        return v;
       }
+      if (v && v.running && v.total) { var st = document.getElementById('sh-sync-status'); if (st) { st.style.color = 'var(--text-muted)'; st.textContent = 'Analyzing… ' + (v.done || 0) + '/' + v.total; } }
     }
-
-    if (!found) {
-      throw new Error('Still generating after 2 minutes \u2014 it may still finish in the background. Try Refresh View shortly, or check again later.');
-    }
-    if (found.raw_response && String(found.raw_response).indexOf('ERROR:') === 0) {
-      throw new Error(found.raw_response.replace('ERROR: ', ''));
-    }
-
-    window._shRecommendations = found.recommendations || [];
-    shRenderCarousel();
-  } catch(e) {
-    if (wrap) wrap.innerHTML = '<div class="empty">Error generating recommendations: ' + esc(e.message) + '</div>';
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '\u{1F9E0} Regenerate Recommendations'; }
   }
+  throw new Error('Still running — it will finish in the background. Refresh in a few minutes.');
 }
 
-// ── Airbnb Performance CSV import ───────────────────────────────────────
-// Parses Airbnb's actual native export format directly -- no template,
-// no reformatting required. Format confirmed from real exports:
-//   Line 1: "Monthly report from YYYY-MM-DD to YYYY-MM-DD"
-//   Line 2: real headers (Listing ID, Listing title, Internal name, ...)
-//   Line 3+: one row per listing, values quoted, percents as "8.24%"
-// Matches rows by Airbnb's own numeric Listing ID (via
-// window._shAirbnbIdToGuestyId, built in shLoad() from PriceLabs'
-// channel_listing_details) rather than by name -- far more reliable.
+async function shSyncNow() {
+  var btn = document.getElementById('sh-sync-btn'), st = document.getElementById('sh-sync-status');
+  if (btn) { btn.disabled = true; btn.textContent = 'Syncing…'; }
+  if (st) { st.style.color = 'var(--text-muted)'; st.textContent = 'Pulling Guesty listings, calendars, every review, and PriceLabs pricing, market, settings and ranking data — about 2–4 minutes.'; }
+  try {
+    var v = await liTriggerAndWait('/.netlify/functions/get-search-health-background', 'search_health_last_run', 420);
+    if (st) { st.style.color = v.errors && v.errors.length ? 'var(--yellow)' : 'var(--green)'; st.textContent = 'Synced ' + (v.listings || 0) + ' listings' + (v.steps && v.steps.reviews ? ' · ' + v.steps.reviews.reviews + ' reviews' : '') + (v.errors && v.errors.length ? ' · ' + v.errors.length + ' warnings (see Data & Settings)' : '') + '.'; }
+    await shLoad();
+  } catch (e) { if (st) { st.style.color = 'var(--red)'; st.textContent = 'Sync: ' + (e.message || e); } }
+  finally { if (btn) { btn.disabled = false; btn.innerHTML = '&#8635; Sync Data'; } }
+}
+
+async function liRunAnalysis(lid) {
+  var btn = document.getElementById('li-analyze-btn'), st = document.getElementById('sh-sync-status');
+  if (btn) btn.disabled = true;
+  if (st) { st.style.color = 'var(--text-muted)'; st.textContent = lid ? 'Analyzing this listing…' : 'Analyzing every listing — about 3–6 minutes. You can leave this page.'; }
+  try {
+    await liTriggerAndWait('/.netlify/functions/listing-intel-analyze-background' + (lid ? '?listing_id=' + encodeURIComponent(lid) : ''), 'listing_intel_last_run', lid ? 180 : 600);
+    if (st) { st.style.color = 'var(--green)'; st.textContent = 'Analysis complete.'; }
+    if (lid) window._liOpen[lid] = true;
+    await shLoad();
+  } catch (e) { if (st) { st.style.color = 'var(--red)'; st.textContent = 'Analysis: ' + (e.message || e); } }
+  finally { if (btn) btn.disabled = false; }
+}
+
+// ── Owner reports ───────────────────────────────────────────────────────
+async function liGenerateOwnerReport(lid) {
+  var st = document.getElementById('li-or-status-' + lid);
+  if (st) st.textContent = 'Writing report… (about 1 minute)';
+  var started = new Date(Date.now() - 5000).toISOString();
+  try {
+    var t = await authFetch('/.netlify/functions/owner-report-background?listing_id=' + encodeURIComponent(lid));
+    if (!t.ok && t.status !== 202) throw new Error('HTTP ' + t.status);
+    for (var i = 0; i < 60; i++) {
+      await new Promise(function(r) { setTimeout(r, 4000); });
+      var q = await db.from('owner_reports').select('*').eq('listing_id', lid).gte('created_at', started).order('created_at', { ascending: false }).limit(1);
+      var r = q.data && q.data[0];
+      if (r && r.status === 'done') { (window._liReports[lid] = window._liReports[lid] || []).unshift(r); if (st) st.textContent = ''; liShowOwnerReport(r.id, r); liRenderListings(); return; }
+      if (r && r.status === 'error') throw new Error(r.error || 'Report failed');
+    }
+    throw new Error('Still writing — check back shortly.');
+  } catch (e) { if (st) { st.style.color = 'var(--red)'; st.textContent = e.message || String(e); } }
+}
+
+function liFindReport(id) { var f = null; Object.values(window._liReports || {}).forEach(function(list) { list.forEach(function(r) { if (r.id === id) f = r; }); }); return f; }
+
+function liReportHtml(rep) {
+  var R = rep.report || {};
+  var h = '<div class="or-doc">' +
+    '<div class="or-brand">Bentonville Lodging Co. · Property Performance Report</div>' +
+    '<h2 class="or-h">' + esc(R.title || R.property || 'Property Report') + '</h2>' +
+    '<div class="or-date">' + esc(R.property || '') + ' · ' + new Date(rep.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) + '</div>' +
+    (R.headline ? '<p class="or-headline">' + esc(R.headline) + '</p>' : '');
+  if (R.performance) {
+    h += '<h3>Performance</h3><p>' + esc(R.performance.summary || '') + '</p>';
+    if ((R.performance.stats || []).length) h += '<div class="or-stats">' + R.performance.stats.map(function(s) { return '<div class="or-stat"><div class="or-stat-v">' + esc(s.value) + '</div><div class="or-stat-l">' + esc(s.label) + '</div>' + (s.context ? '<div class="or-stat-c">' + esc(s.context) + '</div>' : '') + '</div>'; }).join('') + '</div>';
+  }
+  if ((R.guest_highlights || []).length) h += '<h3>What guests love</h3><ul>' + R.guest_highlights.map(function(g) { return '<li><strong>' + esc(g.theme) + '</strong>' + (g.quote ? ' — <em>“' + esc(g.quote) + '”</em>' : '') + '</li>'; }).join('') + '</ul>';
+  if ((R.feedback_to_address || []).length) h += '<h3>Guest feedback to address</h3><ul>' + R.feedback_to_address.map(function(g) { return '<li><strong>' + esc(g.theme) + '</strong> — ' + esc(g.detail || '') + '</li>'; }).join('') + '</ul>';
+  if ((R.improvement_opportunities || []).length) h += '<h3>Recommended improvements</h3><table class="or-table"><thead><tr><th>Priority</th><th>Improvement</th><th>Why</th><th>Est. cost</th><th>Expected benefit</th></tr></thead><tbody>' + R.improvement_opportunities.map(function(o) { return '<tr><td>' + esc(o.priority || '') + '</td><td><strong>' + esc(o.item) + '</strong></td><td>' + esc(o.why || '') + '</td><td>' + esc(o.est_cost || '') + '</td><td>' + esc(o.expected_benefit || '') + '</td></tr>'; }).join('') + '</tbody></table>';
+  if ((R.management_actions || []).length) h += '<h3>What we are doing</h3><ul>' + R.management_actions.map(function(m) { return '<li>' + esc(m) + '</li>'; }).join('') + '</ul>';
+  if (R.next_steps) h += '<h3>Next steps</h3><p>' + esc(R.next_steps) + '</p>';
+  return h + '</div>';
+}
+
+function liShowOwnerReport(id, rep) {
+  rep = rep || liFindReport(id);
+  if (!rep) return;
+  window._liCurrentReport = rep;
+  document.getElementById('or-title').textContent = 'Owner Report — ' + ((rep.report && rep.report.property) || '');
+  document.getElementById('or-body').innerHTML = liReportHtml(rep);
+  document.getElementById('or-footer').innerHTML = '<button class="btn btn-secondary" onclick="closeModal(\'modal-owner-report\')">Close</button><button class="btn btn-primary" onclick="liPrintOwnerReport()">Print / Save PDF</button>';
+  openModal('modal-owner-report');
+}
+
+function liPrintOwnerReport() {
+  var rep = window._liCurrentReport; if (!rep) return;
+  var w = window.open('', '_blank');
+  if (!w) { showToast('Allow pop-ups to print the report.', 'error'); return; }
+  w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>' + esc((rep.report && rep.report.title) || 'Owner Report') + '</title><style>' +
+    'body{font-family:Georgia,"Times New Roman",serif;color:#1d1d1b;max-width:760px;margin:32px auto;padding:0 24px;line-height:1.55;font-size:14px}' +
+    '.or-brand{font-family:Helvetica,Arial,sans-serif;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#8a7346}' +
+    'h2{font-size:26px;margin:6px 0 2px}h3{font-family:Helvetica,Arial,sans-serif;font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:#8a7346;margin:26px 0 8px;border-bottom:1px solid #e5dfd3;padding-bottom:4px}' +
+    '.or-date{color:#777;font-size:12px;font-family:Helvetica,Arial,sans-serif}.or-headline{font-size:16px;margin:16px 0}' +
+    '.or-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.or-stat{border:1px solid #e5dfd3;border-radius:6px;padding:10px}.or-stat-v{font-size:18px;font-weight:bold}.or-stat-l{font-size:11px;color:#666;font-family:Helvetica,Arial,sans-serif;text-transform:uppercase}.or-stat-c{font-size:11px;color:#888}' +
+    'table{width:100%;border-collapse:collapse;font-size:12.5px}th,td{border-bottom:1px solid #e5dfd3;padding:7px 6px;text-align:left;vertical-align:top}th{font-family:Helvetica,Arial,sans-serif;font-size:10.5px;text-transform:uppercase;color:#666}' +
+    '@media print{body{margin:0}}</style></head><body>' + liReportHtml(rep) + '</body></html>');
+  w.document.close();
+  setTimeout(function() { w.focus(); w.print(); }, 300);
+}
+
+// ── Airbnb Insights CSV import (unchanged) ──────────────────────────────
 function shParseAirbnbCsv(text) {
   var lines = text.split(/\r\n|\n|\r/).filter(function(l) { return l.trim().length; });
   if (lines.length < 3) return { periodStart: null, periodEnd: null, rows: [] };

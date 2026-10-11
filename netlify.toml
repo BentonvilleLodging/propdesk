@@ -73,10 +73,10 @@
 [functions."get-search-health-background"]
   schedule = "0 11 * * *"
 
-# Runs 10 minutes after get-search-health-background, giving
-# recommendation generation its own separate time budget.
-[functions."daily-recommendations-cron"]
-  schedule = "10 11 * * *"
+# Listing Intelligence analysis (Claude) — runs after the 11:00 data collection.
+# Replaces the old daily-recommendations-cron.
+[functions."listing-intel-analyze-background"]
+  schedule = "40 11 * * *"
 
 # Daily recap data pull (Guesty reservations + GA4 traffic) for the
 # 8 AM ET chief-of-staff recap. Reuses the Guesty token cached at 11:00.
