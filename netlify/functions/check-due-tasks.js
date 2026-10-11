@@ -4,12 +4,13 @@
 
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   'Content-Type': 'application/json',
 };
 
 const SUPABASE_URL = 'https://wljtpxqdmxszplngdwsc.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_PERqMlyz5OndCT7wVSUgGQ_T4Tpy_OQ';
+const { serverKey, requireTeam, internalHeaders, isScheduledInvocation, DENIED } = require('../lib/auth');
+const SUPABASE_KEY = serverKey(); // server-side key (SUPABASE_SERVICE_KEY env); tables are RLS-locked to the team
 
 exports.handler = async function(event) {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS, body: '' };
@@ -45,7 +46,7 @@ exports.handler = async function(event) {
     const label  = [todo.title, todo.property, todo.assigned_to].filter(Boolean).join(' · ');
     const pushRes = await fetch(`${siteUrl}/.netlify/functions/send-push`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: internalHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({
         title:   '📅 Task Due Today',
         message: label,

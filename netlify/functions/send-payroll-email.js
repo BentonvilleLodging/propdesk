@@ -1,3 +1,5 @@
+const { requireTeam, DENIED } = require('../lib/auth');
+
 exports.handler = async function (event) {
   // Only allow POST
   if (event.httpMethod !== 'POST') {
@@ -7,9 +9,11 @@ exports.handler = async function (event) {
   // CORS headers so the browser fetch works
   const headers = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Content-Type': 'application/json',
   };
+
+  if (!(await requireTeam(event, ['staff']))) return DENIED(headers);
 
   let subject, html;
   try {

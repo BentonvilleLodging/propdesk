@@ -3934,10 +3934,38 @@
 <script>
 // ========== SUPABASE CLIENT ==========
 const { createClient } = supabase;
+// Auth: every table is locked by RLS to signed-in PropDesk team members
+// (Supabase Auth + public.team_members). The publishable key alone reads nothing.
+var TEAM_EMAIL_DOMAIN = 'team.bentonvillelodgingco.com';
+var REMEMBER_FLAG = 'pd_remember';
+function rememberOn() { try { return localStorage.getItem(REMEMBER_FLAG) !== '0'; } catch(e) { return true; } }
+var pdAuthStorage = {
+  getItem: function(k) { try { var v = localStorage.getItem(k); return v !== null ? v : sessionStorage.getItem(k); } catch(e) { return null; } },
+  setItem: function(k, v) {
+    try {
+      if (rememberOn()) { localStorage.setItem(k, v); sessionStorage.removeItem(k); }
+      else { sessionStorage.setItem(k, v); localStorage.removeItem(k); }
+    } catch(e) {}
+  },
+  removeItem: function(k) { try { localStorage.removeItem(k); sessionStorage.removeItem(k); } catch(e) {} }
+};
 const db = createClient(
   'https://wljtpxqdmxszplngdwsc.supabase.co',
-  'sb_publishable_PERqMlyz5OndCT7wVSUgGQ_T4Tpy_OQ'
+  'sb_publishable_PERqMlyz5OndCT7wVSUgGQ_T4Tpy_OQ',
+  { auth: { storage: pdAuthStorage, storageKey: 'pd-auth', persistSession: true, autoRefreshToken: true } }
 );
+
+// fetch() wrapper that sends the signed-in user's token to Netlify Functions
+async function authFetch(url, opts) {
+  opts = opts || {};
+  var headers = Object.assign({}, opts.headers || {});
+  try {
+    var sess = (await db.auth.getSession()).data.session;
+    if (sess) headers['Authorization'] = 'Bearer ' + sess.access_token;
+  } catch(e) {}
+  opts.headers = headers;
+  return fetch(url, opts);
+}
 
 // ========== STATE ==========
 let todos = [];
@@ -5620,7 +5648,7 @@ async function sendPayrollReminder() {
   // Send via Netlify function -> Resend
   setLoading(true, 'Sending email...');
   try {
-    var res = await fetch('/.netlify/functions/send-payroll-email', {
+    var res = await authFetch('/.netlify/functions/send-payroll-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ subject: subject, html: emailHtml })
@@ -5833,68 +5861,43 @@ var styleTag = document.createElement('style');
 styleTag.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
 document.head.appendChild(styleTag);
 
-// ========== AUTH ==========
-var SESSION_KEY    = 'pd_session';      // sessionStorage — tab-only (8hr)
-var PERSIST_KEY    = 'pd_persist';      // localStorage   — 30-day remember
-var STAFF_USERNAME = 'staff';
-var STAFF_PASSWORD = 'Bentonville2025!';
-var CLEANING_USERNAME = 'nwaexec';
-var CLEANING_PASSWORD = 'NWAEec!@';
+// ========== AUTH (Supabase Auth) ==========
 var currentLoginMode = 'staff'; // 'staff' or 'cleaning'
-var THIRTY_DAYS    = 30 * 24 * 60 * 60 * 1000;
-var EIGHT_HOURS    = 8  * 60 * 60 * 1000;
+var currentRole = null;          // 'staff' | 'cleaner' (from public.team_members)
+var LAST_MODE_KEY = 'pd_last_mode';
 
-// Check both stores: localStorage first (30-day), then sessionStorage (8-hr tab)
-function getSession() {
-  // 1. Check persistent (localStorage) — 30 days
+function toLoginEmail(u) {
+  u = (u || '').trim().toLowerCase();
+  return u.indexOf('@') >= 0 ? u : u + '@' + TEAM_EMAIL_DOMAIN;
+}
+
+async function fetchTeamRole() {
   try {
-    var raw = localStorage.getItem(PERSIST_KEY);
-    if (raw) {
-      var s = JSON.parse(raw);
-      if (s && s.ts && (Date.now() - s.ts) < THIRTY_DAYS) {
-        return s;
-      }
-      localStorage.removeItem(PERSIST_KEY);
-    }
-  } catch(e) {}
-
-  // 2. Fall back to session (sessionStorage) — 8 hours
-  try {
-    var raw2 = sessionStorage.getItem(SESSION_KEY);
-    if (raw2) {
-      var s2 = JSON.parse(raw2);
-      if (s2 && s2.ts && (Date.now() - s2.ts) < EIGHT_HOURS) {
-        return s2;
-      }
-      sessionStorage.removeItem(SESSION_KEY);
-    }
-  } catch(e) {}
-
-  return null;
+    var r = await db.rpc('my_team_role');
+    return r.error ? null : r.data;
+  } catch(e) { return null; }
 }
 
-function setSession(u, remember) {
-  var payload = JSON.stringify({ username: u, ts: Date.now(), remember: remember });
-  if (remember) {
-    localStorage.setItem(PERSIST_KEY, payload);
-    // Also keep session in sessionStorage so it survives tab switches
-    sessionStorage.setItem(SESSION_KEY, payload);
-  } else {
-    sessionStorage.setItem(SESSION_KEY, payload);
-    // Clear any old persistent session if they unchecked remember
-    localStorage.removeItem(PERSIST_KEY);
-  }
+function routeForRole(role, mode) {
+  currentRole = role;
+  if (role === 'cleaner' || mode === 'cleaning') showCleanerApp();
+  else showApp();
 }
 
-function clearSession() {
-  sessionStorage.removeItem(SESSION_KEY);
-  localStorage.removeItem(PERSIST_KEY);
+function setLoginBusy(busy) {
+  var btn = document.getElementById('login-btn');
+  var txt = document.getElementById('login-btn-text');
+  var spn = document.getElementById('login-btn-spinner');
+  if (btn) btn.disabled = busy;
+  if (txt) txt.style.display = busy ? 'none' : '';
+  if (spn) spn.style.display = busy ? 'inline-block' : 'none';
 }
 
-function attemptLogin() {
+async function attemptLogin() {
   var username = document.getElementById('login-username').value.trim();
   var password = document.getElementById('login-password').value;
-  var remember = document.getElementById('remember-device').checked;
+  var rememberEl = document.getElementById('remember-device');
+  var remember = rememberEl ? rememberEl.checked : true;
   var errEl    = document.getElementById('login-error');
   var uInput   = document.getElementById('login-username');
   var pInput   = document.getElementById('login-password');
@@ -5910,38 +5913,40 @@ function attemptLogin() {
     return;
   }
 
-  if (currentLoginMode === 'cleaning') {
-    if (username.toLowerCase() !== CLEANING_USERNAME || password !== CLEANING_PASSWORD) {
+  setLoginBusy(true);
+  try {
+    // Cleaning team devices always stay signed in (matches previous behaviour)
+    try { localStorage.setItem(REMEMBER_FLAG, (currentLoginMode === 'cleaning' || remember) ? '1' : '0'); } catch(e) {}
+
+    var res = await db.auth.signInWithPassword({ email: toLoginEmail(username), password: password });
+    if (res.error) {
       errEl.textContent = 'Incorrect username or password.';
       uInput.classList.add('input-error');
       pInput.classList.add('input-error');
       pInput.value = '';
       return;
     }
-    localStorage.setItem('pd_cleaner_session', '1');
-    showCleanerApp();
-    return;
+    var role = await fetchTeamRole();
+    if (!role) {
+      await db.auth.signOut();
+      errEl.textContent = 'This account does not have PropDesk access.';
+      return;
+    }
+    try { localStorage.setItem(LAST_MODE_KEY, currentLoginMode); } catch(e) {}
+    routeForRole(role, currentLoginMode);
+  } catch(e) {
+    errEl.textContent = 'Sign-in failed — check your connection and try again.';
+  } finally {
+    setLoginBusy(false);
   }
-
-  if (username.toLowerCase() !== STAFF_USERNAME || password !== STAFF_PASSWORD) {
-    errEl.textContent = 'Incorrect username or password.';
-    uInput.classList.add('input-error');
-    pInput.classList.add('input-error');
-    pInput.value = '';
-    return;
-  }
-
-  setSession(username, remember);
-  showApp();
 }
 
 function showApp() {
   document.getElementById('login-screen').classList.add('hidden');
   document.getElementById('app-shell').style.display = 'block';
-  var session = getSession();
-  if (session && session.remember) {
+  if (rememberOn()) {
     var logoutBtn = document.querySelector('.logout-btn');
-    if (logoutBtn) logoutBtn.title = 'Remembered device — session lasts 30 days';
+    if (logoutBtn) logoutBtn.title = 'Remembered device — stays signed in';
   }
   initDate();
   loadAllData();
@@ -5954,9 +5959,10 @@ function showCleanerApp() {
   loadCleanerView();
 }
 
-function logout() {
-  clearSession();
-  localStorage.removeItem('pd_cleaner_session');
+async function logout() {
+  currentRole = null;
+  try { await db.auth.signOut(); } catch(e) {}
+  try { localStorage.removeItem(LAST_MODE_KEY); localStorage.removeItem('pd_cleaner_session'); localStorage.removeItem('pd_persist'); sessionStorage.removeItem('pd_session'); } catch(e) {}
   closeCleanerNav();
   todos = []; events = []; employees = []; timeEntries = [];
   teardownRealtime();
@@ -5970,6 +5976,16 @@ function logout() {
   document.getElementById('login-password').classList.remove('input-error');
   setLoginMode('staff');
 }
+
+// If the session expires or is revoked elsewhere, return to the login screen
+db.auth.onAuthStateChange(function(event) {
+  if (event === 'SIGNED_OUT' && currentRole) {
+    currentRole = null;
+    document.getElementById('app-shell').style.display = 'none';
+    document.getElementById('cleaner-shell').style.display = 'none';
+    document.getElementById('login-screen').classList.remove('hidden');
+  }
+});
 
 // ========== LOGIN MODE ==========
 function setLoginMode(mode) {
@@ -6850,7 +6866,7 @@ async function runGuestyDebug() {
   var el = document.getElementById('gcal-error');
   if (el) { el.style.cssText='display:block;color:var(--green);background:var(--green-dim);border:1px solid var(--green);'; el.textContent='Running debug...'; }
   try {
-    var res = await fetch('/.netlify/functions/get-guesty-calendar?debug=1');
+    var res = await authFetch('/.netlify/functions/get-guesty-calendar?debug=1');
     var data = await res.json();
     var msg = res.ok
       ? '\u2705 OK: ' + (data.meta ? data.meta.listingCount+' listings, '+data.meta.reservationCount+' reservations, '+data.meta.blockCount+' blocks' : JSON.stringify(data).slice(0,300))
@@ -6874,7 +6890,7 @@ async function loadGuestyCalendar(forceRefresh, sfx) {
   var from = new Date(); from.setDate(from.getDate()-14);
   var to   = new Date(); to.setDate(to.getDate()+90);
   try {
-    var res  = await fetch('/.netlify/functions/get-guesty-calendar?from='+from.toISOString().slice(0,10)+'&to='+to.toISOString().slice(0,10));
+    var res  = await authFetch('/.netlify/functions/get-guesty-calendar?from='+from.toISOString().slice(0,10)+'&to='+to.toISOString().slice(0,10));
     var data = await res.json();
     if (!res.ok) throw new Error(data.error||'HTTP '+res.status);
     _gCalData = data;
@@ -7093,7 +7109,7 @@ async function saveSubscription(sub) {
 }
 
 async function runPushDiag() {
-  var result = await fetch('/.netlify/functions/push-diag?test=1');
+  var result = await authFetch('/.netlify/functions/push-diag?test=1');
   var data   = await result.json();
   var msg = [
     'VAPID public key set: '  + data.vapid_public_set,
@@ -7180,7 +7196,7 @@ function fireNotification(title, body, tag) {
 // Send true background push via Netlify function (works when tab is closed)
 async function triggerPush(title, message, tag, url) {
   try {
-    await fetch('/.netlify/functions/send-push', {
+    await authFetch('/.netlify/functions/send-push', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: title, message: message, tag: tag, url: url || '/' }),
@@ -7398,9 +7414,16 @@ function teardownRealtime() {
 }
 
 // ========== INIT ==========
-(function() {
-  if (getSession()) { showApp(); }
-  else if (localStorage.getItem('pd_cleaner_session')) { showCleanerApp(); }
+(async function() {
+  // Clear legacy pre-Supabase-Auth session flags
+  try { localStorage.removeItem('pd_cleaner_session'); localStorage.removeItem('pd_persist'); sessionStorage.removeItem('pd_session'); } catch(e) {}
+  var sess = (await db.auth.getSession()).data.session;
+  if (!sess) return;
+  var role = await fetchTeamRole();
+  if (!role) { await db.auth.signOut(); return; }
+  var mode = 'staff';
+  try { mode = localStorage.getItem(LAST_MODE_KEY) || 'staff'; } catch(e) {}
+  routeForRole(role, mode);
 })();
 </script>
 
@@ -7466,7 +7489,7 @@ async function dpBootstrap(today) {
       var gFrom = new Date(); gFrom.setDate(gFrom.getDate() - 1);
       var gTo   = new Date(); gTo.setDate(gTo.getDate() + 90);
       var url   = '/.netlify/functions/get-guesty-calendar?from=' + localDateStr(gFrom) + '&to=' + localDateStr(gTo);
-      var res   = await fetch(url);
+      var res   = await authFetch(url);
       var txt   = await res.text();
       var cal;
       try { cal = JSON.parse(txt); } catch(e) { throw new Error('Calendar returned non-JSON (' + res.status + ')'); }
@@ -7715,7 +7738,7 @@ async function geocodeAddr(address) {
   if (dpGeoCache[address]) return dpGeoCache[address];
   // Route through Netlify function to avoid CORS issues with Nominatim
   try {
-    var r = await fetch('/.netlify/functions/geocode?q=' + encodeURIComponent(address));
+    var r = await authFetch('/.netlify/functions/geocode?q=' + encodeURIComponent(address));
     if (r.ok) {
       var d = await r.json();
       if (d && d.lat) {
@@ -8311,7 +8334,7 @@ async function shSyncNow() {
     // This is a Netlify Background Function -- it returns an empty 202
     // almost immediately regardless of how long the actual sync takes.
     // Poll app_cache for the completion marker it writes when finished.
-    var triggerRes = await fetch('/.netlify/functions/get-search-health-background');
+    var triggerRes = await authFetch('/.netlify/functions/get-search-health-background');
     if (!triggerRes.ok && triggerRes.status !== 202) {
       throw new Error('Failed to start sync (HTTP ' + triggerRes.status + ')');
     }
@@ -8724,7 +8747,7 @@ async function shRegenerateRecommendations() {
     // almost immediately regardless of how long the actual work takes.
     // We only use this to confirm the trigger succeeded, then poll
     // Supabase directly for the real result.
-    var triggerRes = await fetch('/.netlify/functions/get-recommendations-background');
+    var triggerRes = await authFetch('/.netlify/functions/get-recommendations-background');
     if (!triggerRes.ok && triggerRes.status !== 202) {
       throw new Error('Failed to start analysis (HTTP ' + triggerRes.status + ')');
     }

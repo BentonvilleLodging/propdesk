@@ -6,10 +6,12 @@
 // result itself, since get-recommendations-background.js writes directly
 // to Supabase when it finishes (which can take a while for ~28 listings).
 
+const { internalHeaders } = require('../lib/auth');
+
 exports.handler = async function(event) {
   try {
     const siteUrl = process.env.URL || 'https://bentonvillelodgingcomanagement.com';
-    const res = await fetch(`${siteUrl}/.netlify/functions/get-recommendations-background`);
+    const res = await fetch(`${siteUrl}/.netlify/functions/get-recommendations-background`, { headers: internalHeaders() });
     return {
       statusCode: 200,
       body: JSON.stringify({ triggered: true, backgroundFunctionStatus: res.status }),

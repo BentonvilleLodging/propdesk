@@ -1,3 +1,5 @@
+const { requireTeam, DENIED } = require('../lib/auth');
+
 // netlify/functions/geocode.js
 // Proxies Nominatim geocoding requests to avoid CORS issues from the browser
 
@@ -8,6 +10,7 @@ const CORS = {
 
 exports.handler = async function(event) {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS, body: '' };
+  if (!(await requireTeam(event))) return DENIED(CORS);
 
   const q = (event.queryStringParameters || {}).q;
   if (!q) return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'Missing q param' }) };

@@ -28,7 +28,8 @@
 const crypto = require('crypto');
 
 const SUPABASE_URL = 'https://wljtpxqdmxszplngdwsc.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_PERqMlyz5OndCT7wVSUgGQ_T4Tpy_OQ';
+const { serverKey } = require('../lib/auth');
+const SUPABASE_KEY = serverKey();
 const CACHE_KEY = 'guesty_token';
 const RUN_STATUS_KEY = 'recap_snapshot_last_run';
 

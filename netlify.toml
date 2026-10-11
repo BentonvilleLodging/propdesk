@@ -2,6 +2,61 @@
   publish = "."
   functions = "netlify/functions"
 
+# Never serve server code / config / SQL as static files (publish = ".")
+[[redirects]]
+  from = "/netlify/*"
+  to = "/__blocked"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/netlify.toml"
+  to = "/__blocked"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/package.json"
+  to = "/__blocked"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/supabase_setup.sql"
+  to = "/__blocked"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/supabase_push_setup.sql"
+  to = "/__blocked"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/supabase_late_checkout_setup.sql"
+  to = "/__blocked"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/supabase_visit_log_setup.sql"
+  to = "/__blocked"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/.git/*"
+  to = "/__blocked"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/supabase_rls_lockdown.sql"
+  to = "/__blocked"
+  status = 404
+  force = true
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
@@ -27,3 +82,10 @@
 # 8 AM ET chief-of-staff recap. Reuses the Guesty token cached at 11:00.
 [functions."daily-recap-snapshot-background"]
   schedule = "25 11 * * *"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"

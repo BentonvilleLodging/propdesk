@@ -1,5 +1,5 @@
 // PropDesk Service Worker — v3 (VAPID push + caching)
-var CACHE   = 'propdesk-v3';
+var CACHE   = 'propdesk-v4';
 var ASSETS  = ['/'];
 
 // ── Install ────────────────────────────────────────────────────────────────

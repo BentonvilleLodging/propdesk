@@ -13,7 +13,8 @@
 // instead of waiting on a response body that will never arrive.
 
 const SUPABASE_URL = 'https://wljtpxqdmxszplngdwsc.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_PERqMlyz5OndCT7wVSUgGQ_T4Tpy_OQ';
+const { serverKey, requireTeam, internalHeaders, isScheduledInvocation, DENIED } = require('../lib/auth');
+const SUPABASE_KEY = serverKey(); // server-side key (SUPABASE_SERVICE_KEY env); tables are RLS-locked to the team
 const CACHE_KEY    = 'guesty_token';
 const RUN_STATUS_KEY = 'search_health_last_run';
 
@@ -238,6 +239,7 @@ function analyzeGaps(days) {
 
 // ── Handler ─────────────────────────────────────────────────────────────
 exports.handler = async function(event) {
+  if (!isScheduledInvocation(event) && !(await requireTeam(event, ['staff']))) { console.warn('get-search-health-background: unauthorized call ignored'); return; }
   const today = new Date().toISOString().slice(0, 10);
   const gapFrom = today;
   const gapTo   = new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10);

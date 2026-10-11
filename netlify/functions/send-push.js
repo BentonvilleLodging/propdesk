@@ -6,12 +6,13 @@
 
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   'Content-Type': 'application/json',
 };
 
 const SUPABASE_URL = 'https://wljtpxqdmxszplngdwsc.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_PERqMlyz5OndCT7wVSUgGQ_T4Tpy_OQ';
+const { serverKey, requireTeam, internalHeaders, isScheduledInvocation, DENIED } = require('../lib/auth');
+const SUPABASE_KEY = serverKey(); // server-side key (SUPABASE_SERVICE_KEY env); tables are RLS-locked to the team
 
 // ── Supabase helpers ──────────────────────────────────────────────────────────
 async function getSubscriptions() {
@@ -45,6 +46,7 @@ async function removeSubscription(id) {
 // ── Handler ───────────────────────────────────────────────────────────────────
 exports.handler = async function(event) {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS, body: '' };
+  if (!(await requireTeam(event))) return DENIED(CORS); // staff + cleaning team both trigger pushes
   if (event.httpMethod !== 'POST')   return { statusCode: 405, headers: CORS, body: JSON.stringify({ error: 'POST only' }) };
 
   const VAPID_PUBLIC  = process.env.VAPID_PUBLIC_KEY;

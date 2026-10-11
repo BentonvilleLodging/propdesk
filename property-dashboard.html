@@ -2057,10 +2057,38 @@
 <script>
 // ========== SUPABASE CLIENT ==========
 const { createClient } = supabase;
+// Auth: every table is locked by RLS to signed-in PropDesk team members
+// (Supabase Auth + public.team_members). The publishable key alone reads nothing.
+var TEAM_EMAIL_DOMAIN = 'team.bentonvillelodgingco.com';
+var REMEMBER_FLAG = 'pd_remember';
+function rememberOn() { try { return localStorage.getItem(REMEMBER_FLAG) !== '0'; } catch(e) { return true; } }
+var pdAuthStorage = {
+  getItem: function(k) { try { var v = localStorage.getItem(k); return v !== null ? v : sessionStorage.getItem(k); } catch(e) { return null; } },
+  setItem: function(k, v) {
+    try {
+      if (rememberOn()) { localStorage.setItem(k, v); sessionStorage.removeItem(k); }
+      else { sessionStorage.setItem(k, v); localStorage.removeItem(k); }
+    } catch(e) {}
+  },
+  removeItem: function(k) { try { localStorage.removeItem(k); sessionStorage.removeItem(k); } catch(e) {} }
+};
 const db = createClient(
   'https://wljtpxqdmxszplngdwsc.supabase.co',
-  'sb_publishable_PERqMlyz5OndCT7wVSUgGQ_T4Tpy_OQ'
+  'sb_publishable_PERqMlyz5OndCT7wVSUgGQ_T4Tpy_OQ',
+  { auth: { storage: pdAuthStorage, storageKey: 'pd-auth', persistSession: true, autoRefreshToken: true } }
 );
+
+// fetch() wrapper that sends the signed-in user's token to Netlify Functions
+async function authFetch(url, opts) {
+  opts = opts || {};
+  var headers = Object.assign({}, opts.headers || {});
+  try {
+    var sess = (await db.auth.getSession()).data.session;
+    if (sess) headers['Authorization'] = 'Bearer ' + sess.access_token;
+  } catch(e) {}
+  opts.headers = headers;
+  return fetch(url, opts);
+}
 
 // ========== STATE ==========
 let todos = [];
@@ -3286,7 +3314,7 @@ async function sendPayrollReminder() {
   // Send via Netlify function -> Resend
   setLoading(true, 'Sending email...');
   try {
-    var res = await fetch('/.netlify/functions/send-payroll-email', {
+    var res = await authFetch('/.netlify/functions/send-payroll-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ subject: subject, html: emailHtml })
@@ -3330,33 +3358,19 @@ var styleTag = document.createElement('style');
 styleTag.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
 document.head.appendChild(styleTag);
 
-// ========== AUTH ==========
-var SESSION_KEY = 'pd_session';
-var STAFF_USERNAME = 'staff';
-var STAFF_PASSWORD = 'Bentonville2025!';
+// ========== AUTH (Supabase Auth — staff only) ==========
+var currentRole = null;
 
-function getSession() {
-  try {
-    var raw = sessionStorage.getItem(SESSION_KEY);
-    if (!raw) return null;
-    var s = JSON.parse(raw);
-    if (!s || !s.ts || (Date.now() - s.ts) > 8 * 60 * 60 * 1000) {
-      sessionStorage.removeItem(SESSION_KEY);
-      return null;
-    }
-    return s;
-  } catch(e) { return null; }
+function toLoginEmail(u) {
+  u = (u || '').trim().toLowerCase();
+  return u.indexOf('@') >= 0 ? u : u + '@' + TEAM_EMAIL_DOMAIN;
 }
 
-function setSession(u) {
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify({ username: u, ts: Date.now() }));
+async function fetchTeamRole() {
+  try { var r = await db.rpc('my_team_role'); return r.error ? null : r.data; } catch(e) { return null; }
 }
 
-function clearSession() {
-  sessionStorage.removeItem(SESSION_KEY);
-}
-
-function attemptLogin() {
+async function attemptLogin() {
   var username = document.getElementById('login-username').value.trim();
   var password = document.getElementById('login-password').value;
   var errEl  = document.getElementById('login-error');
@@ -3374,15 +3388,21 @@ function attemptLogin() {
     return;
   }
 
-  if (username.toLowerCase() !== STAFF_USERNAME || password !== STAFF_PASSWORD) {
+  var res = await db.auth.signInWithPassword({ email: toLoginEmail(username), password: password });
+  if (res.error) {
     errEl.textContent = 'Incorrect username or password.';
     uInput.classList.add('input-error');
     pInput.classList.add('input-error');
     pInput.value = '';
     return;
   }
-
-  setSession(username);
+  var role = await fetchTeamRole();
+  if (role !== 'staff') {
+    await db.auth.signOut();
+    errEl.textContent = 'This account does not have access to this page.';
+    return;
+  }
+  currentRole = role;
   showApp();
 }
 
@@ -3393,8 +3413,9 @@ function showApp() {
   loadAllData();
 }
 
-function logout() {
-  clearSession();
+async function logout() {
+  currentRole = null;
+  try { await db.auth.signOut(); } catch(e) {}
   todos = []; events = []; employees = []; timeEntries = [];
   document.getElementById('app-shell').style.display = 'none';
   document.getElementById('login-screen').classList.remove('hidden');
@@ -3406,8 +3427,13 @@ function logout() {
 }
 
 // ========== INIT ==========
-(function() {
-  if (getSession()) { showApp(); }
+(async function() {
+  var sess = (await db.auth.getSession()).data.session;
+  if (!sess) return;
+  var role = await fetchTeamRole();
+  if (role !== 'staff') return;
+  currentRole = role;
+  showApp();
 })();
 </script>
 </body>

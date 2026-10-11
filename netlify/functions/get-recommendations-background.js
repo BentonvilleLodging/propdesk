@@ -22,7 +22,8 @@
 //      immediately itself, since it no longer needs to wait either).
 
 const SUPABASE_URL = 'https://wljtpxqdmxszplngdwsc.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_PERqMlyz5OndCT7wVSUgGQ_T4Tpy_OQ';
+const { serverKey, requireTeam, internalHeaders, isScheduledInvocation, DENIED } = require('../lib/auth');
+const SUPABASE_KEY = serverKey(); // server-side key (SUPABASE_SERVICE_KEY env); tables are RLS-locked to the team
 const CLAUDE_MODEL  = 'claude-sonnet-5';
 
 async function sbSelect(table, query) {
@@ -172,6 +173,7 @@ Respond with ONLY a JSON object (no prose, no markdown fences) shaped exactly li
 Include an entry for every listing in the input, in the same order (worst first). If a recommendation requires data we don't have, phrase the action as "check Airbnb Insights for X" rather than presenting an invented number as fact.`;
 
 exports.handler = async function(event) {
+  if (!(await requireTeam(event, ['staff']))) { console.warn('get-recommendations-background: unauthorized call ignored'); return; }
   try {
     const apiKey = process.env.CLAUDE_SECRET;
     if (!apiKey) throw new Error('CLAUDE_SECRET env var not set');
