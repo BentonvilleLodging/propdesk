@@ -3,10 +3,10 @@
  * - Pricing: performance windows vs market (7/14/30/60/90) + PriceLabs changes (Claude + rule engine)
  * - Recommendations: one-tap push (PriceLabs base/min/max, Guesty amenities) or mark done;
  *   every completion is saved to the listing with a baseline snapshot (History & Rank)
- * - History & Rank: clear explanation when PriceLabs isn't tracking rank yet
+ * - History & Rank: per-date Airbnb rank grid with why-off-page-1 diagnosis (listing_rank_dates)
  * Safe to load on any page: does nothing unless the workspace functions exist.
  */
-(function () {
+(function () { try {
   if (typeof window.wsOverviewHtml !== 'function' || typeof window.wsOpen !== 'function') return;
   if (window.__intelWsExt) return; window.__intelWsExt = true;
 
@@ -14,15 +14,20 @@
 
   // ── data: latest PriceLabs metrics + customizations for the open listing ──
   window.wsOpen = async function (lid, tab) {
-    window._wsMetrics = null; window._wsCust = null; window._wsDone = [];
+    window._wsMetrics = null; window._wsCust = null; window._wsDone = []; window._wsRankRows = []; window._wsRankDiag = null; window._wsRankMeta = null;
     await origOpen(lid, tab);
     try {
-      var q = await db.from('pricelabs_intel').select('snapshot_date,metrics,customizations,calendar,optimizer,errors').eq('listing_id', lid).order('snapshot_date', { ascending: false }).limit(1);
+      var q = await db.from('pricelabs_intel').select('snapshot_date,metrics,customizations,calendar,optimizer,ranking,errors').eq('listing_id', lid).order('snapshot_date', { ascending: false }).limit(1);
       var r = (q.data || [])[0] || {};
       if (window._wsLid !== lid) return;
       window._wsMetrics = r.metrics || null;
       window._wsCust = r.customizations || null;
       window._wsIntelRow = r;
+      var rq = await db.from('listing_rank_dates').select('*').eq('listing_id', lid).order('snapshot_date', { ascending: false }).order('stay_date', { ascending: true }).limit(2000);
+      var rr = rq.data || [];
+      window._wsRankRows = rr.length ? rr.filter(function (x) { return x.snapshot_date === rr[0].snapshot_date; }) : [];
+      window._wsRankDiag = (r.ranking && r.ranking.diagnosis) || null;
+      window._wsRankMeta = r.ranking || null;
       var dq = await db.from('recommendation_completions').select('*').eq('listing_id', lid).order('completed_at', { ascending: false }).limit(200);
       window._wsDone = dq.data || [];
       if (window._wsTab === 'overview' || window._wsTab === 'pricing' || window._wsTab === 'history') wsTab(window._wsTab);
@@ -101,6 +106,15 @@
     if (l.reviews != null && l.reviews < 10) add(2, 'Build review volume (' + l.reviews + ' reviews)', 'Send a review request on checkout day and a reminder 3 days later; Guest Favorite needs volume.', 'reviews', 'Reviews');
     if (l.daysSinceReview != null && l.daysSinceReview > 45) add(3, 'Get a fresh review (last one ' + l.daysSinceReview + ' days ago)', 'Recent reviews carry more weight in ranking and conversion.', 'reviews', 'Reviews');
     if (l.rating != null && l.rating < 4.8) add(1, 'Protect the rating (' + l.rating.toFixed(2) + '★)', 'Fix the recurring complaints in Reviews before pushing for more volume.', 'reviews', 'Reviews');
+    var dgx = window._wsRankDiag;
+    if (dgx && dgx.reasons && dgx.dates_checked) {
+      dgx.reasons.forEach(function (r) {
+        if (r.dates < 3) return;
+        if (r.code === 'price_high' || r.code === 'price_above_median' || r.code === 'price_vs_booked') add(1, 'Off page 1 on ' + r.dates + ' dates because of price — ' + r.label, 'Lower those dates (or the base/min price) toward the market median shown in History & Rank; page-1 dates average ' + liMoney(dgx.avg_price_page1) + ' vs ' + liMoney(dgx.avg_price_off) + ' off page 1.', 'history', 'Search rank');
+        if (r.code === 'stay_blocked' || r.code === 'min_stay') add(1, 'Hidden from ' + r.dates + ' date searches by stay-length rules', 'Gaps next to bookings and minimum stays longer than the search remove you from results. Allow shorter stays around bookings (PriceLabs orphan-day / last-minute min stay).', 'history', 'Search rank');
+        if (r.code === 'quality') add(2, 'Competitively priced but still off page 1 on ' + r.dates + ' dates', 'Price is not the problem on these dates — improve click-through/conversion: cover photo, title, review volume, and the weak PriceLabs grades.', 'content', 'Search rank');
+      });
+    }
     if (l.pushEnabled === false) add(1, 'Turn PriceLabs sync back ON', 'PriceLabs is not pushing prices for this listing, so none of its pricing reaches Airbnb.', 'pricing', 'PriceLabs');
     return out.sort(function (a, b) { return a.prio - b.prio; });
   }
@@ -297,28 +311,122 @@
     catch (e) { showToast('Could not save: ' + (e.message || e), 'error'); }
   };
 
-  // ── Rank ─────────────────────────────────────────────────────────────────
-  var origRank = window.wsRankNow;
+  // ── Rank: per-date Airbnb placement + why off page 1 ─────────────────────
+  var REASON_COLORS = { stay_blocked: '#8a7fd1', min_stay: '#8a7fd1', not_shown: '#8a7fd1', price_high: '#e06b5a', price_above_median: '#e0975a', price_vs_booked: '#e0975a', quality: '#c8a96e', low_demand: '#7a9cc8', far_out: '#9aa0a6' };
+  function fmtD(d) { return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }); }
+  function byDate(rows) {
+    var m = {};
+    (rows || []).forEach(function (r) { (m[r.stay_date] = m[r.stay_date] || []).push(r); });
+    return Object.keys(m).sort().map(function (d) {
+      var rs = m[d], ranked = rs.filter(function (r) { return r.verdict === 'page1' || r.verdict === 'off_page1'; });
+      var best = ranked.length ? ranked.reduce(function (a, b) { return (b.page || 99) < (a.page || 99) ? b : a; }) : null;
+      var booked = rs.every(function (r) { return r.verdict === 'booked' || r.verdict === 'no_data'; });
+      var notShown = !booked && !ranked.length;
+      var reasons = {}; rs.forEach(function (r) { (r.reasons || []).forEach(function (x) { if (!reasons[x.code] || reasons[x.code].weight < x.weight) reasons[x.code] = x; }); });
+      var rlist = Object.keys(reasons).map(function (k) { return reasons[k]; }).sort(function (a, b) { return b.weight - a.weight; });
+      var any = rs[0] || {};
+      return { date: d, rows: rs, best: best, page: best ? best.page : null, rank: best ? best.rank : null, booked: booked, notShown: notShown, reasons: rlist,
+        price: (best && (best.rank_price || best.our_price)) || any.our_price, p50: any.mkt_p50, p75: any.mkt_p75, minStay: any.min_stay, demand: any.demand };
+    });
+  }
+  function rankPanel(l, live) {
+    var rows = window._wsRankRows || [], dg = window._wsRankDiag, meta = window._wsRankMeta || {};
+    var head = '<div class="li-panel" id="ws-rank-panel"><div class="li-panel-head"><div><div class="li-panel-title">Airbnb search rank by date</div><div class="li-muted">From PriceLabs Listing Optimizer' + (dg && dg.updated_at ? ' · PriceLabs checked ' + liAgo(dg.updated_at) : '') + '. Each date shows your best page across the searches PriceLabs runs (guest counts × stay lengths). Tap a date for why.</div></div><button class="expand-btn" onclick="wsRankNow()">&#128269; Check now</button></div>';
+    if (!rows.length) {
+      var errs = (window._wsIntelRow && window._wsIntelRow.errors) || [];
+      var why = errs.filter(function (e) { return /ranking|optimizer|sync is not/i.test(e); });
+      return head + '<div id="ws-rank-body" class="li-muted">' + (why.length ? '<div style="color:var(--yellow);font-weight:600;margin-bottom:6px;">PriceLabs isn’t returning rank data for this listing.</div>' + why.map(function (e) { return '<div>• ' + esc(e.replace(/PriceLabs \d+ on [^:]+:\s*/, '')) + '</div>'; }).join('') + '<div style="margin-top:6px;">If PriceLabs says “Listing sync is not toggled ON” or “Optimizer listing not found”, turn on sync for this listing and add it to Listing Optimizer in PriceLabs.</div>' : 'No rank data stored yet. Tap “Check now” to pull it live, or wait for tomorrow’s 6 AM sync.') + '</div></div>';
+    }
+    var D = byDate(rows);
+    var html = head + '<div id="ws-rank-body">';
+    if (dg && dg.headline) html += '<div class="ws-rank-head">' + esc(dg.headline) + '</div>';
+    var open = D.filter(function (x) { return !x.booked; }), p1 = open.filter(function (x) { return x.page === 1; }).length;
+    html += '<div class="li-stats" style="margin:8px 0 10px;">' +
+      liStat('Page 1', open.length ? Math.round(p1 / open.length * 100) + '%' : '—', p1 + ' of ' + open.length + ' open dates') +
+      liStat('Best rank', meta.best_rank != null ? '#' + meta.best_rank : '—', meta.neighborhood_count ? 'of ' + meta.neighborhood_count + '+ nearby' : '') +
+      liStat('Avg page (shown)', meta.avg_page != null ? meta.avg_page : '—', meta.avg_rank != null ? 'avg rank #' + Math.round(meta.avg_rank) : '') +
+      liStat('Not shown', open.filter(function (x) { return x.notShown; }).length, 'dates missing from search') + '</div>';
+    if (dg && dg.reasons && dg.reasons.length) {
+      var mx = dg.reasons[0].dates;
+      html += '<div class="li-sec-title">Why you’re off page 1</div><div class="ws-reasons">' + dg.reasons.map(function (r) {
+        return '<div class="ws-reason"><div class="ws-reason-l">' + esc(r.label) + '</div><div class="ws-reason-bar"><span style="width:' + Math.max(6, Math.round(r.dates / mx * 100)) + '%;background:' + (REASON_COLORS[r.code] || '#999') + '"></span></div><div class="ws-reason-n">' + r.dates + ' date' + (r.dates === 1 ? '' : 's') + '</div></div>';
+      }).join('') + '</div>';
+      if (dg.avg_price_page1 && dg.avg_price_off) html += '<div class="li-muted" style="font-size:12px;margin:4px 0 10px;">Avg price on page-1 dates ' + liMoney(dg.avg_price_page1) + ' · on off-page dates ' + liMoney(dg.avg_price_off) + '</div>';
+    }
+    html += '<div class="ws-rank-legend"><span class="ws-r-good">Page 1</span><span class="ws-r-mid">Page 2–3</span><span class="ws-r-bad">Page 4+</span><span class="ws-r-ns">Not shown</span><span class="ws-r-bk">Booked</span></div>';
+    html += '<div class="ws-rank-grid">' + D.map(function (x, i) {
+      var cls = x.booked ? 'ws-r-bk' : x.notShown ? 'ws-r-ns' : x.page <= 1 ? 'ws-r-good' : x.page <= 3 ? 'ws-r-mid' : 'ws-r-bad';
+      var lbl = x.booked ? 'booked' : x.notShown ? '—' : 'pg ' + x.page;
+      return '<button class="ws-rank-cell ' + cls + '" onclick="wsRankDay(' + i + ')"><div>' + new Date(x.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' }) + '</div><strong>' + (x.rank != null ? '#' + x.rank : x.booked ? '·' : '✕') + '</strong><div>' + lbl + '</div></button>';
+    }).join('') + '</div><div id="ws-rank-day"></div>';
+    var off = D.filter(function (x) { return !x.booked && x.page !== 1; });
+    if (off.length) {
+      html += '<div class="li-sec-title" style="margin-top:14px;">Dates off page 1 — what’s happening</div><div class="inv-table-wrap"><table class="inv-table"><thead><tr><th>Date</th><th>Best page</th><th>Your price</th><th>Market median / 75th</th><th>Min stay</th><th>Likely cause</th></tr></thead><tbody>' +
+        off.slice(0, 40).map(function (x) {
+          return '<tr><td>' + fmtD(x.date) + (x.demand ? '<div class="li-muted" style="font-size:11px;">' + esc(x.demand) + '</div>' : '') + '</td><td class="amount">' + (x.notShown ? 'not shown' : x.page) + '</td><td class="amount">' + liMoney(x.price) + '</td><td class="amount">' + liMoney(x.p50) + ' / ' + liMoney(x.p75) + '</td><td class="amount">' + (x.minStay != null ? x.minStay : '—') + '</td><td style="font-size:12px;min-width:220px;">' + (x.reasons.length ? x.reasons.slice(0, 2).map(function (r) { return '<div>• ' + esc(r.text) + '</div>'; }).join('') : '—') + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+    }
+    window._wsRankDays = D;
+    return html + '</div></div>';
+  }
+  window.wsRankDay = function (i) {
+    var x = (window._wsRankDays || [])[i], el = document.getElementById('ws-rank-day'); if (!x || !el) return;
+    var segs = x.rows.map(function (r) { return '<tr><td>' + r.guest_count + ' guests</td><td>' + (r.los === 'min_stay' ? 'min stay' : r.los + ' night' + (r.los === '1' ? '' : 's')) + '</td><td class="amount">' + (r.verdict === 'booked' ? 'booked' : r.verdict === 'not_shown' ? 'not shown' : r.rank != null ? '#' + r.rank + ' (pg ' + r.page + ')' : '—') + '</td><td class="amount">' + liMoney(r.rank_price || r.our_price) + '</td></tr>'; }).join('');
+    el.innerHTML = '<div class="ws-rank-detail"><div style="display:flex;justify-content:space-between;align-items:center;"><strong>' + fmtD(x.date) + '</strong><button class="expand-btn" onclick="document.getElementById(\'ws-rank-day\').innerHTML=\'\'">Close</button></div>' +
+      '<div class="li-muted" style="margin:4px 0 8px;">Your price ' + liMoney(x.price) + ' · market median ' + liMoney(x.p50) + ' · 75th pct ' + liMoney(x.p75) + (x.minStay != null ? ' · min stay ' + x.minStay : '') + (x.demand ? ' · ' + esc(x.demand) : '') + '</div>' +
+      (x.reasons.length ? x.reasons.map(function (r) { return '<div class="ws-rd-reason" style="border-left-color:' + (REASON_COLORS[r.code] || '#999') + '">' + esc(r.text) + '</div>'; }).join('') : (x.booked ? '<div class="li-muted">Booked or blocked — not searchable.</div>' : '<div style="color:var(--green);">On page 1 for this date.</div>')) +
+      '<div class="inv-table-wrap" style="margin-top:8px;"><table class="inv-table"><thead><tr><th>Search</th><th>Stay</th><th>Rank</th><th>Price shown</th></tr></thead><tbody>' + segs + '</tbody></table></div></div>';
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  };
+
+  // Replace the original rank panel at the bottom of History & Rank with the diagnosed version
+  var origHistory2 = window.wsHistoryHtml;
+  window.wsHistoryHtml = function (l) {
+    var h = origHistory2(l);
+    var i = h.indexOf('<div class="li-panel" id="ws-rank-panel">');
+    if (i >= 0) h = h.slice(0, i);
+    return rankPanel(l) + h;
+  };
+
   window.wsRankNow = async function () {
     if (window._wsTab !== 'history') wsTab('history');
     var el = document.getElementById('ws-rank-body');
-    if (el) el.innerHTML = 'Checking PriceLabs…';
+    if (el) el.innerHTML = '<div class="li-muted">Checking PriceLabs and diagnosing each date… (15–30 seconds)</div>';
     try {
       var d = await wsApi({ action: 'rank_now', listing_id: window._wsLid });
-      if (!(d.segments || []).length) {
-        el.innerHTML = '<div style="color:var(--yellow);font-weight:600;margin-bottom:6px;">PriceLabs isn’t tracking Airbnb rank for this listing yet.</div>' +
-          '<div class="li-muted">PriceLabs answered (Airbnb ID ' + esc(d.airbnb_id || '—') + (d.neighborhood_count ? ', ' + d.neighborhood_count + ' competing listings in its search area' : '') + ') but returned no rankings and no history. Rank tracking has to be switched on per listing inside PriceLabs → <strong>Listing Optimizer</strong> (Ranking / Search Rank). Once it’s on, PriceLabs starts collecting within about a day and PropDesk pulls it on every sync and on “Check now”.</div>';
+      if (!(d.segments || []).length || !(d.rows || []).some(function (r) { return r.verdict !== 'booked' && r.verdict !== 'no_data'; })) {
+        if (el) el.innerHTML = '<div style="color:var(--yellow);font-weight:600;margin-bottom:6px;">PriceLabs returned no rank results for this listing.</div><div class="li-muted">Airbnb ID ' + esc(d.airbnb_id || '—') + '. Make sure this listing is added to PriceLabs → Listing Optimizer with ranking on; PriceLabs collects ranks about once a day.</div>';
         return;
       }
-      await origRank();
+      window._wsRankRows = d.rows;
+      window._wsRankDiag = d.diagnosis;
+      var meta = window._wsRankMeta || {};
+      var shown = [], pages = [];
+      d.rows.forEach(function (r) { if (r.rank != null) shown.push(r.rank); if (r.page != null) pages.push(r.page); });
+      window._wsRankMeta = Object.assign({}, meta, { best_rank: d.best_rank != null ? d.best_rank : meta.best_rank, neighborhood_count: d.neighborhood_count || meta.neighborhood_count,
+        avg_page: pages.length ? Math.round(pages.reduce(function (a, b) { return a + b; }, 0) / pages.length * 10) / 10 : null,
+        avg_rank: shown.length ? shown.reduce(function (a, b) { return a + b; }, 0) / shown.length : null });
+      wsTab('history');
+      showToast('Rank updated', 'success');
     } catch (e) { if (el) el.innerHTML = '<span style="color:var(--red);">' + esc(e.message) + '</span>'; }
+  };
+
+  // Overview: rank headline above "Do these now"
+  var origOverview2 = window.wsOverviewHtml;
+  window.wsOverviewHtml = function (l) {
+    var dg = window._wsRankDiag, out = '';
+    if (dg && dg.headline) {
+      var top = (dg.reasons || []).slice(0, 3).map(function (r) { return '<span class="li-chip">' + esc(r.label) + ' · ' + r.dates + '</span>'; }).join('');
+      out = '<div class="li-panel ws-rank-ov"><div class="li-panel-head"><div><div class="li-panel-title">&#128269; Airbnb search placement</div><div>' + esc(dg.headline) + '</div><div class="li-chips" style="margin-top:6px;">' + top + '</div></div><button class="expand-btn" onclick="wsTab(\'history\')">See dates &#8594;</button></div></div>';
+    }
+    return out + origOverview2(l);
   };
 
   // styles
   var st = document.createElement('style');
-  st.textContent = '.ws-now{border-left:4px solid var(--accent, #c8a96e);} .ws-now-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;} .ws-now-list li{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg, transparent);} .ws-now-list li input{margin-top:3px;flex-shrink:0;} .ws-now-go{flex-shrink:0;white-space:nowrap;} .ws-now-btns{display:flex;flex-direction:column;gap:6px;align-items:stretch;flex-shrink:0;align-self:center;} .ws-push-btn{font-size:11.5px;padding:6px 10px;white-space:nowrap;margin-top:6px;display:inline-block;} .ws-now-btns .ws-push-btn{margin-top:0;} .ws-done-line{font-size:11.5px;color:var(--green);margin-top:4px;font-weight:600;} @media (max-width:600px){.ws-now-list li{flex-wrap:wrap;} .ws-now-btns{margin-left:26px;flex-direction:row;}}';
+  st.textContent = '.ws-now{border-left:4px solid var(--accent, #c8a96e);} .ws-now-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;} .ws-now-list li{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg, transparent);} .ws-now-list li input{margin-top:3px;flex-shrink:0;} .ws-now-go{flex-shrink:0;white-space:nowrap;} .ws-now-btns{display:flex;flex-direction:column;gap:6px;align-items:stretch;flex-shrink:0;align-self:center;} .ws-push-btn{font-size:11.5px;padding:6px 10px;white-space:nowrap;margin-top:6px;display:inline-block;} .ws-now-btns .ws-push-btn{margin-top:0;} .ws-done-line{font-size:11.5px;color:var(--green);margin-top:4px;font-weight:600;} .ws-rank-head{font-weight:600;font-size:13.5px;margin-bottom:4px;} .ws-reasons{display:flex;flex-direction:column;gap:6px;margin:6px 0;} .ws-reason{display:grid;grid-template-columns:minmax(120px,240px) 1fr 70px;gap:8px;align-items:center;font-size:12.5px;} .ws-reason-bar{background:var(--border);border-radius:4px;height:8px;overflow:hidden;} .ws-reason-bar span{display:block;height:100%;border-radius:4px;} .ws-reason-n{text-align:right;color:var(--text-muted);} .ws-rank-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(58px,1fr));gap:5px;} .ws-rank-cell{border:1px solid var(--border);border-radius:8px;padding:5px 2px;text-align:center;font-size:10.5px;line-height:1.25;background:var(--surface);color:var(--text);cursor:pointer;font-family:inherit;} .ws-rank-cell strong{display:block;font-size:12.5px;} .ws-r-good{background:rgba(122,184,122,.22)!important;border-color:rgba(122,184,122,.6)!important;} .ws-r-mid{background:rgba(224,170,90,.2)!important;border-color:rgba(224,170,90,.55)!important;} .ws-r-bad{background:rgba(224,107,90,.2)!important;border-color:rgba(224,107,90,.55)!important;} .ws-r-ns{background:rgba(138,127,209,.18)!important;border-color:rgba(138,127,209,.5)!important;} .ws-r-bk{opacity:.45;} .ws-rank-legend{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 8px;font-size:11px;} .ws-rank-legend span{padding:2px 8px;border-radius:10px;border:1px solid var(--border);} .ws-rank-detail{margin-top:10px;padding:12px;border:1px solid var(--border);border-radius:10px;} .ws-rd-reason{border-left:3px solid;padding:4px 8px;margin:4px 0;font-size:12.5px;} .ws-rank-ov{border-left:4px solid #7a9cc8;} @media (max-width:600px){.ws-reason{grid-template-columns:1fr 60px;} .ws-reason-bar{grid-column:1 / -1;grid-row:2;}} @media (max-width:600px){.ws-now-list li{flex-wrap:wrap;} .ws-now-btns{margin-left:26px;flex-direction:row;}}';
   document.head.appendChild(st);
 
   // If the workspace is already open (script loaded late), re-render.
   if (window._wsLid && window._wsTab) { try { wsTab(window._wsTab); } catch (e) {} }
-})();
+} catch (e) { if (window.console) console.warn('intel-ws extension disabled:', e); } })();
