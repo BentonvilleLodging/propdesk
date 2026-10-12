@@ -12,13 +12,15 @@
 //   5. PriceLabs listings → pricelabs_daily (base/min/max/recommended, occupancy vs market)
 //   6. PriceLabs enrichment → pricelabs_intel: listing_metrics, neighborhood_data,
 //      customizations (current settings), Listing Optimizer report + Airbnb search ranking,
-//      and a 90-day calendar summary from listing_prices (demand, open nights, min stays)
+//      and a 90-day calendar summary from listing_prices (demand, open nights, min stays).
+//      Per-date Airbnb rank + "why off page 1" diagnosis → listing_rank_dates.
 //
 // Only listings that are LISTED in Guesty and not hidden by staff (listing_registry.tracked)
 // are collected. Run status is written to app_cache 'search_health_last_run'.
 
-const { requireTeam, isScheduledInvocation } = require('../lib/auth');
+const { requireTeam, isScheduledInvocation, SUPABASE_URL, serverHeaders } = require('../lib/auth');
 const I = require('../lib/intel');
+const { diagnose } = require('../lib/rankdiag');
 
 const RUN_STATUS_KEY = 'search_health_last_run';
 
@@ -169,11 +171,18 @@ function summarizeRanking(rk) {
   const d = (rk && rk.data) || rk || {};
   const cur = d.current_rankings || {};
   const ranks = [], pages = [];
-  (cur.segments || []).forEach((seg) => { Object.values(seg.dates || {}).forEach((x) => { if (x && x.rank != null) ranks.push(num(x.rank)); if (x && x.page != null) pages.push(num(x.page)); }); });
+  let notShown = 0;
+  (cur.segments || []).forEach((seg) => { Object.values(seg.dates || {}).forEach((x) => {
+    if (!x) return;
+    if (num(x.rank) === 999) { notShown++; return; } // 999 = not in that search at all
+    if (x.rank != null) ranks.push(num(x.rank));
+    if (x.page != null) pages.push(num(x.page));
+  }); });
   return {
     updated_at: cur.updated_at || null, neighborhood_count: d.neighborhood_count || null,
     best_rank: cur.current_rank_min != null ? num(cur.current_rank_min) : (ranks.length ? Math.min(...ranks) : null),
-    avg_rank: round(avg(ranks), 1), avg_page: round(avg(pages), 1), pct_dates_page1: pages.length ? round((pages.filter((p) => p === 1).length / pages.length) * 100, 0) : null,
+    avg_rank: round(avg(ranks), 1), avg_page: round(avg(pages), 1), pct_dates_page1: pages.length ? round((pages.filter((p) => p === 1).length / (pages.length + notShown)) * 100, 0) : null,
+    not_shown_count: notShown,
     segments: (cur.segments || []).map((s) => ({ guest_count: s.guest_count, los: s.los })).slice(0, 6),
   };
 }
@@ -327,7 +336,7 @@ exports.handler = async function (event) {
       const regRows = await I.sbSelect('listing_registry', 'select=listing_id,bedrooms,airbnb_listing_id');
       const reg = {}; regRows.forEach((r) => { reg[r.listing_id] = r; });
 
-      const intelRows = [];
+      const intelRows = [], rankRows = [];
       for (const p of plListings) {
         const lid = String(p.id);
         const errors = [];
@@ -336,17 +345,31 @@ exports.handler = async function (event) {
         const airbnbId = (reg[lid] && reg[lid].airbnb_listing_id) || ((p.channel_listing_details || []).find((c) => c.channel_name === 'airbnb') || {}).channel_listing_id || null;
         const row = { listing_id: lid, snapshot_date: day };
         try { const m = await I.plGet(`/v1/listing_metrics?${q2}`); row.metrics = m.data || m; if (!rawSamples.metrics) rawSamples.metrics = row.metrics; } catch (e) { errors.push('metrics: ' + e.message); }
-        try { const nd = await I.plGet(`/v1/neighborhood_data?${q}`); if (!rawSamples.neighborhood) rawSamples.neighborhood = JSON.stringify(nd).slice(0, 6000); row.neighborhood = summarizeNeighborhood(nd, reg[lid] ? reg[lid].bedrooms : num(p.no_of_bedrooms)); } catch (e) { errors.push('neighborhood: ' + e.message); }
+        let ndRaw = null, rkRaw = null;
+        try { const nd = await I.plGet(`/v1/neighborhood_data?${q}`); ndRaw = nd; if (!rawSamples.neighborhood) rawSamples.neighborhood = JSON.stringify(nd).slice(0, 6000); row.neighborhood = summarizeNeighborhood(nd, reg[lid] ? reg[lid].bedrooms : num(p.no_of_bedrooms)); } catch (e) { errors.push('neighborhood: ' + e.message); }
         try { const c = await I.plGet(`/v1/customizations/listing?${q2}&toggled_on=false`); row.customizations = c.customizations || (c.data && c.data.customizations) || c.data || c; if (!rawSamples.customizations) rawSamples.customizations = JSON.stringify(row.customizations).slice(0, 6000); } catch (e) { errors.push('customizations: ' + e.message); }
         if (airbnbId) {
           try { const o = await I.plGet(`/v1/listing_optimizer/report?listing_id=${encodeURIComponent(airbnbId)}`); row.optimizer = trimOptimizer(o); if (!rawSamples.optimizer) rawSamples.optimizer = o; } catch (e) { errors.push('optimizer: ' + e.message); }
-          try { const r = await I.plGet(`/v1/listing_optimizer/ranking?listing_id=${encodeURIComponent(airbnbId)}`); row.ranking = summarizeRanking(r); if (!rawSamples.ranking) rawSamples.ranking = JSON.stringify(r).slice(0, 4000); } catch (e) { errors.push('ranking: ' + e.message); }
+          try { const r = await I.plGet(`/v1/listing_optimizer/ranking?listing_id=${encodeURIComponent(airbnbId)}`); rkRaw = r; row.ranking = summarizeRanking(r); if (!rawSamples.ranking) rawSamples.ranking = JSON.stringify(r).slice(0, 4000); } catch (e) { errors.push('ranking: ' + e.message); }
         } else errors.push('no Airbnb listing id for optimizer/ranking');
         if (calMap[lid]) row.calendar = summarizeCalendar(calMap[lid]);
+        if (rkRaw && row.ranking) {
+          try {
+            const dg = diagnose({ ranking: rkRaw, calendar: calMap[lid], neighborhood: ndRaw, bedrooms: reg[lid] ? reg[lid].bedrooms : num(p.no_of_bedrooms), optimizer: row.optimizer, today: day });
+            row.ranking.diagnosis = dg.summary;
+            dg.rows.forEach((x) => rankRows.push({ listing_id: lid, snapshot_date: day, ...x }));
+          } catch (e) { errors.push('rank diagnosis: ' + e.message); }
+        }
         row.errors = errors.length ? errors : null;
         intelRows.push(row);
       }
       await I.sbUpsert('pricelabs_intel', intelRows, 'listing_id,snapshot_date');
+      try {
+        await I.sbUpsert('listing_rank_dates', rankRows, 'listing_id,snapshot_date,stay_date,guest_count,los');
+        result.steps.rank_dates = rankRows.length;
+        const cutoff = new Date(Date.now() - 21 * 86400000).toISOString().slice(0, 10);
+        await fetch(`${SUPABASE_URL}/rest/v1/listing_rank_dates?snapshot_date=lt.${cutoff}`, { method: 'DELETE', headers: serverHeaders({ Prefer: 'return=minimal' }) }).catch(() => {});
+      } catch (e) { err('rank dates: ' + e.message); }
       const errCounts = {};
       intelRows.forEach((r) => (r.errors || []).forEach((e) => { const k = e.split(':')[0]; errCounts[k] = (errCounts[k] || 0) + 1; }));
       result.steps.pricelabs_intel = { rows: intelRows.length, endpoint_errors: errCounts };
