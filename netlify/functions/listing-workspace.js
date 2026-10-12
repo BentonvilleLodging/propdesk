@@ -8,13 +8,14 @@
 //   update_amenities   → { add: [..], remove: [..] }  PUT /v1/properties-api/amenities/{id}
 //   update_pricelabs   → { base?, min?, max? }  POST PriceLabs /v1/listings
 //   revert             → { edit_id }  re-applies the logged "before" values
-//   rank_now           → live PriceLabs Listing Optimizer ranking for the Airbnb listing
+//   rank_now           → live PriceLabs Listing Optimizer ranking + per-date diagnosis
 //
 // Every change goes live immediately (Guesty syncs to Airbnb/Vrbo) and is written to
 // listing_edits with before/after so it can be undone in one click.
 
 const { requireTeam, SUPABASE_URL, PUBLISHABLE_KEY } = require('../lib/auth');
 const I = require('../lib/intel');
+const { diagnose } = require('../lib/rankdiag');
 
 const CORS = { 'Content-Type': 'application/json', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' };
 const reply = (s, b) => ({ statusCode: s, headers: CORS, body: JSON.stringify(b) });
@@ -154,17 +155,32 @@ exports.handler = async function (event) {
     }
 
     if (b.action === 'rank_now') {
-      const reg = await I.sbSelect('listing_registry', `listing_id=eq.${encodeURIComponent(lid)}&select=airbnb_listing_id`);
+      const reg = await I.sbSelect('listing_registry', `listing_id=eq.${encodeURIComponent(lid)}&select=airbnb_listing_id,bedrooms`);
       let airbnbId = reg[0] && reg[0].airbnb_listing_id;
-      if (!airbnbId) { const p = await plCurrent(lid); airbnbId = ((p.channel_listing_details || []).find((c) => c.channel_name === 'airbnb') || {}).channel_listing_id; }
+      let p = null;
+      try { p = await plCurrent(lid); } catch (e) { /* not in PriceLabs */ }
+      if (!airbnbId && p) airbnbId = ((p.channel_listing_details || []).find((c) => c.channel_name === 'airbnb') || {}).channel_listing_id;
       if (!airbnbId) return reply(400, { error: 'No Airbnb listing ID found for this listing' });
       const r = await I.plGet(`/v1/listing_optimizer/ranking?listing_id=${encodeURIComponent(airbnbId)}${b.guest_count ? '&guest_count=' + Number(b.guest_count) : ''}`);
       const d = r.data || r;
+      // live diagnosis: our calendar + market percentiles for each date
+      let cal = null, nd = null, diag = null, optimizer = null;
+      const day = I.today();
+      if (p) {
+        const pms = p.pms || 'guesty';
+        try { const lp = await I.plPost('/v1/listing_prices', { listings: [{ id: String(p.id), pms, dateFrom: day, dateTo: new Date(Date.now() + 90 * 86400000).toISOString().slice(0, 10) }] }); cal = (Array.isArray(lp) ? lp : (lp.data || []))[0] || null; } catch (e) { /* optional */ }
+        try { nd = await I.plGet(`/v1/neighborhood_data?listing_id=${encodeURIComponent(lid)}&pms=${encodeURIComponent(pms)}`); } catch (e) { /* optional */ }
+      }
+      try { const oi = await I.sbSelect('pricelabs_intel', `listing_id=eq.${encodeURIComponent(lid)}&select=optimizer&order=snapshot_date.desc&limit=1`); optimizer = oi[0] && oi[0].optimizer; } catch (e) { /* optional */ }
+      try {
+        diag = diagnose({ ranking: r, calendar: cal, neighborhood: nd, bedrooms: reg[0] && reg[0].bedrooms, optimizer, today: day });
+        if (diag.rows.length) await I.sbUpsert('listing_rank_dates', diag.rows.map((x) => ({ listing_id: lid, snapshot_date: day, ...x })), 'listing_id,snapshot_date,stay_date,guest_count,los');
+      } catch (e) { console.warn('rank diagnosis', e.message); }
       const segs = ((d.current_rankings || {}).segments || []).map((s) => ({
         guest_count: s.guest_count, los: s.los,
-        dates: Object.keys(s.dates || {}).sort().slice(0, 45).map((k) => ({ date: k, rank: s.dates[k].rank, page: s.dates[k].page, price: s.dates[k].price })),
+        dates: Object.keys(s.dates || {}).sort().slice(0, 60).map((k) => ({ date: k, rank: s.dates[k].rank === 999 ? null : s.dates[k].rank, not_shown: s.dates[k].rank === 999, page: s.dates[k].page, price: s.dates[k].price })),
       }));
-      return reply(200, { airbnb_id: airbnbId, updated_at: (d.current_rankings || {}).updated_at, best_rank: (d.current_rankings || {}).current_rank_min, neighborhood_count: d.neighborhood_count, segments: segs, history: (d.ranking_history || []).slice(0, 4) });
+      return reply(200, { airbnb_id: airbnbId, updated_at: (d.current_rankings || {}).updated_at, best_rank: (d.current_rankings || {}).current_rank_min, neighborhood_count: d.neighborhood_count, segments: segs, history: (d.ranking_history || []).slice(0, 4), diagnosis: diag && diag.summary, rows: diag ? diag.rows : [] });
     }
 
     return reply(400, { error: 'Unknown action' });
