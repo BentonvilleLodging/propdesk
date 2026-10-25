@@ -13,7 +13,7 @@
 // Call this on a schedule (recommend once daily, e.g. 6 AM) via
 // netlify.toml, same pattern as check-due-tasks.
 //
-// IMPORTANT: this function does NOT chain-call get-recommendations.js.
+// (Legacy) Claude recommendations were removed — analysis lives in listing-intel-analyze-background.js.
 // That was tried once and caused Netlify's function timeout to kill this
 // function mid-response (28 sequential Guesty calendar calls + a full
 // Claude generation in one invocation is too slow), producing a blank,

@@ -41,6 +41,7 @@ exports.handler = async function (event) {
     delete pack.pricelabs_current_settings; delete pack.data_errors; delete pack.portfolio_avg_occ30;
     const latest = await I.sbSelect('listing_analyses', `select=review_themes,owner_items,summary&listing_id=eq.${lid}&order=created_at.desc&limit=1`).catch(() => []);
     const out = await I.claude({
+      kind: 'manual', purpose: 'owner report: ' + p.name,
       system: PROMPT,
       user: { today: I.today(), property: p.name, data: pack, internal_analysis_hints: latest[0] ? { review_themes: latest[0].review_themes, suggested_owner_items: latest[0].owner_items } : null },
       maxTokens: 4000,

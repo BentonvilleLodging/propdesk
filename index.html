@@ -3570,6 +3570,7 @@
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <button class="expand-btn" id="sh-sync-btn" onclick="shSyncNow()">&#8635; Sync Data</button>
+      <span id="li-budget" class="li-pill" title="PropDesk is capped at 2 Claude API calls per week (Mon–Sun, Central). The Monday analysis uses one; the other is for a manual re-run, SEO rewrite or owner report." style="align-self:center;font-size:11px;"></span>
       <button class="btn btn-primary" id="li-analyze-btn" onclick="liRunAnalysis()" style="font-size:12px;">&#129504; Re-run Analysis</button>
     </div>
   </div>
@@ -3621,9 +3622,10 @@
     <div class="li-panel">
       <div class="li-panel-head">
         <div><div class="li-panel-title">Upcoming NWA demand drivers</div><div class="li-muted" id="li-market-meta"></div></div>
-        <button class="expand-btn" id="li-market-btn" onclick="liRefreshMarket()">&#8635; Refresh research</button>
+        <span class="li-muted" style="font-size:11px;">Refreshed with the Monday analysis</span>
       </div>
       <div class="li-muted" id="li-market-notes" style="margin-bottom:10px;"></div>
+      <div id="li-portfolio-brief" style="margin-bottom:14px;"></div>
       <div id="li-market-events"><div class="empty">No market research yet.</div></div>
       <div class="li-muted" id="li-market-sources" style="margin-top:12px;font-size:11px;"></div>
     </div>
@@ -8109,7 +8111,7 @@ async function shLoad() {
     db.from('recommendation_completions').select('listing_id,action_key'),
     db.from('owner_reports').select('id,listing_id,status,created_at,completed_at,error,report').order('created_at', { ascending: false }).limit(150),
     db.from('market_intel').select('*').order('created_at', { ascending: false }).limit(1),
-    db.from('app_cache').select('key,value').in('key', ['search_health_last_run', 'listing_intel_last_run']),
+    db.from('app_cache').select('key,value').in('key', ['search_health_last_run', 'listing_intel_last_run', 'portfolio_brief']),
     db.from('airbnb_performance_import').select('*').order('period_end', { ascending: false }).limit(200),
     db.from('booking_reservations').select('listing_id,created_at_guesty,status').eq('status', 'confirmed').order('created_at_guesty', { ascending: false }).limit(1500)
   ]);
@@ -8168,7 +8170,9 @@ async function shLoad() {
   liRenderListings();
   liRenderPortfolio();
   liRenderMarket(q[9].data && q[9].data[0]);
+  liRenderBrief(statusRows.portfolio_brief);
   liRenderDataTab(statusRows);
+  liBudget();
   var perf = q[11].data || [];
   if (perf.length) { var pe = perf[0].period_end, ps = perf[0].period_start; shRenderAirbnbPerfTable(perf.filter(function(r) { return r.period_end === pe && r.period_start === ps; }), ps, pe); }
 }
@@ -8363,12 +8367,42 @@ function liRenderMarket(mi) {
   }).join('') + '</div>' : '<div class="empty">No upcoming events found.</div>';
 }
 
-async function liRefreshMarket() {
-  var btn = document.getElementById('li-market-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Researching…'; }
-  try { await liTriggerAndWait('/.netlify/functions/listing-intel-analyze-background?market_only=1', 'listing_intel_last_run', 180); await shLoad(); }
-  catch (e) { showToast(e.message || String(e), 'error'); }
-  finally { if (btn) { btn.disabled = false; btn.innerHTML = '&#8635; Refresh research'; } }
+// ── Claude weekly budget (hard cap enforced server-side; this is just the display + confirm) ──
+async function liBudget() {
+  try { var r = await db.rpc('claude_budget_status'); window._liBudget = r.data || null; } catch (e) { window._liBudget = null; }
+  var b = window._liBudget, el = document.getElementById('li-budget');
+  if (el) {
+    if (!b) el.textContent = '';
+    else {
+      el.textContent = 'Claude: ' + b.remaining + '/' + b.limit + ' left this week';
+      el.style.color = b.manual_available ? 'var(--text-muted)' : 'var(--yellow)';
+    }
+  }
+  var ws = document.getElementById('ws-budget-note');
+  if (ws && b) ws.textContent = b.manual_available ? ('Uses 1 of ' + b.limit + ' weekly Claude calls · ' + b.remaining + ' left') : 'No Claude calls available until Monday';
+  return b;
+}
+
+async function liSpendGuard(what) {
+  var b = await liBudget();
+  if (!b) return true; // status unavailable — the server still enforces the cap
+  if (!b.manual_available) {
+    var why = b.remaining <= 0 ? 'Both weekly Claude calls are used.' : 'The remaining Claude call is held for the Monday portfolio analysis.';
+    showToast(why + ' Resets ' + new Date(b.resets + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + '.', 'error');
+    return false;
+  }
+  return confirm(what + ' uses 1 of the ' + b.limit + ' Claude calls PropDesk is allowed per week (' + b.remaining + ' left). Continue?');
+}
+
+function liRenderBrief(pb) {
+  var el = document.getElementById('li-portfolio-brief');
+  if (!el) return;
+  if (!pb || !pb.summary) { el.innerHTML = ''; return; }
+  var h = '<div class="li-panel-title" style="margin-bottom:4px;">Portfolio brief <span class="li-muted" style="font-weight:400;font-size:11px;">' + liAgo(pb.generated) + '</span></div>' +
+    '<div style="margin-bottom:8px;">' + esc(pb.summary) + '</div>';
+  if (pb.top_moves && pb.top_moves.length) h += '<ol style="margin:0 0 8px 18px;padding:0;">' + pb.top_moves.map(function(m) { return '<li><strong>' + esc(m.move) + '</strong>' + (m.listings && m.listings.length ? ' <span class="li-muted">(' + m.listings.map(esc).join(', ') + ')</span>' : '') + (m.why ? '<div class="li-muted" style="font-size:12px;">' + esc(m.why) + '</div>' : '') + '</li>'; }).join('') + '</ol>';
+  if (pb.event_pricing && pb.event_pricing.length) h += '<div class="li-muted" style="font-size:12px;"><strong>Event pricing:</strong> ' + pb.event_pricing.map(function(e) { return esc(e.event) + ' (' + esc(e.dates || '') + '): ' + esc(e.suggested_override || '') + (e.listings && e.listings.length ? ' — ' + e.listings.map(esc).join(', ') : ''); }).join(' · ') + '</div>';
+  el.innerHTML = h;
 }
 
 // ── Data tab ────────────────────────────────────────────────────────────
@@ -8442,20 +8476,22 @@ async function shSyncNow() {
 }
 
 async function liRunAnalysis(lid) {
+  if (!(await liSpendGuard(lid ? 'Re-analyzing this listing' : 'Re-running the full portfolio analysis'))) return;
   var btn = document.getElementById('li-analyze-btn'), st = document.getElementById('sh-sync-status');
   if (btn) btn.disabled = true;
-  if (st) { st.style.color = 'var(--text-muted)'; st.textContent = lid ? 'Analyzing this listing…' : 'Analyzing every listing — about 3–6 minutes. You can leave this page.'; }
+  if (st) { st.style.color = 'var(--text-muted)'; st.textContent = lid ? 'Analyzing this listing…' : 'Analyzing every listing in one Claude request — about 6–12 minutes. You can leave this page.'; }
   try {
-    await liTriggerAndWait('/.netlify/functions/listing-intel-analyze-background' + (lid ? '?listing_id=' + encodeURIComponent(lid) : ''), 'listing_intel_last_run', lid ? 180 : 600);
+    await liTriggerAndWait('/.netlify/functions/listing-intel-analyze-background' + (lid ? '?listing_id=' + encodeURIComponent(lid) : ''), 'listing_intel_last_run', lid ? 240 : 840);
     if (st) { st.style.color = 'var(--green)'; st.textContent = 'Analysis complete.'; }
     if (lid) window._liOpen[lid] = true;
     await shLoad();
   } catch (e) { if (st) { st.style.color = 'var(--red)'; st.textContent = 'Analysis: ' + (e.message || e); } }
-  finally { if (btn) btn.disabled = false; }
+  finally { if (btn) btn.disabled = false; liBudget(); }
 }
 
 // ── Owner reports ───────────────────────────────────────────────────────
 async function liGenerateOwnerReport(lid) {
+  if (!(await liSpendGuard('Writing an owner report'))) return;
   var st = (window._wsLid === lid && document.getElementById('page-listing-ws').classList.contains('active')) ? document.getElementById('li-or-status-ws') : document.getElementById('li-or-status-' + lid);
   if (st) { st.style.color = ''; st.textContent = 'Writing report… (about 1 minute)'; }
   var started = new Date(Date.now() - 5000).toISOString();
@@ -8736,7 +8772,7 @@ function wsTab(tab) {
   var el = document.getElementById('ws-pane-' + tab);
   var l = wsL(); if (!l || !el) return;
   if (tab === 'overview') el.innerHTML = wsOverviewHtml(l);
-  if (tab === 'content') el.innerHTML = wsContentHtml(l);
+  if (tab === 'content') { el.innerHTML = wsContentHtml(l); liBudget(); }
   if (tab === 'amenities') el.innerHTML = wsAmenitiesHtml(l);
   if (tab === 'pricing') el.innerHTML = wsPricingHtml(l);
   if (tab === 'reviews') el.innerHTML = wsReviewsHtml(l);
@@ -8843,7 +8879,7 @@ function wsContentHtml(l) {
   if (!live) return '<div class="empty">Loading live listing content from Guesty…</div>';
   var draft = window._wsDraft && window._wsDraft.proposal;
   var html = '<div class="li-panel"><div class="li-panel-head"><div><div class="li-panel-title">Listing content</div><div class="li-muted">Edits publish straight to Guesty, which syncs to Airbnb and Vrbo. Every publish is logged in History with one-click undo.</div></div>' +
-    '<div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="expand-btn" id="ws-copy-btn" onclick="wsWriteCopy()">✨ Write SEO rewrite with Claude</button><button class="btn btn-primary" style="font-size:12px;" onclick="wsPublishContent()">Publish changes</button></div></div>';
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="expand-btn" id="ws-copy-btn" onclick="wsWriteCopy()">✨ Write SEO rewrite with Claude</button><span id="ws-budget-note" class="li-muted" style="font-size:11px;align-self:center;"></span><button class="btn btn-primary" style="font-size:12px;" onclick="wsPublishContent()">Publish changes</button></div></div>';
   if (draft) {
     html += '<div class="ws-draft-banner">Claude rewrite from ' + liAgo(window._wsDraft.created_at) + ' is shown next to each field. <button class="expand-btn" onclick="wsUseAllDraft()">Use all suggestions</button>' +
       (draft.rationale ? '<div class="li-muted" style="margin-top:6px;">' + esc(Array.isArray(draft.rationale) ? draft.rationale.join(' ') : draft.rationale) + '</div>' : '') + '</div>';
@@ -8885,6 +8921,7 @@ async function wsPublishContent() {
 }
 
 async function wsWriteCopy() {
+  if (!(await liSpendGuard('An SEO rewrite'))) return;
   var lid = window._wsLid, btn = document.getElementById('ws-copy-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Claude is writing… (~1 min)'; }
   var started = new Date(Date.now() - 5000).toISOString();
@@ -8905,7 +8942,7 @@ async function wsWriteCopy() {
     }
     throw new Error('Still writing — check back in a minute.');
   } catch (e) { wsStatus('Rewrite: ' + esc(e.message), 'var(--red)'); }
-  finally { if (btn) { btn.disabled = false; btn.textContent = '✨ Write SEO rewrite with Claude'; } }
+  finally { if (btn) { btn.disabled = false; btn.textContent = '✨ Write SEO rewrite with Claude'; } liBudget(); }
 }
 
 // ── Amenities ───────────────────────────────────────────────────────────

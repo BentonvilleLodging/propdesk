@@ -1,21 +1,24 @@
 // netlify/functions/listing-intel-analyze-background.js
 //
 // LISTING INTELLIGENCE — analysis (Background Function, 15-min window).
-// Scheduled daily at 11:40 UTC (after data collection at 11:00) and triggered from the
-// Search Health page ("Re-run Analysis", optionally for one listing via ?listing_id=).
 //
-//   1. Weekly market intel: Claude + web search finds upcoming NWA demand drivers
-//      (events, races, Walmart/Crystal Bridges/university dates) → market_intel.
-//   2. Per-listing analysis: builds a full evidence pack for every tracked listing
-//      (PriceLabs pricing/market/settings/optimizer/ranking/calendar, bookings & pace,
-//      every review incl. category ratings, listing content, gaps, Airbnb CSV insights,
-//      upcoming events) and asks Claude for:
-//        • a short situation summary
-//        • physical/operational actions to improve search placement + conversion
-//        • specific PriceLabs setting changes (current → recommended, with reasons)
-//        • guest-review themes
-//        • property improvements to propose to the owner
-//      → listing_analyses (history kept). Status → app_cache 'listing_intel_last_run'.
+// CLAUDE BUDGET: PropDesk is capped at 2 Claude API requests per week (see
+// supabase_claude_budget.sql + lib/intel.js). So this job makes exactly ONE request that
+// covers the whole portfolio AND the market research:
+//   • Scheduled weekly (Monday 11:40 UTC, after the daily data sync) → kind 'weekly'.
+//   • "Re-run Analysis" from the Search Health page → kind 'manual' (uses the one spare
+//     weekly slot). ?listing_id= limits the run to one listing, but still costs a full slot.
+//
+// Daily data collection (Guesty / PriceLabs, no Claude) is unchanged and runs every day;
+// the deterministic rank diagnosis (lib/rankdiag.js) is refreshed daily without Claude.
+//
+// One request = compact evidence pack for every tracked listing + web search for upcoming
+// NWA demand drivers. Claude answers in NDJSON (one JSON object per line) so that if the
+// run is ever cut off, every listing finished before that point is still saved:
+//   {"type":"market", ...}      → market_intel
+//   {"type":"portfolio", ...}   → app_cache 'portfolio_brief'
+//   {"type":"listing", ...}     → listing_analyses (one row per listing, history kept)
+// Status → app_cache 'listing_intel_last_run'.
 
 const { requireTeam, isScheduledInvocation } = require('../lib/auth');
 const I = require('../lib/intel');
@@ -56,31 +59,6 @@ Rules:
 
 Respond with ONLY a JSON object, no markdown, exactly:
 {"health_score": 0, "summary": "", "search_actions": [{"priority": 1, "category": "Listing content|Photos|Amenities|Pricing|Availability|Guest experience|Reviews|Operations", "action": "", "why": "", "effort": "low|medium|high", "impact": "low|medium|high", "owner": "BLC team|Owner|Cleaning team"}], "pricelabs_settings": [{"setting": "", "current": "", "recommended": "", "why": ""}], "review_themes": [{"theme": "", "sentiment": "positive|negative|mixed", "mentions": 0, "evidence": ""}], "owner_items": [{"item": "", "evidence": "", "priority": "high|medium|low", "est_cost": "", "expected_benefit": ""}], "data_gaps": [""]}`;
-
-const MARKET_PROMPT = `You research upcoming demand drivers for short-term rentals in Bentonville, Rogers, Bella Vista, Springdale and Fayetteville, Arkansas (Northwest Arkansas). Use web search to find events in the next 120 days that drive lodging demand: cycling/mountain-bike races and festivals, Walmart corporate events (e.g. associates/shareholders weeks, vendor summits), University of Arkansas football home games and graduation, Crystal Bridges/Momentary major exhibitions or festivals, concerts at Walmart AMP, large conferences, holidays. Return ONLY JSON:
-{"events": [{"name": "", "start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD", "location": "", "demand_impact": "high|medium|low", "notes": "why it matters for lodging", "source_url": ""}], "notes": "1-2 sentences on the demand outlook"}
-Only include events with dates you found in sources. Sort by start_date.`;
-
-async function refreshMarketIntel(force) {
-  const rows = await I.sbSelect('market_intel', 'select=id,created_at,events&order=created_at.desc&limit=1');
-  if (!force && rows[0] && Date.now() - new Date(rows[0].created_at).getTime() < 6.5 * 86400000) return rows[0].events || [];
-  try {
-    const out = await I.claude({
-      system: MARKET_PROMPT,
-      user: `Today is ${I.today()}. Find NWA lodging-demand events for the next 120 days.`,
-      maxTokens: 4000,
-      tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 6 }],
-    });
-    const sources = [];
-    (out.content || []).forEach((b) => { if (b.type === 'web_search_tool_result' && Array.isArray(b.content)) b.content.forEach((c) => c.url && sources.push({ url: c.url, title: c.title })); });
-    const events = (out.json.events || []).filter((e) => e.start_date);
-    await I.sbInsert('market_intel', [{ model: I.CLAUDE_MODEL, events, notes: out.json.notes || null, sources: sources.slice(0, 30) }]);
-    return events;
-  } catch (e) {
-    console.warn('market intel failed:', e.message);
-    return rows[0] ? rows[0].events || [] : [];
-  }
-}
 
 function compactJson(o, max) {
   if (o == null) return null;
@@ -186,58 +164,171 @@ async function buildPacks(onlyId) {
   return packs;
 }
 
+// ── Compact pack: everything the per-listing analysis used, at ~1/6 the tokens ─────
+const FILTER_AMENITIES = [
+  ['Hot tub', /hot tub|jacuzzi|spa\b/i], ['Pool', /pool(?! table)/i], ['EV charger', /ev charg|electric vehicle/i],
+  ['Dedicated workspace', /workspace|desk/i], ['Free parking', /free parking|garage/i], ['Washer', /^washer/i], ['Dryer', /^dryer/i],
+  ['Self check-in', /self check|keypad|smart lock|lockbox/i], ['Pets allowed', /pets allowed/i], ['Fire pit', /fire pit/i],
+  ['BBQ grill', /bbq|barbe/i], ['Crib', /crib|pack .n play/i], ['Gym', /\bgym|exercise/i], ['Waterfront / lake access', /waterfront|lake access|lake front/i],
+  ['Bike storage', /bike|bicycle/i], ['Game room', /game room|pool table|foosball|arcade/i], ['Air conditioning', /air condition/i], ['Kitchen', /^kitchen$/i],
+];
+
+function compactPack(pk) {
+  const it = pk.airbnb_search_ranking || null;
+  const dg = it && it.diagnosis;
+  const opt = pk.listing_optimizer && pk.listing_optimizer.categories;
+  const am = (pk.listing_content && pk.listing_content.amenities) || [];
+  const R = pk.reviews || {};
+  return {
+    listing: pk.listing,
+    target_guest: pk.target_guest,
+    pricing_now: pk.pricing_now,
+    occupancy_vs_market_pct: pk.occupancy_vs_market_pct,
+    two_weeks_ago: pk.two_weeks_ago,
+    pricelabs_metrics: pk.pricelabs_metrics,
+    market_neighborhood: pk.market_neighborhood,
+    pricelabs_current_settings: compactJson(pk.pricelabs_current_settings, 1200),
+    calendar_windows: pk.next_90_days_calendar && pk.next_90_days_calendar.windows ? pk.next_90_days_calendar.windows : compactJson(pk.next_90_days_calendar, 700),
+    calendar_gaps_next60: pk.calendar_gaps_next60,
+    airbnb_rank: it ? {
+      avg_page: it.avg_page, avg_rank: it.avg_rank, best_rank: it.best_rank,
+      page1: dg ? `${dg.page1_dates} dates (${dg.pct_page1}%)` : null,
+      off_page1_reasons: dg && dg.reasons ? dg.reasons.map((r) => `${r.label}: ${r.dates} dates`) : null,
+      worst_dates: dg && dg.worst_dates ? dg.worst_dates.slice(0, 4).map((w) => ({ date: w.date, rank: w.rank, price: w.price, mkt_p50: w.mkt_p50 })) : null,
+    } : null,
+    optimizer_grades: opt ? Object.fromEntries(Object.entries(opt).map(([k, v]) => [k, { score: v && v.score, tip: clip(v && v.tip, 180) }])) : null,
+    bookings: pk.bookings,
+    reviews: {
+      total: R.total, avg_rating_5: R.avg_rating_5, days_since_last: R.days_since_last, airbnb_count: R.airbnb_count, airbnb_avg: R.airbnb_avg,
+      category_averages: R.category_averages,
+      recent_public: (R.recent_public || []).slice(0, 5).map((r) => ({ ...r, text: clip(r.text, 220) })),
+      below_5_star: (R.below_5_star || []).slice(0, 4).map((r) => ({ d: r.d, stars: r.stars, text: clip(r.text, 220) })),
+      private_feedback_internal: (R.private_feedback_internal || []).slice(0, 3).map((r) => ({ d: r.d, text: clip(r.text, 180) })),
+    },
+    listing_content: {
+      photos: pk.listing_content && pk.listing_content.photos,
+      photos_missing_captions: pk.listing_content && pk.listing_content.photos_missing_captions,
+      description_chars: pk.listing_content && pk.listing_content.description_chars,
+      amenities_count: pk.listing_content && pk.listing_content.amenities_count,
+      search_filter_amenities_missing: FILTER_AMENITIES.filter(([, re]) => !am.some((a) => re.test(a))).map(([n]) => n),
+      summary_excerpt: clip(pk.listing_content && pk.listing_content.summary_excerpt, 260),
+    },
+    airbnb_insights_csv: pk.airbnb_insights_csv,
+    recent_changes_by_team: (pk.recent_changes_by_team || []).slice(0, 6),
+  };
+}
+
+const KNOWLEDGE = SYSTEM_PROMPT.split('Respond with ONLY')[0];
+
+const PORTFOLIO_PROMPT = KNOWLEDGE + `
+This is ONE weekly request that covers the whole portfolio, so be complete but tight.
+
+STEP 1 — MARKET RESEARCH (only if web search is available in this request): search for events in the next 120 days that drive lodging demand in Bentonville, Rogers, Bella Vista, Springdale and Fayetteville: cycling/mountain-bike races and festivals, Walmart corporate weeks (associates/shareholders, vendor summits), University of Arkansas football home games and graduation, Crystal Bridges/Momentary major exhibitions, Walmart AMP concerts, large conferences, holidays. Only include events with dates you found in sources. If web search is not available, use the "known_upcoming_events" you are given and skip the market line.
+
+STEP 2 — PORTFOLIO: compare listings to each other and to the market. Who is losing share and why, which pricing pattern repeats across many listings, and which events need date-specific pricing.
+
+STEP 3 — EVERY LISTING in data.listings, using its exact listing_id.
+
+OUTPUT FORMAT — NDJSON: one complete JSON object per line, no markdown, no prose, no blank lines. Lines, in this order:
+{"type":"market","events":[{"name":"","start_date":"YYYY-MM-DD","end_date":"YYYY-MM-DD","location":"","demand_impact":"high|medium|low","notes":"why it matters for lodging","source_url":""}],"notes":"1-2 sentences on the demand outlook"}
+{"type":"portfolio","summary":"3-4 sentences","top_moves":[{"move":"","listings":["nickname"],"why":""}],"event_pricing":[{"event":"","dates":"","listings":["nickname"],"suggested_override":""}]}
+{"type":"listing","listing_id":"","health_score":0,"summary":"2-3 sentences: situation, likely cause, single most important move","search_actions":[{"priority":1,"category":"Listing content|Photos|Amenities|Pricing|Availability|Guest experience|Reviews|Operations","action":"","why":"","effort":"low|medium|high","impact":"low|medium|high","owner":"BLC team|Owner|Cleaning team"}],"pricelabs_settings":[{"setting":"","current":"","recommended":"","why":""}],"review_themes":[{"theme":"","sentiment":"positive|negative|mixed","mentions":0,"evidence":""}],"owner_items":[{"item":"","evidence":"","priority":"high|medium|low","est_cost":"","expected_benefit":""}],"data_gaps":[""]}
+...one "listing" line per listing.
+
+Limits per listing: max 4 search_actions, max 4 pricelabs_settings, max 3 review_themes, max 2 owner_items, max 2 data_gaps. Keep each "why"/"evidence" to one sentence that cites the number.
+"search_filter_amenities_missing" lists high-value Airbnb filters NOT on the amenity list — only recommend ticking one if reviews/description show the home has it; otherwise consider it for owner_items.`;
+
+function parseNdjson(text) {
+  const out = [];
+  String(text || '').replace(/```(?:json|ndjson)?/g, '').split('\n').forEach((line) => {
+    const t = line.trim();
+    if (!t.startsWith('{')) return;
+    try { out.push(JSON.parse(t)); } catch (e) { /* incomplete last line when cut off */ }
+  });
+  return out;
+}
+
+const clampScore = (v) => (num(v) != null ? Math.max(0, Math.min(100, Math.round(num(v)))) : null);
+const arr = (v, n) => (Array.isArray(v) ? v.slice(0, n) : []);
+
 exports.handler = async function (event) {
-  if (!isScheduledInvocation(event) && !(await requireTeam(event, ['staff']))) { console.warn('listing-intel-analyze: unauthorized'); return; }
+  const auth = isScheduledInvocation(event) ? { role: 'internal' } : await requireTeam(event, ['staff']);
+  if (!auth) { console.warn('listing-intel-analyze: unauthorized'); return; }
   const qs = event.queryStringParameters || {};
   const onlyId = qs.listing_id || null;
-  const status = { startedAt: new Date().toISOString(), listing_id: onlyId, done: 0, failed: [], model: I.CLAUDE_MODEL };
-  await I.cacheSet(STATUS_KEY, { ...status, running: true }, 2 * 86400000).catch(() => {});
-  if (qs.market_only === '1') {
-    try { const ev = await refreshMarketIntel(true); status.success = true; status.events = ev.length; }
-    catch (e) { status.success = false; status.fatalError = e.message; }
-    status.market_only = true; status.completedAt = new Date().toISOString();
-    await I.cacheSet(STATUS_KEY, status, 2 * 86400000).catch(() => {});
-    return;
-  }
+  let body = {}; try { body = JSON.parse(event.body || '{}') || {}; } catch (e) {}
+  // Only the Monday cron (lib/dispatch.js sends {source:'cron'} with the internal key) is 'weekly'.
+  const kind = auth.role === 'internal' && (body.source === 'cron' || body.next_run) && !onlyId ? 'weekly' : 'manual';
+  const status = { startedAt: new Date().toISOString(), listing_id: onlyId, kind, done: 0, failed: [], model: I.CLAUDE_MODEL };
+  await I.cacheSet(STATUS_KEY, { ...status, running: true }, 8 * 86400000).catch(() => {});
   try {
-    const events = await refreshMarketIntel(qs.refresh_market === '1');
-    const upcoming = (events || []).filter((e) => e.end_date >= I.today() || e.start_date >= I.today()).slice(0, 25);
     const packs = await buildPacks(onlyId);
+    if (!packs.length) throw new Error('No tracked listings to analyze.');
+    // Most-behind-market first: if a long run is ever cut off, the listings that need help most are done.
+    const gap = (p) => { const o = p.pack.occupancy_vs_market_pct && p.pack.occupancy_vs_market_pct.next30; return o && o[0] != null && o[1] != null ? o[0] - o[1] : 0; };
+    packs.sort((a, b) => gap(a) - gap(b));
     status.total = packs.length;
     const day = I.today();
-    await I.pool(packs, 4, async (p) => {
-      try {
-        const out = await I.claude({
-          system: SYSTEM_PROMPT,
-          user: { today: day, listing: p.name, upcoming_nwa_events: upcoming, data: p.pack },
-          maxTokens: 3500,
-        });
-        const j = out.json || {};
-        await I.sbInsert('listing_analyses', [{
-          listing_id: p.listing_id, snapshot_date: day, model: I.CLAUDE_MODEL,
-          health_score: num(j.health_score) != null ? Math.max(0, Math.min(100, Math.round(num(j.health_score)))) : null,
-          summary: j.summary || null,
-          search_actions: Array.isArray(j.search_actions) ? j.search_actions : [],
-          pricelabs_settings: Array.isArray(j.pricelabs_settings) ? j.pricelabs_settings : [],
-          review_themes: Array.isArray(j.review_themes) ? j.review_themes : [],
-          owner_items: Array.isArray(j.owner_items) ? j.owner_items : [],
-          data_gaps: Array.isArray(j.data_gaps) ? j.data_gaps : [],
-          input_digest: { usage: out.usage, stop_reason: out.stop_reason },
-        }]);
-        status.done++;
-      } catch (e) {
-        console.warn('analysis failed', p.name, e.message);
-        status.failed.push({ listing: p.name, error: e.message.slice(0, 200) });
-        if (/credit balance/i.test(e.message)) throw e;
-      }
+    const prev = await I.sbSelect('market_intel', 'select=events,created_at&order=created_at.desc&limit=1').catch(() => []);
+    const known = ((prev[0] && prev[0].events) || []).filter((e) => (e.end_date || e.start_date) >= day).slice(0, 25);
+    const portfolioRun = !onlyId;
+
+    const out = await I.claude({
+      kind, purpose: portfolioRun ? `portfolio analysis (${packs.length} listings + market)` : `single-listing analysis: ${packs[0].name}`,
+      system: PORTFOLIO_PROMPT,
+      user: { today: day, known_upcoming_events: known, data: { listings: packs.map((p) => ({ listing_id: p.listing_id, nickname: p.name, ...compactPack(p.pack) })) } },
+      maxTokens: Math.min(64000, 2500 + packs.length * 1300),
+      tools: portfolioRun ? [{ type: 'web_search_20250305', name: 'web_search', max_uses: 5 }] : undefined,
+      parse: 'none',
+      timeoutMs: 13.5 * 60000, // stay inside Netlify's 15-min background window; keep what streamed
     });
-    status.success = status.failed.length === 0;
+
+    const lines = parseNdjson(out.text);
+    const byId = Object.fromEntries(packs.map((p) => [p.listing_id, p]));
+    const byName = Object.fromEntries(packs.map((p) => [String(p.name || '').toLowerCase(), p]));
+
+    // Market
+    const mk = lines.find((l) => l.type === 'market');
+    if (mk && Array.isArray(mk.events)) {
+      const sources = [];
+      (out.content || []).forEach((b) => { if (b.type === 'web_search_tool_result' && Array.isArray(b.content)) b.content.forEach((c) => c.url && sources.push({ url: c.url, title: c.title })); });
+      const events = mk.events.filter((e) => e && e.start_date);
+      if (events.length) await I.sbInsert('market_intel', [{ model: I.CLAUDE_MODEL, events, notes: mk.notes || null, sources: sources.slice(0, 30) }]).catch((e) => status.failed.push({ listing: 'market', error: e.message.slice(0, 200) }));
+      status.events = events.length;
+    }
+    // Portfolio brief
+    const pf = lines.find((l) => l.type === 'portfolio');
+    if (pf) await I.cacheSet('portfolio_brief', { ...pf, generated: new Date().toISOString(), model: I.CLAUDE_MODEL }, 21 * 86400000).catch(() => {});
+
+    // Listings
+    const usagePer = { ...(out.usage || {}), stop_reason: out.stop_reason, listings_in_request: packs.length };
+    const rows = [];
+    lines.filter((l) => l.type === 'listing').forEach((j) => {
+      const p = byId[j.listing_id] || byName[String(j.nickname || j.listing_id || '').toLowerCase()];
+      if (!p || rows.some((r) => r.listing_id === p.listing_id)) return;
+      rows.push({
+        listing_id: p.listing_id, snapshot_date: day, model: I.CLAUDE_MODEL,
+        health_score: clampScore(j.health_score), summary: j.summary || null,
+        search_actions: arr(j.search_actions, 6), pricelabs_settings: arr(j.pricelabs_settings, 6),
+        review_themes: arr(j.review_themes, 5), owner_items: arr(j.owner_items, 4), data_gaps: arr(j.data_gaps, 4),
+        input_digest: usagePer,
+      });
+    });
+    if (rows.length) await I.sbInsert('listing_analyses', rows);
+    status.done = rows.length;
+    const missing = packs.filter((p) => !rows.some((r) => r.listing_id === p.listing_id));
+    missing.forEach((p) => status.failed.push({ listing: p.name, error: out.stop_reason === 'aborted' || out.stop_reason === 'max_tokens' ? `not reached (run stopped: ${out.stop_reason})` : 'no analysis returned' }));
+    status.usage = out.usage;
+    status.stop_reason = out.stop_reason;
+    status.success = rows.length > 0 && missing.length === 0;
+    if (!rows.length) status.fatalError = `Claude returned no usable listing analyses (stop_reason=${out.stop_reason}).`;
   } catch (e) {
     status.success = false;
     status.fatalError = e.message;
+    status.budgetBlocked = e instanceof I.BudgetError;
   }
   status.completedAt = new Date().toISOString();
-  await I.cacheSet(STATUS_KEY, status, 2 * 86400000).catch(() => {});
+  await I.cacheSet(STATUS_KEY, status, 8 * 86400000).catch(() => {});
 };
 
 exports.buildPacks = buildPacks;

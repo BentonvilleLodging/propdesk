@@ -52,6 +52,12 @@
   force = true
 
 [[redirects]]
+  from = "/supabase_claude_budget.sql"
+  to = "/__blocked"
+  status = 404
+  force = true
+
+[[redirects]]
   from = "/supabase_rls_lockdown.sql"
   to = "/__blocked"
   status = 404
@@ -77,9 +83,11 @@
 [functions."cron-recap-snapshot"]
   schedule = "25 11 * * *"
 
-# 11:40 UTC: Listing Intelligence analysis (Claude)
+# MONDAYS 11:40 UTC: Listing Intelligence analysis — the ONE scheduled Claude request per
+# week (whole portfolio + market research). Claude is hard-capped at 2 requests/week; see
+# supabase_claude_budget.sql. Data collection above still runs daily without Claude.
 [functions."cron-listing-intel"]
-  schedule = "40 11 * * *"
+  schedule = "40 11 * * 1"
 
 [[headers]]
   for = "/*"

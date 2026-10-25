@@ -8,7 +8,7 @@ module.exports = function dispatch(fnName) {
   return async function () {
     const base = process.env.URL || 'https://bentonvillelodgingcomanagement.com';
     try {
-      const res = await fetch(`${base}/.netlify/functions/${fnName}`, { method: 'POST', headers: internalHeaders({ 'Content-Type': 'application/json' }), body: '{}' });
+      const res = await fetch(`${base}/.netlify/functions/${fnName}`, { method: 'POST', headers: internalHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ source: 'cron' }) });
       console.log(`dispatched ${fnName}: HTTP ${res.status}`);
       return { statusCode: 200, body: JSON.stringify({ dispatched: fnName, status: res.status }) };
     } catch (e) {
