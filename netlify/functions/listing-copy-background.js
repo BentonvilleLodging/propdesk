@@ -51,6 +51,7 @@ exports.handler = async function (event) {
       I.sbSelect('listing_completeness_snapshots', `listing_id=eq.${lid}&select=photo_count,raw&order=snapshot_date.desc&limit=1`).catch(() => []),
     ]);
     const out = await I.claude({
+      kind: 'manual', purpose: 'listing copy rewrite: ' + lid,
       system: PROMPT,
       maxTokens: 5000,
       user: {

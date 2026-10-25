@@ -126,44 +126,143 @@ function extractJson(text) {
   }
 }
 
-// Returns { json, text, usage, stop_reason }. `tools` optional (e.g. web search).
-async function claude({ system, user, maxTokens, tools, model }) {
+// ── Weekly Claude budget (hard cap, see supabase_claude_budget.sql) ──────
+// EVERY Claude request in PropDesk goes through claude() below, and claude() refuses to
+// send anything without first reserving a slot in claude_api_calls via an atomic RPC.
+async function sbRpc(fn, args) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+    method: 'POST',
+    headers: serverHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(args || {}),
+  });
+  const raw = await res.text();
+  if (!res.ok) throw new Error(`rpc ${fn} (${res.status}): ${raw.slice(0, 300)}`);
+  return raw ? JSON.parse(raw) : null;
+}
+
+class BudgetError extends Error {}
+
+async function reserveClaudeCall(kind, purpose, model) {
+  if (kind !== 'weekly' && kind !== 'manual') throw new Error('claude(): kind must be "weekly" or "manual"');
+  const r = await sbRpc('claude_budget_reserve', { p_kind: kind, p_purpose: String(purpose || 'unspecified').slice(0, 120), p_model: model });
+  if (!r || !r.ok) throw new BudgetError((r && r.reason) || 'Weekly Claude limit reached.');
+  return r;
+}
+const settleClaudeCall = (id, status, usage, error) =>
+  sbRpc('claude_budget_settle', { p_id: id, p_status: status, p_usage: usage || null, p_error: error || null }).catch((e) => console.warn('budget settle failed:', e.message));
+
+// Reads an SSE stream from the Messages API and rebuilds the final message.
+// Streaming keeps long portfolio runs alive (no idle HTTP timeout) and lets us salvage
+// the text produced so far if the run is cut off.
+async function readStream(res, onText, signal) {
+  const msg = { content: [], usage: {}, stop_reason: null };
+  const partialJson = {};
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '';
+  const handle = (ev) => {
+    switch (ev.type) {
+      case 'message_start': msg.usage = { ...(ev.message && ev.message.usage) }; msg.model = ev.message && ev.message.model; break;
+      case 'content_block_start': msg.content[ev.index] = { ...ev.content_block }; if (ev.content_block.type === 'text') msg.content[ev.index].text = ev.content_block.text || ''; break;
+      case 'content_block_delta': {
+        const b = msg.content[ev.index]; if (!b) break;
+        if (ev.delta.type === 'text_delta') { b.text += ev.delta.text; if (onText) onText(ev.delta.text); }
+        else if (ev.delta.type === 'input_json_delta') partialJson[ev.index] = (partialJson[ev.index] || '') + ev.delta.partial_json;
+        break;
+      }
+      case 'content_block_stop': if (partialJson[ev.index] != null) { try { msg.content[ev.index].input = JSON.parse(partialJson[ev.index]); } catch (e) {} } break;
+      case 'message_delta': if (ev.delta) msg.stop_reason = ev.delta.stop_reason; if (ev.usage) Object.assign(msg.usage, ev.usage); break;
+      case 'error': throw new Error('Claude stream error: ' + JSON.stringify(ev.error).slice(0, 300));
+      default: break;
+    }
+  };
+  try {
+    for (;;) {
+      if (signal && signal.aborted) { msg.stop_reason = msg.stop_reason || 'aborted'; break; }
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i;
+      while ((i = buf.indexOf('\n\n')) !== -1) {
+        const chunk = buf.slice(0, i); buf = buf.slice(i + 2);
+        const data = chunk.split('\n').filter((l) => l.startsWith('data:')).map((l) => l.slice(5).trim()).join('');
+        if (data) handle(JSON.parse(data));
+      }
+    }
+  } catch (e) {
+    if (signal && signal.aborted) msg.stop_reason = msg.stop_reason || 'aborted';
+    else { msg.streamError = e.message; }
+  }
+  msg.content = msg.content.filter(Boolean);
+  return msg;
+}
+
+// Returns { json, text, usage, stop_reason, content }.
+//   kind     'weekly' (scheduled portfolio run) | 'manual' (staff-triggered) — REQUIRED
+//   purpose  short label stored in claude_api_calls
+//   tools    optional (e.g. web search)
+//   parse    'json' (default) | 'none' (caller parses text itself, e.g. NDJSON)
+//   timeoutMs  abort and return what was streamed so far
+async function claude({ system, user, maxTokens, tools, model, kind, purpose, parse, timeoutMs, onText }) {
   const apiKey = process.env.CLAUDE_SECRET;
   if (!apiKey) throw new Error('CLAUDE_SECRET env var not set');
-  const call = async (noThinkingParam) => {
-    const body = {
-      model: model || CLAUDE_MODEL,
-      // Generous ceiling: newer models may spend output tokens on reasoning before the JSON.
-      max_tokens: Math.max(maxTokens || 0, 16000),
+  const useModel = model || CLAUDE_MODEL;
+  const slot = await reserveClaudeCall(kind, purpose, useModel);
+
+  const send = async (withThinkingParam, signal) => fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    signal,
+    headers: {
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'Content-Type': 'application/json',
+      ...(process.env.ANTHROPIC_WORKSPACE_ID ? { 'anthropic-workspace-id': process.env.ANTHROPIC_WORKSPACE_ID } : {}),
+    },
+    body: JSON.stringify({
+      model: useModel,
+      max_tokens: Math.max(maxTokens || 0, 8000),
+      stream: true,
       system,
       messages: [{ role: 'user', content: typeof user === 'string' ? user : JSON.stringify(user) }],
       ...(tools ? { tools } : {}),
-      ...(noThinkingParam ? {} : { thinking: { type: 'disabled' } }),
-    };
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'Content-Type': 'application/json',
-        ...(process.env.ANTHROPIC_WORKSPACE_ID ? { 'anthropic-workspace-id': process.env.ANTHROPIC_WORKSPACE_ID } : {}),
-      },
-      body: JSON.stringify(body),
-    });
-    return { res, raw: await res.text() };
-  };
-  let { res, raw } = await call(false);
-  // If this model rejects the thinking parameter, retry without it.
-  if (res.status === 400 && /thinking/i.test(raw)) ({ res, raw } = await call(true));
-  if (!res.ok) throw new Error(`Claude API ${res.status}: ${raw.slice(0, 400)}`);
-  const data = JSON.parse(raw);
-  const text = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n');
-  let json = null;
-  try { json = extractJson(text); } catch (e) {
-    const types = (data.content || []).map((b) => b.type).join(',');
-    throw new Error(`Claude output not JSON (stop_reason=${data.stop_reason}, blocks=${types}, out_tokens=${data.usage && data.usage.output_tokens}): ${text.slice(0, 160)}`);
+      ...(withThinkingParam ? { thinking: { type: 'disabled' } } : {}),
+    }),
+  });
+
+  const ctrl = new AbortController();
+  const timer = timeoutMs ? setTimeout(() => ctrl.abort(), timeoutMs) : null;
+  let msg;
+  try {
+    let res = await send(true, ctrl.signal);
+    // A 400 is rejected before the model runs (nothing billed). If it is only the thinking
+    // parameter, resend once without it under the SAME reservation.
+    if (res.status === 400) {
+      const raw = await res.text();
+      if (/thinking/i.test(raw)) res = await send(false, ctrl.signal);
+      else { await settleClaudeCall(slot.id, 'refunded', null, raw); throw new Error(`Claude API 400: ${raw.slice(0, 400)}`); }
+    }
+    if (!res.ok) {
+      const raw = await res.text();
+      // An HTTP error response (auth, credits, validation, rate limit, overloaded) means the
+      // model never produced a billed response → refund the slot. Nothing retries automatically.
+      await settleClaudeCall(slot.id, 'refunded', null, `HTTP ${res.status}: ${raw}`);
+      throw new Error(`Claude API ${res.status}: ${raw.slice(0, 400)}`);
+    }
+    msg = await readStream(res, onText, ctrl.signal);
+  } catch (e) {
+    if (e.name === 'AbortError') msg = { content: [], usage: {}, stop_reason: 'aborted' };
+    else { if (!/Claude API \d/.test(e.message)) await settleClaudeCall(slot.id, 'error', null, e.message); throw e; }
+  } finally { if (timer) clearTimeout(timer); }
+
+  await settleClaudeCall(slot.id, msg.streamError ? 'error' : 'ok', { ...msg.usage, stop_reason: msg.stop_reason }, msg.streamError || null);
+  const text = (msg.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n');
+  const out = { text, usage: msg.usage, stop_reason: msg.stop_reason, content: msg.content, budget: { used: slot.used, limit: slot.limit } };
+  if (parse === 'none') return out;
+  try { out.json = extractJson(text); } catch (e) {
+    const types = (msg.content || []).map((b) => b.type).join(',');
+    throw new Error(`Claude output not JSON (stop_reason=${msg.stop_reason}, blocks=${types}, out_tokens=${msg.usage && msg.usage.output_tokens}): ${text.slice(0, 160)}`);
   }
-  return { json, text, usage: data.usage, stop_reason: data.stop_reason, content: data.content };
+  return out;
 }
 
 // Run async fn over items with limited concurrency
@@ -177,4 +276,4 @@ async function pool(items, limit, fn) {
   return out;
 }
 
-module.exports = { sleep, today, sbSelect, sbUpsert, sbInsert, sbPatch, cacheSet, cacheGet, guestyToken, guestyGet, plGet, plPost, claude, CLAUDE_MODEL, pool, extractJson };
+module.exports = { sleep, today, sbSelect, sbUpsert, sbInsert, sbPatch, sbRpc, cacheSet, cacheGet, guestyToken, guestyGet, plGet, plPost, claude, BudgetError, CLAUDE_MODEL, pool, extractJson };
