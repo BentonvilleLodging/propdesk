@@ -251,6 +251,33 @@ function parseNdjson(text) {
 const clampScore = (v) => (num(v) != null ? Math.max(0, Math.min(100, Math.round(num(v)))) : null);
 const arr = (v, n) => (Array.isArray(v) ? v.slice(0, n) : []);
 
+const QUEUE_MAX = 15;
+async function queueActions(rows, byId) {
+  const open = await I.sbSelect('todos', 'select=title,property&completed=eq.false').catch(() => []);
+  const seen = new Set(open.map((t) => (t.property || '') + '|' + (t.title || '').toLowerCase()));
+  const due = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+  const rank = { high: 0, medium: 1, low: 2 };
+  const picks = [];
+  rows.forEach((r) => {
+    const acts = (r.search_actions || []).filter((a) => a && a.action && !/pricing|availability/i.test(a.category || ''))
+      .sort((a, b) => (rank[a.impact] ?? 3) - (rank[b.impact] ?? 3) || (a.priority || 9) - (b.priority || 9));
+    const a = acts[0];
+    if (!a || a.impact === 'low') return;
+    const property = byId[r.listing_id] ? byId[r.listing_id].name : '';
+    const title = String(a.action).slice(0, 140);
+    if (seen.has(property + '|' + title.toLowerCase())) return;
+    picks.push({ impact: a.impact, todo: {
+      title, property, category: 'listing', priority: a.impact === 'high' ? 'high' : 'medium', due_date: due,
+      assigned_to: a.owner || 'BLC team', completed: false,
+      description: [a.why, a.effort ? 'Effort: ' + a.effort : null, 'From the Monday listing analysis'].filter(Boolean).join(' · '),
+    } });
+  });
+  picks.sort((x, y) => (rank[x.impact] ?? 3) - (rank[y.impact] ?? 3));
+  const todos = picks.slice(0, QUEUE_MAX).map((p) => p.todo);
+  if (todos.length) await I.sbInsert('todos', todos);
+  return todos.length;
+}
+
 exports.handler = async function (event) {
   const auth = isScheduledInvocation(event) ? { role: 'internal' } : await requireTeam(event, ['staff']);
   if (!auth) { console.warn('listing-intel-analyze: unauthorized'); return; }
@@ -316,6 +343,9 @@ exports.handler = async function (event) {
     });
     if (rows.length) await I.sbInsert('listing_analyses', rows);
     status.done = rows.length;
+    // Action queue: the top non-pricing action per listing becomes a team to-do (due in 7 days).
+    // Pricing / min-stay is handled by the autopilot + Approvals tab, so it is never queued here.
+    try { status.todos_created = await queueActions(rows, byId); } catch (e) { status.todo_error = e.message.slice(0, 200); }
     const missing = packs.filter((p) => !rows.some((r) => r.listing_id === p.listing_id));
     missing.forEach((p) => status.failed.push({ listing: p.name, error: out.stop_reason === 'aborted' || out.stop_reason === 'max_tokens' ? `not reached (run stopped: ${out.stop_reason})` : 'no analysis returned' }));
     status.usage = out.usage;
