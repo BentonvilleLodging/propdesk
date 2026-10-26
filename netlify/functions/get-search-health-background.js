@@ -21,6 +21,7 @@
 const { requireTeam, isScheduledInvocation, SUPABASE_URL, serverHeaders } = require('../lib/auth');
 const I = require('../lib/intel');
 const { diagnose } = require('../lib/rankdiag');
+const { isAutoApplyListing } = require('../lib/autopilot-rules');
 
 const RUN_STATUS_KEY = 'search_health_last_run';
 
@@ -211,7 +212,7 @@ exports.handler = async function (event) {
 
   try {
     // 1. Registry ────────────────────────────────────────────────────────
-    const lData = await I.guestyGet(`/v1/listings?limit=100&fields=${encodeURIComponent('_id title nickname isListed active status listingType bedrooms accommodates pictures publicDescription amenities integrations')}`);
+    const lData = await I.guestyGet(`/v1/listings?limit=100&fields=${encodeURIComponent('_id title nickname isListed active status listingType bedrooms accommodates pictures publicDescription amenities integrations tags')}`);
     const all = lData.results || lData.data || (Array.isArray(lData) ? lData : []);
     const existing = await I.sbSelect('listing_registry', 'select=listing_id,tracked').catch(() => []);
     const trackedMap = {}; existing.forEach((r) => { trackedMap[r.listing_id] = r.tracked; });
@@ -231,6 +232,8 @@ exports.handler = async function (event) {
       bedrooms: num(l.bedrooms), accommodates: num(l.accommodates),
       airbnb_listing_id: airbnbIdOf(l), vrbo_listing_id: vrboIdOf(l),
       tracked: trackedMap[l._id] !== undefined ? trackedMap[l._id] : true,
+      guesty_tags: Array.isArray(l.tags) ? l.tags.map(String) : [],
+      auto_apply: isAutoApplyListing(l),
       updated_at: new Date().toISOString(),
     })), 'listing_id');
     const listings = all.filter((l) => l.isListed === true && trackedMap[l._id] !== false);

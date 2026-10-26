@@ -52,6 +52,12 @@
   force = true
 
 [[redirects]]
+  from = "/supabase_autopilot.sql"
+  to = "/__blocked"
+  status = 404
+  force = true
+
+[[redirects]]
   from = "/supabase_claude_budget.sql"
   to = "/__blocked"
   status = 404
@@ -88,6 +94,11 @@
 # supabase_claude_budget.sql. Data collection above still runs daily without Claude.
 [functions."cron-listing-intel"]
   schedule = "40 11 * * 1"
+
+# 12:05 UTC daily (7:05 AM Central): pricing / min-stay autopilot — after the 11:00 data sync.
+# Auto-applies ONLY for listings tagged "Black Cabins" in Guesty; everything else waits for approval.
+[functions."cron-autopilot"]
+  schedule = "5 12 * * *"
 
 [[headers]]
   for = "/*"

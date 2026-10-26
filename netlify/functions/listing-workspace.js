@@ -148,9 +148,10 @@ exports.handler = async function (event) {
       if (e.status !== 'applied') return reply(400, { error: 'Only applied edits can be undone' });
       if (e.target === 'guesty_content') await applyContent(lid, e.before || {});
       else if (e.target === 'guesty_amenities') await guestyWrite('PUT', `/v1/properties-api/amenities/${lid}`, { amenities: (e.before && e.before.amenities) || [] });
+      else if (e.target === 'pricelabs_dso') { const p = await plCurrent(lid); await require('../lib/autopilot-apply').revertDsoEdit(e, p.pms || 'guesty'); }
       else if (e.target === 'pricelabs') { const p = await plCurrent(lid); await I.plPost('/v1/listings', { listings: [{ id: String(p.id), pms: p.pms || 'guesty', ...e.before }] }); }
       await I.sbPatch('listing_edits', `id=eq.${e.id}`, { status: 'reverted', reverted_at: new Date().toISOString() });
-      const undo = await logEdit({ listing_id: lid, target: e.target, summary: 'Undid: ' + (e.summary || ''), before: e.after, after: e.before, revert_of: e.id, edited_by: who });
+      const undo = await logEdit({ listing_id: lid, target: e.target === 'pricelabs_dso' ? 'pricelabs_dso_undo' : e.target, summary: 'Undid: ' + (e.summary || ''), before: e.after, after: e.before, revert_of: e.id, edited_by: who, ...(e.target === 'pricelabs_dso' ? { status: 'reverted' } : {}) });
       return reply(200, { ok: true, edit: undo });
     }
 

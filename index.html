@@ -3587,6 +3587,7 @@
   <div class="sh-tabs li-tabs">
     <button class="sh-tab-btn sh-tab-active" data-tab="listings" onclick="shSwitchTab('listings')">&#127968; Listings</button>
     <button class="sh-tab-btn" data-tab="portfolio" onclick="shSwitchTab('portfolio')">&#128202; Portfolio</button>
+    <button class="sh-tab-btn" data-tab="pricing" onclick="shSwitchTab('pricing');apLoad()">&#128178; Pricing Autopilot <span id="ap-badge" class="li-pill" style="display:none;background:var(--yellow);color:#000;font-size:10px;padding:1px 6px;"></span></button>
     <button class="sh-tab-btn" data-tab="market" onclick="shSwitchTab('market')">&#128197; Market &amp; Events</button>
     <button class="sh-tab-btn" data-tab="data" onclick="shSwitchTab('data')">&#9881; Data &amp; Settings</button>
   </div>
@@ -3632,6 +3633,24 @@
   </div>
 
   <!-- DATA & SETTINGS -->
+  <!-- PRICING AUTOPILOT -->
+  <div class="sh-tab-content" id="sh-tab-pricing">
+    <div class="li-panel">
+      <div class="li-panel-head">
+        <div><div class="li-panel-title">Pricing &amp; min-stay autopilot</div>
+          <div class="li-muted" style="font-size:12px;">Runs daily at 7 AM Central for the next 21 nights. <strong>Black Cabins</strong> (Guesty tag) listings change automatically; every other listing waits for approval here. Only date prices and minimum stays are ever changed.</div></div>
+        <button class="expand-btn" id="ap-run-btn" onclick="apRunNow()">&#9654; Run now</button>
+      </div>
+      <div id="ap-meta" class="li-muted" style="font-size:12px;margin-bottom:10px;"></div>
+      <div id="ap-pending"><div class="empty">Loading&#8230;</div></div>
+    </div>
+    <div class="li-panel" style="margin-top:14px;">
+      <div class="li-panel-title" style="margin-bottom:6px;">Recent changes &amp; results</div>
+      <div id="ap-results" class="li-muted" style="font-size:12px;margin-bottom:8px;"></div>
+      <div id="ap-recent"></div>
+    </div>
+  </div>
+
   <div class="sh-tab-content" id="sh-tab-data">
     <div class="li-panel">
       <div class="li-panel-title">Feed status</div>
@@ -8171,6 +8190,7 @@ async function shLoad() {
   liRenderPortfolio();
   liRenderMarket(q[9].data && q[9].data[0]);
   liRenderBrief(statusRows.portfolio_brief);
+  apLoad();
   liRenderDataTab(statusRows);
   liBudget();
   var perf = q[11].data || [];
@@ -8403,6 +8423,101 @@ function liRenderBrief(pb) {
   if (pb.top_moves && pb.top_moves.length) h += '<ol style="margin:0 0 8px 18px;padding:0;">' + pb.top_moves.map(function(m) { return '<li><strong>' + esc(m.move) + '</strong>' + (m.listings && m.listings.length ? ' <span class="li-muted">(' + m.listings.map(esc).join(', ') + ')</span>' : '') + (m.why ? '<div class="li-muted" style="font-size:12px;">' + esc(m.why) + '</div>' : '') + '</li>'; }).join('') + '</ol>';
   if (pb.event_pricing && pb.event_pricing.length) h += '<div class="li-muted" style="font-size:12px;"><strong>Event pricing:</strong> ' + pb.event_pricing.map(function(e) { return esc(e.event) + ' (' + esc(e.dates || '') + '): ' + esc(e.suggested_override || '') + (e.listings && e.listings.length ? ' — ' + e.listings.map(esc).join(', ') : ''); }).join(' · ') + '</div>';
   el.innerHTML = h;
+}
+
+// ── Pricing autopilot / approvals ───────────────────────────────────────
+window._apPending = [];
+function apName(lid) { var r = (window._liRegistry || []).find(function(x) { return x.listing_id === lid; }); return r ? liName(r.nickname || r.title) : lid; }
+function apIsAuto(lid) { var r = (window._liRegistry || []).find(function(x) { return x.listing_id === lid; }); return !!(r && r.auto_apply); }
+function apDate(d) { return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }); }
+
+async function apLoad() {
+  var today = new Date().toISOString().slice(0, 10);
+  var q = await Promise.all([
+    db.from('pricing_proposals').select('*').eq('status', 'pending').gte('stay_date', today).order('listing_id').order('stay_date').limit(1000),
+    db.from('listing_edits').select('id,listing_id,summary,edited_by,created_at,status,outcome').in('target', ['pricelabs_dso']).order('created_at', { ascending: false }).limit(40),
+    db.from('app_cache').select('value').eq('key', 'autopilot_last_run').limit(1),
+    db.from('autopilot_overrides').select('outcome').not('outcome', 'is', null).gte('stay_date', liDaysAgoISO(30)),
+    db.from('pricing_proposals').select('listing_id,stay_date,error,status').eq('status', 'failed').gte('stay_date', today).order('created_at', { ascending: false }).limit(20)
+  ]);
+  window._apPending = q[0].data || [];
+  var badge = document.getElementById('ap-badge');
+  if (badge) { badge.style.display = window._apPending.length ? '' : 'none'; badge.textContent = window._apPending.length; }
+  var run = null; try { run = q[2].data && q[2].data[0] ? JSON.parse(q[2].data[0].value) : null; } catch (e) {}
+  var meta = document.getElementById('ap-meta');
+  if (meta) {
+    var bc = (window._liRegistry || []).filter(function(r) { return r.auto_apply && r.is_listed; }).map(function(r) { return liName(r.nickname || r.title); });
+    var h = run && run.completedAt ? 'Last run ' + liAgo(run.completedAt) + ': ' + (run.auto_applied || 0) + ' applied automatically · ' + (run.pending || 0) + ' sent for approval' + (run.fatalError ? ' · <span style="color:var(--red);">' + esc(run.fatalError) + '</span>' : '') : (run && run.running ? 'Running…' : 'Has not run yet.');
+    h += '<br><strong>Auto (Black Cabins tag):</strong> ' + (bc.length ? bc.map(esc).join(', ') : 'none found yet — the tag is read on the next data sync');
+    if (run && run.errors && run.errors.length) h += '<details style="margin-top:4px;"><summary>' + run.errors.length + ' warnings</summary>' + run.errors.map(esc).join('<br>') + '</details>';
+    var fails = q[4].data || [];
+    if (fails.length) h += '<details style="margin-top:4px;color:var(--red);"><summary>' + fails.length + ' changes PriceLabs rejected</summary>' + fails.map(function(f) { return esc(apName(f.listing_id)) + ' ' + esc(f.stay_date) + ': ' + esc(f.error || ''); }).join('<br>') + '</details>';
+    meta.innerHTML = h;
+  }
+  apRenderPending();
+  var outs = q[3].data || [], booked = outs.filter(function(o) { return o.outcome === 'booked'; }).length;
+  var res = document.getElementById('ap-results');
+  if (res) res.textContent = outs.length ? ('Autopilot-priced nights in the last 30 days: ' + booked + ' of ' + outs.length + ' booked (' + Math.round(booked / outs.length * 100) + '%).') : 'Results appear once autopilot-priced nights have passed.';
+  var rec = document.getElementById('ap-recent');
+  if (rec) {
+    var ed = q[1].data || [];
+    rec.innerHTML = ed.length ? ed.map(function(e) {
+      var v = e.outcome && e.outcome.verdict ? ' <span class="li-pill">' + esc(e.outcome.verdict) + '</span>' : '';
+      return '<div style="display:flex;gap:8px;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);padding:6px 0;"><div><strong>' + esc(apName(e.listing_id)) + '</strong> · ' + esc(e.summary || '') + v + '<div class="li-muted" style="font-size:11px;">' + esc(e.edited_by || '') + ' · ' + liAgo(e.created_at) + (e.status === 'reverted' ? ' · undone' : '') + '</div></div>' +
+        (e.status === 'applied' ? '<button class="expand-btn" style="font-size:11px;" onclick="apUndo(' + e.id + ',\'' + e.listing_id + '\')">Undo</button>' : '') + '</div>';
+    }).join('') : '<div class="empty">No autopilot changes yet.</div>';
+  }
+}
+
+function apRenderPending() {
+  var el = document.getElementById('ap-pending'); if (!el) return;
+  var rows = window._apPending || [];
+  if (!rows.length) { el.innerHTML = '<div class="empty">Nothing waiting for approval.</div>'; return; }
+  var by = {}; rows.forEach(function(r) { (by[r.listing_id] = by[r.listing_id] || []).push(r); });
+  var fmt = function(v) { return v == null ? '' : liMoney(v); };
+  el.innerHTML = '<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;"><button class="btn btn-primary" style="font-size:12px;" onclick="apDecide(\'approve\', apChecked())">Approve selected</button><button class="expand-btn" onclick="apDecide(\'reject\', apChecked())">Reject selected</button><button class="expand-btn" onclick="apToggleAll(true)">Select all</button><button class="expand-btn" onclick="apToggleAll(false)">Clear</button></div>' +
+    Object.keys(by).map(function(lid) {
+      var list = by[lid];
+      return '<div style="margin-bottom:14px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><strong>' + esc(apName(lid)) + '</strong>' + (apIsAuto(lid) ? ' <span class="li-pill">held: ' + esc((list[0].error || '').slice(0, 80)) + '</span>' : '') +
+        '<span><button class="expand-btn" style="font-size:11px;" onclick="apDecide(\'approve\',' + JSON.stringify(list.map(function(r) { return r.id; })) + ')">Approve all ' + list.length + '</button></span></div>' +
+        '<div class="inv-table-wrap"><table class="inv-table li-table" style="font-size:12px;"><thead><tr><th></th><th>Night</th><th>Price</th><th>Min stay</th><th>Why</th></tr></thead><tbody>' +
+        list.map(function(r) {
+          var price = r.kind === 'remove' ? 'restore normal' : (r.proposed_price != null ? fmt(r.current_price) + ' → <strong>' + fmt(r.proposed_price) + '</strong>' : '—');
+          var ms = r.kind === 'remove' ? '' : (r.proposed_min_stay != null ? (r.current_min_stay || '?') + ' → <strong>' + r.proposed_min_stay + '</strong>' : '—');
+          return '<tr><td><input type="checkbox" class="ap-cb" value="' + r.id + '"></td><td>' + apDate(r.stay_date) + '</td><td class="amount">' + price + '</td><td class="amount">' + ms + '</td><td class="li-muted">' + esc((r.reasons || []).join(' · ')) + '</td></tr>';
+        }).join('') + '</tbody></table></div></div>';
+    }).join('');
+}
+
+function apChecked() { return Array.prototype.slice.call(document.querySelectorAll('.ap-cb:checked')).map(function(c) { return Number(c.value); }); }
+function apToggleAll(on) { document.querySelectorAll('.ap-cb').forEach(function(c) { c.checked = on; }); }
+
+async function apDecide(action, ids) {
+  if (!ids || !ids.length) { showToast('Select at least one change', 'info'); return; }
+  if (action === 'approve' && !confirm('Push ' + ids.length + ' price / min-stay change' + (ids.length > 1 ? 's' : '') + ' to PriceLabs now? You can undo from Recent changes.')) return;
+  try {
+    var r = await authFetch('/.netlify/functions/pricing-approvals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: action, ids: ids }) });
+    var d = {}; try { d = await r.json(); } catch (e) {}
+    if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+    if (action === 'approve') showToast('Applied ' + (d.applied || 0) + (d.failed ? ' · ' + d.failed + ' failed (see warnings)' : '') + (d.expired ? ' · ' + d.expired + ' expired' : ''), d.failed ? 'error' : 'success');
+    else showToast('Rejected ' + (d.rejected || 0), 'success');
+  } catch (e) { showToast(e.message || String(e), 'error'); }
+  apLoad();
+}
+
+async function apUndo(editId, lid) {
+  if (!confirm('Undo this pricing change in PriceLabs?')) return;
+  try { await wsApi({ action: 'revert', listing_id: lid, edit_id: editId }); showToast('Undone', 'success'); }
+  catch (e) { showToast('Undo failed: ' + (e.message || e), 'error'); }
+  apLoad();
+}
+
+async function apRunNow() {
+  var btn = document.getElementById('ap-run-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Running…'; }
+  try { await liTriggerAndWait('/.netlify/functions/autopilot-background', 'autopilot_last_run', 300); showToast('Autopilot run complete', 'success'); }
+  catch (e) { showToast(e.message || String(e), 'error'); }
+  finally { if (btn) { btn.disabled = false; btn.innerHTML = '&#9654; Run now'; } apLoad(); }
 }
 
 // ── Data tab ────────────────────────────────────────────────────────────
