@@ -19,9 +19,19 @@
 //   {"type":"portfolio", ...}   → app_cache 'portfolio_brief'
 //   {"type":"listing", ...}     → listing_analyses (one row per listing, history kept)
 // Status → app_cache 'listing_intel_last_run'.
+//
+// SEARCH HEALTH AGENT (Mon + Thu, both weekly Claude slots — see supabase_agent.sql):
+// before the request, lib/agent.js triages every listing (no Claude) and attaches the next 30
+// nights for the flagged ones. Claude adds one {"type":"actions"} line per flagged listing with
+// date price / min-stay changes. Guardrails validate them; "Black Cabins" listings are pushed to
+// PriceLabs immediately, all others wait for approval. Result → agent_runs + team push; the
+// Listing Intelligence page shows it in a summary modal.
 
 const { requireTeam, isScheduledInvocation } = require('../lib/auth');
 const I = require('../lib/intel');
+const AG = require('../lib/agent');
+const R = require('../lib/autopilot-rules');
+const { internalHeaders } = require('../lib/auth');
 
 const STATUS_KEY = 'listing_intel_last_run';
 
@@ -235,6 +245,14 @@ OUTPUT FORMAT — NDJSON: one complete JSON object per line, no markdown, no pro
 {"type":"listing","listing_id":"","health_score":0,"summary":"2-3 sentences: situation, likely cause, single most important move","search_actions":[{"priority":1,"category":"Listing content|Photos|Amenities|Pricing|Availability|Guest experience|Reviews|Operations","action":"","why":"","effort":"low|medium|high","impact":"low|medium|high","owner":"BLC team|Owner|Cleaning team"}],"pricelabs_settings":[{"setting":"","current":"","recommended":"","why":""}],"review_themes":[{"theme":"","sentiment":"positive|negative|mixed","mentions":0,"evidence":""}],"owner_items":[{"item":"","evidence":"","priority":"high|medium|low","est_cost":"","expected_benefit":""}],"data_gaps":[""]}
 ...one "listing" line per listing.
 
+STEP 4 — PRICING ACTIONS for every listing in data.flagged (and ONLY those), after all "listing" lines. data.flagged gives why triage flagged it and its next 30 nights: d=date, s=status, price, ms=min stay, page=best Airbnb page (or "not shown"), comp_booked=what comparable homes are booking at that night, comp_p50=comparable median list price, lock=existing override. Propose date-specific changes that win back search placement and bookings:
+- Price open nights that are off page 1 / not shown and priced well above comp_booked toward ~0–5% above comp_booked. Raise nights clearly underpriced vs comps or inside a high-demand event.
+- Lower min stay to fill gaps between bookings and for nights inside 7 days; raise it only for event nights.
+- Never touch nights with s other than "open" or a lock of "manual override". Never discount High Demand or event nights. Stay within -15% / +30% of the current price and at or above min_price.
+- Prefer fewer, higher-impact changes; no change is a valid answer. "why" cites the numbers.
+{"type":"actions","listing_id":"","diagnosis":"1-2 sentences: why this listing is losing visibility","changes":[{"date":"YYYY-MM-DD","price":0,"min_stay":null,"why":""}]}
+Use null for price or min_stay to leave it unchanged. One "actions" line per flagged listing (empty changes allowed).
+
 Limits per listing: max 4 search_actions, max 4 pricelabs_settings, max 3 review_themes, max 2 owner_items, max 2 data_gaps. Keep each "why"/"evidence" to one sentence that cites the number.
 "search_filter_amenities_missing" lists high-value Airbnb filters NOT on the amenity list — only recommend ticking one if reviews/description show the home has it; otherwise consider it for owner_items.`;
 
@@ -288,6 +306,7 @@ exports.handler = async function (event) {
   const kind = auth.role === 'internal' && (body.source === 'cron' || body.next_run) && !onlyId ? 'weekly' : 'manual';
   const status = { startedAt: new Date().toISOString(), listing_id: onlyId, kind, done: 0, failed: [], model: I.CLAUDE_MODEL };
   await I.cacheSet(STATUS_KEY, { ...status, running: true }, 8 * 86400000).catch(() => {});
+  let agentRun = null;
   try {
     const packs = await buildPacks(onlyId);
     if (!packs.length) throw new Error('No tracked listings to analyze.');
@@ -300,11 +319,35 @@ exports.handler = async function (event) {
     const known = ((prev[0] && prev[0].events) || []).filter((e) => (e.end_date || e.start_date) >= day).slice(0, 25);
     const portfolioRun = !onlyId;
 
+    // ── Agent step 1–2: triage every listing + 30-night packs for flagged ones (no Claude) ──
+    let flagged = [], ctx = {};
+    if (portfolioRun) {
+      [agentRun] = await I.sbInsert('agent_runs', [{ kind: kind === 'weekly' ? 'scheduled' : 'manual' }]).catch(() => [null]);
+      let autoSet;
+      try {
+        // The auto-apply decision always comes from Guesty's live tags.
+        const g = await I.guestyGet(`/v1/listings?limit=100&fields=${encodeURIComponent('_id tags')}`);
+        const gl = g.results || g.data || (Array.isArray(g) ? g : []);
+        autoSet = new Set(gl.filter((l) => R.isAutoApplyListing(l)).map((l) => l._id));
+      } catch (e) {
+        autoSet = new Set(); // can't confirm tags → nothing is auto-applied this run
+        status.agent_warn = 'Guesty tags unavailable — every change this run waits for approval.';
+      }
+      flagged = AG.triage(packs, autoSet, day);
+      ctx = await AG.datePacks(flagged, day);
+      status.flagged = flagged.length;
+    }
+    const flaggedForPrompt = flagged.map((f) => ({
+      listing_id: f.listing_id, nickname: f.name, black_cabins_auto: f.auto, flags: f.flags,
+      min_price: ctx[f.listing_id] ? ctx[f.listing_id].minPrice : null,
+      next_30_nights: ctx[f.listing_id] ? AG.nightsForPrompt(ctx[f.listing_id]) : [],
+    }));
+
     const out = await I.claude({
       kind, purpose: portfolioRun ? `portfolio analysis (${packs.length} listings + market)` : `single-listing analysis: ${packs[0].name}`,
       system: PORTFOLIO_PROMPT,
-      user: { today: day, known_upcoming_events: known, data: { listings: packs.map((p) => ({ listing_id: p.listing_id, nickname: p.name, ...compactPack(p.pack) })) } },
-      maxTokens: Math.min(64000, 2500 + packs.length * 1300),
+      user: { today: day, known_upcoming_events: known, data: { listings: packs.map((p) => ({ listing_id: p.listing_id, nickname: p.name, ...compactPack(p.pack) })), flagged: flaggedForPrompt } },
+      maxTokens: Math.min(64000, 2500 + packs.length * 1300 + flagged.length * 1500),
       tools: portfolioRun ? [{ type: 'web_search_20250305', name: 'web_search', max_uses: 5 }] : undefined,
       parse: 'none',
       timeoutMs: 13.5 * 60000, // stay inside Netlify's 15-min background window; keep what streamed
@@ -323,6 +366,11 @@ exports.handler = async function (event) {
       if (events.length) await I.sbInsert('market_intel', [{ model: I.CLAUDE_MODEL, events, notes: mk.notes || null, sources: sources.slice(0, 30) }]).catch((e) => status.failed.push({ listing: 'market', error: e.message.slice(0, 200) }));
       status.events = events.length;
     }
+    // High-impact event nights (incl. the night before) are never discounted by the agent.
+    const eventDates = new Set();
+    known.concat((mk && mk.events) || []).filter((e) => e && e.demand_impact === 'high' && e.start_date).forEach((e) => {
+      for (let d = R.addDays(e.start_date, -1); d <= (e.end_date || e.start_date); d = R.addDays(d, 1)) eventDates.add(d);
+    });
     // Portfolio brief
     const pf = lines.find((l) => l.type === 'portfolio');
     if (pf) await I.cacheSet('portfolio_brief', { ...pf, generated: new Date().toISOString(), model: I.CLAUDE_MODEL }, 21 * 86400000).catch(() => {});
@@ -346,6 +394,37 @@ exports.handler = async function (event) {
     // Action queue: the top non-pricing action per listing becomes a team to-do (due in 7 days).
     // Pricing / min-stay is handled by the autopilot + Approvals tab, so it is never queued here.
     try { status.todos_created = await queueActions(rows, byId); } catch (e) { status.todo_error = e.message.slice(0, 200); }
+    // ── Agent steps 4–5: validate + apply (Black Cabins) / queue for approval (everyone else) ──
+    if (agentRun) {
+      try {
+        const actionLines = lines.filter((l) => l.type === 'actions' && l.listing_id);
+        const ex = await AG.execute({ runId: agentRun.id, actionLines, ctx, today: day, eventDates });
+        const fl = new Set(flagged.map((f) => f.listing_id));
+        const recs = rows.filter((r) => fl.has(r.listing_id)).map((r) => ({
+          listing_id: r.listing_id, name: byId[r.listing_id] ? byId[r.listing_id].name : r.listing_id, summary: r.summary,
+          top_actions: (r.search_actions || []).slice(0, 2).map((a) => ({ action: a.action, why: a.why, impact: a.impact })),
+          settings: (r.pricelabs_settings || []).slice(0, 2),
+        }));
+        const noActions = flagged.filter((f) => !actionLines.some((l) => l.listing_id === f.listing_id)).map((f) => f.name);
+        if (noActions.length) ex.errors.push(`No pricing actions returned for: ${noActions.join(', ')}`);
+        await I.sbPatch('agent_runs', `id=eq.${agentRun.id}`, {
+          status: 'done', completed_at: new Date().toISOString(), flagged: flagged.map(({ score, ...f }) => f), summary: pf ? pf.summary : null,
+          applied: ex.applied, pending: ex.pending, rejected: ex.rejected, recommendations: recs, usage: out.usage,
+          error: [status.agent_warn].concat(ex.errors).filter(Boolean).join(' | ') || null,
+        });
+        const nA = ex.applied.reduce((s, x) => s + x.changes.length, 0), nP = ex.pending.reduce((s, x) => s + x.changes.length, 0);
+        status.agent = { run_id: agentRun.id, applied: nA, pending: nP, rejected: ex.rejected.length };
+        const msg = [nA ? `${nA} changes applied on ${ex.applied.length} Black Cabins listing${ex.applied.length > 1 ? 's' : ''}` : null,
+          nP ? `${nP} changes on ${ex.pending.length} listing${ex.pending.length > 1 ? 's' : ''} need approval` : null].filter(Boolean).join(' · ')
+          || `${flagged.length} listings reviewed — no pricing changes needed`;
+        const base = process.env.URL || 'https://bentonvillelodgingcomanagement.com';
+        await fetch(`${base}/.netlify/functions/send-push`, { method: 'POST', headers: internalHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ title: '🤖 Search agent', message: msg, tag: 'agent-' + agentRun.id, url: '/?agent_run=' + agentRun.id }) }).catch(() => {});
+      } catch (e) {
+        status.agent_error = e.message.slice(0, 300);
+        await I.sbPatch('agent_runs', `id=eq.${agentRun.id}`, { status: 'failed', completed_at: new Date().toISOString(), error: e.message.slice(0, 500) }).catch(() => {});
+      }
+    }
     const missing = packs.filter((p) => !rows.some((r) => r.listing_id === p.listing_id));
     missing.forEach((p) => status.failed.push({ listing: p.name, error: out.stop_reason === 'aborted' || out.stop_reason === 'max_tokens' ? `not reached (run stopped: ${out.stop_reason})` : 'no analysis returned' }));
     status.usage = out.usage;
@@ -356,6 +435,7 @@ exports.handler = async function (event) {
     status.success = false;
     status.fatalError = e.message;
     status.budgetBlocked = e instanceof I.BudgetError;
+    if (agentRun) await I.sbPatch('agent_runs', `id=eq.${agentRun.id}`, { status: 'failed', completed_at: new Date().toISOString(), error: e.message.slice(0, 500) }).catch(() => {});
   }
   status.completedAt = new Date().toISOString();
   await I.cacheSet(STATUS_KEY, status, 8 * 86400000).catch(() => {});

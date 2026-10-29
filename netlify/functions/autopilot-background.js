@@ -86,7 +86,11 @@ exports.handler = async function (event) {
       const end = e.end_date || e.start_date;
       for (let d = R.addDays(e.start_date, -1); d <= end; d = R.addDays(d, 1)) eventDates.add(d); // include the night before
     });
-    const activeOurs = await I.sbSelect('autopilot_overrides', `select=*&active=eq.true&stay_date=gte.${today}`).catch(() => []);
+    const activeAll = await I.sbSelect('autopilot_overrides', `select=*&active=eq.true&stay_date=gte.${today}`).catch(() => []);
+    // Nights the Mon/Thu agent changed (or proposed) are hands-off for the daily rules.
+    const activeOurs = activeAll.filter((o) => (o.source || 'autopilot') !== 'agent');
+    const agentLocked = activeAll.filter((o) => o.source === 'agent');
+    const agentPending = await I.sbSelect('pricing_proposals', `select=listing_id,stay_date&source=eq.agent&status=eq.pending&stay_date=gte.${today}`).catch(() => []);
     const until = R.addDays(today, R.RULES.horizonDays + 10);
     const counts = { auto: {}, pending: {} };
 
@@ -106,10 +110,11 @@ exports.handler = async function (event) {
         try { (await A.getOverrides(lid, pms)).forEach((o) => { if (!ours[o.date]) foreign.add(o.date); }); }
         catch (e) { foreignUnknown = true; summary.errors.push(`${name}: couldn't read PriceLabs overrides (${e.message.slice(0, 120)})`); }
 
+        agentLocked.concat(agentPending).filter((o) => o.listing_id === lid).forEach((o) => foreign.add(o.stay_date));
         const props = R.proposeForListing({ dates, today, minPrice: num(p.min), ours, foreign, eventDates });
         summary.listings++;
         // Today's run replaces any earlier pending proposals for this listing.
-        await I.sbPatch('pricing_proposals', `listing_id=eq.${encodeURIComponent(lid)}&status=eq.pending`, { status: 'superseded' }).catch(() => {});
+        await I.sbPatch('pricing_proposals', `listing_id=eq.${encodeURIComponent(lid)}&status=eq.pending&source=eq.autopilot`, { status: 'superseded' }).catch(() => {});
         if (!props.length) continue;
 
         const isAuto = autoSet.has(lid) && !foreignUnknown; // never auto-push blind

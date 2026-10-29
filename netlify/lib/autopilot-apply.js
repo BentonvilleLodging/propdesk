@@ -54,7 +54,7 @@ const money = (v) => (v == null ? '—' : '$' + Math.round(v));
 
 // proposals: rows from pricing_proposals for ONE listing (status pending)
 // ours: { [date]: autopilot_overrides row } currently active for this listing
-async function applyProposals(lid, proposals, { who, auto, pms, ours, nickname }) {
+async function applyProposals(lid, proposals, { who, auto, pms, ours, nickname, label }) {
   ours = ours || {};
   const sets = proposals.filter((p) => p.kind === 'set');
   const removes = proposals.filter((p) => p.kind === 'remove');
@@ -79,7 +79,7 @@ async function applyProposals(lid, proposals, { who, auto, pms, ours, nickname }
   if (!done.length) return result;
 
   // Undo record: "before" holds what each date looked like, including any autopilot override.
-  const before = done.map((p) => ({ date: p.stay_date, price: p.current_price, min_stay: p.current_min_stay, ours: ours[p.stay_date] ? { price: ours[p.stay_date].price, min_stay: ours[p.stay_date].min_stay, original_price: ours[p.stay_date].original_price, original_min_stay: ours[p.stay_date].original_min_stay } : null }));
+  const before = done.map((p) => ({ date: p.stay_date, price: p.current_price, min_stay: p.current_min_stay, ours: ours[p.stay_date] ? { price: ours[p.stay_date].price, min_stay: ours[p.stay_date].min_stay, original_price: ours[p.stay_date].original_price, original_min_stay: ours[p.stay_date].original_min_stay, source: ours[p.stay_date].source || 'autopilot' } : null }));
   const after = done.map((p) => ({ date: p.stay_date, removed: p.kind === 'remove', price: p.proposed_price, min_stay: p.proposed_min_stay }));
   const priceN = okSets.filter((p) => p.proposed_price != null).length, msN = okSets.filter((p) => p.proposed_min_stay != null).length;
   const parts = [];
@@ -88,17 +88,19 @@ async function applyProposals(lid, proposals, { who, auto, pms, ours, nickname }
   if (okRemoves.length) parts.push(`${okRemoves.length} override${okRemoves.length > 1 ? 's' : ''} removed`);
   const [edit] = await I.sbInsert('listing_edits', [{
     listing_id: lid, target: 'pricelabs_dso',
-    summary: (auto ? 'Autopilot: ' : 'Approved pricing: ') + parts.join(', '),
-    before: { dates: before }, after: { dates: after }, edited_by: auto ? 'autopilot' : who,
+    summary: (label ? label + ': ' : auto ? 'Autopilot: ' : 'Approved pricing: ') + parts.join(', '),
+    before: { dates: before }, after: { dates: after }, edited_by: auto ? (who || 'autopilot') : who,
   }]);
 
-  await I.sbPatch('pricing_proposals', `id=in.(${done.map((r) => r.id).join(',')})`, { status: 'applied', applied_at: now, edit_id: edit.id, decided_by: auto ? 'autopilot' : who, decided_at: now });
+  await I.sbPatch('pricing_proposals', `id=in.(${done.map((r) => r.id).join(',')})`, { status: 'applied', applied_at: now, edit_id: edit.id, decided_by: auto ? (who || 'autopilot') : who, decided_at: now });
   const upserts = okSets.map((p) => ({
     listing_id: lid, stay_date: p.stay_date, active: true, proposal_id: p.id, updated_at: now,
     original_price: p.original_price, original_min_stay: p.original_min_stay, price: p.proposed_price, min_stay: p.proposed_min_stay, outcome: null,
+    source: p.source || 'autopilot', // 'agent' overrides are left alone by the daily autopilot
   })).concat(okRemoves.map((p) => ({
     listing_id: lid, stay_date: p.stay_date, active: false, proposal_id: p.id, updated_at: now,
     original_price: p.original_price, original_min_stay: p.original_min_stay, price: null, min_stay: null, outcome: null,
+    source: p.source || 'autopilot',
   })));
   await I.sbUpsert('autopilot_overrides', upserts, 'listing_id,stay_date');
   result.applied = done.map((r) => r.id);
@@ -114,8 +116,8 @@ async function revertDsoEdit(e, pms) {
   if (restore.length) await postOverrides(e.listing_id, pms, restore.map((d) => toOverride(d.date, d.ours.price != null ? d.ours.price : d.price, d.ours.min_stay)));
   if (drop.length) await deleteOverrides(e.listing_id, pms, drop);
   const now = new Date().toISOString();
-  const rows = restore.map((d) => ({ listing_id: e.listing_id, stay_date: d.date, active: true, price: d.ours.price, min_stay: d.ours.min_stay, original_price: d.ours.original_price, original_min_stay: d.ours.original_min_stay, updated_at: now }))
-    .concat(drop.map((date) => ({ listing_id: e.listing_id, stay_date: date, active: false, price: null, min_stay: null, updated_at: now })));
+  const rows = restore.map((d) => ({ listing_id: e.listing_id, stay_date: d.date, active: true, price: d.ours.price, min_stay: d.ours.min_stay, original_price: d.ours.original_price, original_min_stay: d.ours.original_min_stay, source: d.ours.source || 'autopilot', updated_at: now }))
+    .concat(drop.map((date) => ({ listing_id: e.listing_id, stay_date: date, active: false, price: null, min_stay: null, source: 'autopilot', updated_at: now })));
   if (rows.length) await I.sbUpsert('autopilot_overrides', rows, 'listing_id,stay_date');
   await I.sbPatch('pricing_proposals', `edit_id=eq.${e.id}`, { status: 'reverted' }).catch(() => {});
 }

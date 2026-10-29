@@ -1,5 +1,5 @@
 // PropDesk Service Worker — v3 (VAPID push + caching)
-var CACHE   = 'propdesk-v4';
+var CACHE   = 'propdesk-v5';
 var ASSETS  = ['/'];
 
 // ── Install ────────────────────────────────────────────────────────────────
@@ -91,6 +91,8 @@ self.addEventListener('notificationclick', function(e) {
         for (var i = 0; i < clients.length; i++) {
           var c = clients[i];
           if (c.url.startsWith(self.registration.scope) && 'focus' in c) {
+            // Deep links (e.g. ?agent_run=ID) reload the open app on that URL
+            if (target.indexOf('?') >= 0 && 'navigate' in c) return c.focus().then(function(w) { return (w || c).navigate(target); });
             return c.focus();
           }
         }

@@ -2416,6 +2416,30 @@
     .header-logo-img { height: 24px; }
     .header-brand { gap: 8px; }
   }
+
+  /* === SEARCH AGENT RUN MODAL === */
+  .ag-sec { margin: 0 0 18px; }
+  .ag-sec-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .ag-count { background: var(--surface2); color: var(--text); border-radius: 999px; padding: 1px 8px; font-size: 11px; letter-spacing: 0; }
+  .ag-listing { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; background: var(--surface2); }
+  .ag-listing-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+  .ag-diag { font-size: 12.5px; color: var(--text-muted); margin-bottom: 8px; line-height: 1.45; }
+  .ag-row { display: grid; grid-template-columns: 22px 92px minmax(120px, auto) 1fr; gap: 8px; align-items: start; font-size: 12.5px; padding: 5px 0; border-top: 1px solid var(--border); }
+  .ag-row.ag-applied { grid-template-columns: 92px minmax(120px, auto) 1fr; }
+  .ag-row .ag-why { color: var(--text-muted); }
+  .ag-row .ag-change { font-weight: 600; white-space: nowrap; }
+  .ag-st { font-size: 10px; padding: 1px 6px; border-radius: 999px; background: var(--surface); color: var(--text-muted); text-transform: uppercase; margin-left: 4px; }
+  .ag-st-applied { color: var(--green); } .ag-st-rejected, .ag-st-failed { color: var(--red); }
+  .ag-rec { font-size: 12.5px; padding: 8px 0; border-top: 1px solid var(--border); }
+  .ag-rec:first-of-type { border-top: 0; }
+  .ag-rec ul { margin: 4px 0 0 18px; padding: 0; }
+  .ag-summary { font-size: 13.5px; line-height: 1.5; margin-bottom: 16px; }
+  @media (max-width: 600px) {
+    .ag-row { grid-template-columns: 22px 1fr; }
+    .ag-row.ag-applied { grid-template-columns: 1fr; }
+    .ag-row .ag-date { grid-column: 2; } .ag-row.ag-applied .ag-date { grid-column: 1; }
+    .ag-row .ag-change, .ag-row .ag-why { grid-column: 2; } .ag-row.ag-applied .ag-change, .ag-row.ag-applied .ag-why { grid-column: 1; }
+  }
 </style>
 </head>
 <body>
@@ -3570,7 +3594,8 @@
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <button class="expand-btn" id="sh-sync-btn" onclick="shSyncNow()">&#8635; Sync Data</button>
-      <span id="li-budget" class="li-pill" title="PropDesk is capped at 2 Claude API calls per week (Mon–Sun, Central). The Monday analysis uses one; the other is for a manual re-run, SEO rewrite or owner report." style="align-self:center;font-size:11px;"></span>
+      <span id="li-budget" class="li-pill" title="PropDesk is capped at 2 Claude API calls per week (Mon–Sun, Central). Both are used by the Monday and Thursday search agent runs." style="align-self:center;font-size:11px;"></span>
+      <button class="expand-btn" id="ag-open-btn" onclick="agOpen()" style="font-size:12px;">&#129302; Last agent run</button>
       <button class="btn btn-primary" id="li-analyze-btn" onclick="liRunAnalysis()" style="font-size:12px;">&#129504; Re-run Analysis</button>
     </div>
   </div>
@@ -3623,7 +3648,7 @@
     <div class="li-panel">
       <div class="li-panel-head">
         <div><div class="li-panel-title">Upcoming NWA demand drivers</div><div class="li-muted" id="li-market-meta"></div></div>
-        <span class="li-muted" style="font-size:11px;">Refreshed with the Monday analysis</span>
+        <span class="li-muted" style="font-size:11px;">Refreshed with the Mon &amp; Thu analysis</span>
       </div>
       <div class="li-muted" id="li-market-notes" style="margin-bottom:10px;"></div>
       <div id="li-portfolio-brief" style="margin-bottom:14px;"></div>
@@ -3693,6 +3718,21 @@
     </div>
   </div>
 </main>
+</div>
+
+<!-- SEARCH AGENT RUN SUMMARY (Mon + Thu) -->
+<div class="modal-overlay" id="modal-agent-run">
+  <div class="modal modal-wide">
+    <div class="modal-header">
+      <div><span class="modal-title">&#129302; Search agent run</span><div class="li-muted" id="ag-meta" style="font-size:12px;margin-top:2px;"></div></div>
+      <button class="modal-close" onclick="agClose()">&#x2715;</button>
+    </div>
+    <div class="modal-body" id="ag-body"><div class="empty">Loading&#8230;</div></div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
+      <button class="expand-btn" onclick="agClose();showPage('search-health');shSwitchTab('pricing');apLoad();">Open Pricing Autopilot</button>
+      <button class="btn btn-primary" onclick="agClose()">Mark reviewed</button>
+    </div>
+  </div>
 </div>
 
 <!-- PROPERTY WORKSPACE (Listing Intelligence → one listing) -->
@@ -6608,6 +6648,11 @@ function showApp() {
   initDate();
   loadAllData();
   initPushNotifications();
+  // Push notification from the search agent → open its run summary on the Search page
+  try {
+    var agId = new URLSearchParams(location.search).get('agent_run');
+    if (agId) { history.replaceState(null, '', location.pathname); showPage('search-health'); agOpen(Number(agId)); }
+  } catch (e) {}
 }
 
 function showCleanerApp() {
@@ -8193,6 +8238,7 @@ async function shLoad() {
   apLoad();
   liRenderDataTab(statusRows);
   liBudget();
+  agCheck();
   var perf = q[11].data || [];
   if (perf.length) { var pe = perf[0].period_end, ps = perf[0].period_start; shRenderAirbnbPerfTable(perf.filter(function(r) { return r.period_end === pe && r.period_start === ps; }), ps, pe); }
 }
@@ -8407,7 +8453,7 @@ async function liSpendGuard(what) {
   var b = await liBudget();
   if (!b) return true; // status unavailable — the server still enforces the cap
   if (!b.manual_available) {
-    var why = b.remaining <= 0 ? 'Both weekly Claude calls are used.' : 'The remaining Claude call is held for the Monday portfolio analysis.';
+    var why = b.remaining <= 0 ? 'Both weekly Claude calls are used.' : 'Both weekly Claude calls are held for the Monday and Thursday agent runs.';
     showToast(why + ' Resets ' + new Date(b.resets + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + '.', 'error');
     return false;
   }
@@ -8518,6 +8564,125 @@ async function apRunNow() {
   try { await liTriggerAndWait('/.netlify/functions/autopilot-background', 'autopilot_last_run', 300); showToast('Autopilot run complete', 'success'); }
   catch (e) { showToast(e.message || String(e), 'error'); }
   finally { if (btn) { btn.disabled = false; btn.innerHTML = '&#9654; Run now'; } apLoad(); }
+}
+
+// ── Search agent run summary (Mon + Thu) ────────────────────────────────
+var AG_SEEN_KEY = 'pd_agent_run_seen';
+window._agRun = null;
+function agSeen() { try { return Number(localStorage.getItem(AG_SEEN_KEY)) || 0; } catch (e) { return 0; } }
+function agMarkSeen(id) { try { if (id && id > agSeen()) localStorage.setItem(AG_SEEN_KEY, String(id)); } catch (e) {} }
+function agWhen(iso) { return iso ? new Date(iso).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''; }
+
+// Pops the modal once per finished run (per device) when the Search page loads.
+async function agCheck() {
+  if (currentRole !== 'staff') return;
+  try {
+    var r = await db.from('agent_runs').select('id,status').neq('status', 'running').order('started_at', { ascending: false }).limit(1);
+    var run = r.data && r.data[0];
+    var btn = document.getElementById('ag-open-btn');
+    if (btn) btn.style.display = run ? '' : 'none';
+    if (run && run.id > agSeen() && !document.getElementById('modal-agent-run').classList.contains('open')) agOpen(run.id);
+  } catch (e) {}
+}
+
+async function agOpen(id) {
+  var body = document.getElementById('ag-body');
+  openModal('modal-agent-run');
+  body.innerHTML = '<div class="empty">Loading&#8230;</div>';
+  try {
+    var q = id ? db.from('agent_runs').select('*').eq('id', id).limit(1) : db.from('agent_runs').select('*').neq('status', 'running').order('started_at', { ascending: false }).limit(1);
+    var r = await q;
+    var run = r.data && r.data[0];
+    if (!run) { body.innerHTML = '<div class="empty">The search agent has not run yet. It runs Monday and Thursday mornings.</div>'; return; }
+    window._agRun = run;
+    var ids = []; (run.pending || []).forEach(function(p) { ids = ids.concat(p.proposal_ids || []); });
+    var st = {};
+    if (ids.length) { var pr = await db.from('pricing_proposals').select('id,status,stay_date').in('id', ids); (pr.data || []).forEach(function(x) { st[x.id] = x.status; }); }
+    var edits = {};
+    var eids = (run.applied || []).map(function(a) { return a.edit_id; }).filter(Boolean);
+    if (eids.length) { var er = await db.from('listing_edits').select('id,status').in('id', eids); (er.data || []).forEach(function(x) { edits[x.id] = x.status; }); }
+    agRender(run, st, edits);
+  } catch (e) { body.innerHTML = '<div class="empty" style="color:var(--red);">' + esc(e.message || String(e)) + '</div>'; }
+}
+
+function agClose() { if (window._agRun) agMarkSeen(window._agRun.id); closeModal('modal-agent-run'); }
+
+function agRender(run, st, edits) {
+  var meta = document.getElementById('ag-meta');
+  var applied = run.applied || [], pending = run.pending || [], recs = run.recommendations || [], flagged = run.flagged || [], rej = run.rejected || [];
+  var nA = applied.reduce(function(s, x) { return s + (x.changes || []).length; }, 0);
+  var nP = pending.reduce(function(s, x) { return s + (x.changes || []).length; }, 0);
+  if (meta) meta.textContent = agWhen(run.completed_at || run.started_at) + ' · ' + flagged.length + ' listings flagged · ' + nA + ' applied · ' + nP + ' for approval';
+  var h = '';
+  if (run.status === 'failed') h += '<div class="ag-summary" style="color:var(--red);">This run failed: ' + esc(run.error || 'unknown error') + '</div>';
+  if (run.summary) h += '<div class="ag-summary">' + esc(run.summary) + '</div>';
+
+  // 1. What the agent did
+  h += '<div class="ag-sec"><div class="ag-sec-title">&#9989; Applied automatically · Black Cabins <span class="ag-count">' + nA + '</span></div>';
+  h += applied.length ? applied.map(function(a) {
+    var undone = a.edit_id && edits[a.edit_id] === 'reverted';
+    return '<div class="ag-listing"><div class="ag-listing-head"><strong>' + esc(a.name) + '</strong>' +
+      (a.edit_id ? (undone ? '<span class="ag-st">undone</span>' : '<button class="expand-btn" style="font-size:11px;" onclick="agUndo(' + a.edit_id + ',\'' + esc(a.listing_id) + '\')">Undo all ' + a.changes.length + '</button>') : '') + '</div>' +
+      (a.diagnosis ? '<div class="ag-diag">' + esc(a.diagnosis) + '</div>' : '') +
+      (a.changes || []).map(function(c) { return '<div class="ag-row ag-applied"><div class="ag-date">' + apDate(c.date) + '</div><div class="ag-change">' + esc(c.change) + '</div><div class="ag-why">' + esc(c.why) + '</div></div>'; }).join('') + '</div>';
+  }).join('') : '<div class="li-muted" style="font-size:12.5px;">No automatic changes this run.</div>';
+  h += '</div>';
+
+  // 2. Waiting for approval
+  var open = 0;
+  h += '<div class="ag-sec"><div class="ag-sec-title">&#9203; Needs your approval <span class="ag-count">' + nP + '</span></div>';
+  h += pending.length ? pending.map(function(p) {
+    var rows = (p.changes || []).map(function(c, i) {
+      var pid = (p.proposal_ids || [])[i], s = st[pid] || 'pending', live = s === 'pending';
+      if (live) open++;
+      return '<div class="ag-row"><div>' + (live ? '<input type="checkbox" class="ag-cb" value="' + pid + '" checked>' : '') + '</div><div class="ag-date">' + apDate(c.date) + (live ? '' : '<span class="ag-st ag-st-' + esc(s) + '">' + esc(s) + '</span>') + '</div><div class="ag-change">' + esc(c.change) + '</div><div class="ag-why">' + esc(c.why) + '</div></div>';
+    }).join('');
+    var liveIds = (p.proposal_ids || []).filter(function(pid) { return (st[pid] || 'pending') === 'pending'; });
+    return '<div class="ag-listing"><div class="ag-listing-head"><strong>' + esc(p.name) + '</strong>' + (p.held ? '<span class="li-pill">held: ' + esc(p.held) + '</span>' : '') +
+      (liveIds.length ? '<span><button class="btn btn-primary" style="font-size:11px;padding:4px 10px;" onclick="agDecide(\'approve\',' + JSON.stringify(liveIds) + ')">Approve all ' + liveIds.length + '</button> <button class="expand-btn" style="font-size:11px;" onclick="agDecide(\'reject\',' + JSON.stringify(liveIds) + ')">Reject</button></span>' : '') + '</div>' +
+      (p.diagnosis ? '<div class="ag-diag">' + esc(p.diagnosis) + '</div>' : '') + rows + '</div>';
+  }).join('') : '<div class="li-muted" style="font-size:12.5px;">Nothing waiting for approval from this run.</div>';
+  if (open) h += '<div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-primary" style="font-size:12px;" onclick="agDecide(\'approve\', agChecked())">Approve selected</button><button class="expand-btn" onclick="agDecide(\'reject\', agChecked())">Reject selected</button></div>';
+  h += '</div>';
+
+  // 3. Recommendations to review
+  if (recs.length) {
+    h += '<div class="ag-sec"><div class="ag-sec-title">&#128221; Recommendations to review</div><div class="ag-listing">' + recs.map(function(r) {
+      var items = (r.top_actions || []).map(function(a) { return '<li>' + esc(a.action) + (a.impact ? ' <span class="li-pill li-imp-' + esc(a.impact) + '">' + esc(a.impact) + '</span>' : '') + '</li>'; })
+        .concat((r.settings || []).map(function(x) { return '<li>PriceLabs ' + esc(x.setting) + ': ' + esc(x.current || '?') + ' → <strong>' + esc(x.recommended || '') + '</strong></li>'; }));
+      return '<div class="ag-rec"><strong>' + esc(r.name) + '</strong>' + (r.summary ? '<div class="li-muted">' + esc(r.summary) + '</div>' : '') + (items.length ? '<ul>' + items.join('') + '</ul>' : '') + '</div>';
+    }).join('') + '</div><div class="li-muted" style="font-size:11px;">These are not applied automatically — mark them done on each listing card.</div></div>';
+  }
+
+  // 4. Why listings were flagged + guardrails
+  if (flagged.length) h += '<details class="ag-sec"><summary class="ag-sec-title" style="cursor:pointer;">Why these listings were flagged</summary>' + flagged.map(function(f) { return '<div style="font-size:12.5px;padding:3px 0;"><strong>' + esc(f.name) + '</strong>' + (f.auto ? ' <span class="li-pill">Black Cabins</span>' : '') + ' — <span class="li-muted">' + esc((f.flags || []).join(' · ')) + '</span></div>'; }).join('') + '</details>';
+  if (rej.length) h += '<details class="ag-sec"><summary class="ag-sec-title" style="cursor:pointer;">Blocked by guardrails <span class="ag-count">' + rej.length + '</span></summary>' + rej.map(function(x) { return '<div class="li-muted" style="font-size:12px;">' + esc(x.name || '') + (x.date ? ' ' + esc(x.date) : '') + ': ' + esc(x.reason) + '</div>'; }).join('') + '</details>';
+  if (run.error && run.status !== 'failed') h += '<div class="li-muted" style="font-size:11px;">&#9888; ' + esc(run.error) + '</div>';
+  document.getElementById('ag-body').innerHTML = h;
+}
+
+function agChecked() { return Array.prototype.slice.call(document.querySelectorAll('.ag-cb:checked')).map(function(c) { return Number(c.value); }); }
+
+async function agDecide(action, ids) {
+  if (!ids || !ids.length) { showToast('Select at least one change', 'info'); return; }
+  if (action === 'approve' && !confirm('Push ' + ids.length + ' price / min-stay change' + (ids.length > 1 ? 's' : '') + ' to PriceLabs now? You can undo from Recent changes.')) return;
+  try {
+    var r = await authFetch('/.netlify/functions/pricing-approvals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: action, ids: ids }) });
+    var d = {}; try { d = await r.json(); } catch (e) {}
+    if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+    if (action === 'approve') showToast('Applied ' + (d.applied || 0) + (d.failed ? ' · ' + d.failed + ' failed' : '') + (d.expired ? ' · ' + d.expired + ' expired' : ''), d.failed ? 'error' : 'success');
+    else showToast('Rejected ' + (d.rejected || 0), 'success');
+  } catch (e) { showToast(e.message || String(e), 'error'); }
+  if (window._agRun) agOpen(window._agRun.id);
+  apLoad();
+}
+
+async function agUndo(editId, lid) {
+  if (!confirm('Undo every change the agent made on this listing in this run?')) return;
+  try { await wsApi({ action: 'revert', listing_id: lid, edit_id: editId }); showToast('Undone', 'success'); }
+  catch (e) { showToast('Undo failed: ' + (e.message || e), 'error'); }
+  if (window._agRun) agOpen(window._agRun.id);
+  apLoad();
 }
 
 // ── Data tab ────────────────────────────────────────────────────────────
