@@ -114,7 +114,11 @@ async function gGet(path, token) {
     headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' },
   });
   const raw = await res.text();
-  if (!res.ok) throw new Error(`Guesty API ${res.status} on ${path.slice(0, 80)}: ${raw.slice(0, 300)}`);
+  if (!res.ok) {
+    const err = new Error(`Guesty API ${res.status} on ${path.slice(0, 80)}: ${raw.slice(0, 300)}`);
+    err.status = res.status;
+    throw err;
+  }
   return JSON.parse(raw);
 }
 
@@ -143,18 +147,34 @@ async function pullReservations(token) {
   ]);
   const fields = '_id listingId checkIn checkOut nightsCount guestsCount status source createdAt confirmedAt canceledAt money';
 
-  let all = [];
-  let skip = 0;
-  while (true) {
-    const r = await gGet(
-      `/v1/reservations?limit=100&skip=${skip}&sort=checkIn&fields=${encodeURIComponent(fields)}&filters=${encodeURIComponent(filters)}`,
-      token
-    );
-    const batch = r.results || r.data || [];
-    all = all.concat(batch);
-    if (batch.length < 100) break;
-    skip += 100;
-    if (skip >= 3000) break;
+  // Paginate on a UNIQUE sort key (_id). Sorting by checkIn alone is not
+  // unique, so with skip-based paging reservations sharing a check-in date
+  // could shift between pages — showing up twice (which broke the upsert with
+  // "ON CONFLICT DO UPDATE command cannot affect row a second time") and
+  // causing others to be skipped. Falls back to checkIn if _id is rejected.
+  const fetchAll = async (sort) => {
+    const seen = new Map();
+    let skip = 0;
+    while (true) {
+      const r = await gGet(
+        `/v1/reservations?limit=100&skip=${skip}&sort=${encodeURIComponent(sort)}&fields=${encodeURIComponent(fields)}&filters=${encodeURIComponent(filters)}`,
+        token
+      );
+      const batch = r.results || r.data || [];
+      for (const res of batch) if (res && res._id) seen.set(res._id, res); // dedupe
+      if (batch.length < 100) break;
+      skip += 100;
+      if (skip >= 3000) break;
+    }
+    return [...seen.values()];
+  };
+
+  let all;
+  try {
+    all = await fetchAll('_id');
+  } catch (e) {
+    if (e.status === 400 || e.status === 422) all = await fetchAll('checkIn');
+    else throw e;
   }
 
   const rows = all.map((r) => {
