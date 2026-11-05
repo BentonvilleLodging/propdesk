@@ -34,13 +34,14 @@ function totals(lines) {
     cost += q * n(l.unit_cost);
   });
   subtotal = r2(subtotal);
+  const rawCost = cost;
   cost = r2(cost);
   const overhead = r2(subtotal * OVERHEAD);
   const tax = r2((subtotal + overhead) * TAX);
   const total = r2(subtotal + overhead + tax);
   const revenue = subtotal + overhead;
-  const margin = revenue > 0 ? (subtotal - cost) / revenue : 0;
-  return { subtotal, overhead, tax, total, cost, margin: Math.round(margin * 10000) / 10000, meets_floor: revenue > 0 && margin >= MIN_MARGIN - 0.00005 };
+  const margin = revenue > 0 ? (subtotal - rawCost) / revenue : 0;
+  return { subtotal, overhead, tax, total, cost, margin: Math.round(margin * 10000) / 10000, meets_floor: revenue > 0 && (subtotal - rawCost) >= MIN_MARGIN * revenue - 0.02 }; // 2¢ tolerance for cent rounding
 }
 
 module.exports = { OVERHEAD, TAX, MIN_MARGIN, FLOOR_DIVISOR, priceForCost, totals, r2, n };
