@@ -1,5 +1,5 @@
-// PropDesk Service Worker — v4 (VAPID push + caching; same-origin notification links)
-var CACHE   = 'propdesk-v6';
+// PropDesk Service Worker — v5 (VAPID push + same-origin caching; same-origin notification links)
+var CACHE   = 'propdesk-v7';
 var ASSETS  = ['/'];
 
 // Only ever open PropDesk pages from a notification — never an external site.
@@ -33,22 +33,29 @@ self.addEventListener('activate', function(e) {
   );
 });
 
-// ── Fetch (network-first, cache fallback) ─────────────────────────────────
+// ── Fetch (network-first, cache fallback) — SAME-ORIGIN ONLY ──────────────
+// Cross-origin requests (Supabase JS on jsDelivr, Google Fonts, Supabase API) are never
+// touched here: the browser loads them directly under the page's own security policy.
+// (Proxying them made the worker's Content-Security-Policy block the Supabase library.)
 self.addEventListener('fetch', function(e) {
   if (e.request.method !== 'GET') return;
-  if (e.request.url.includes('supabase.co'))        return;
-  if (e.request.url.includes('resend.com'))          return;
-  if (e.request.url.includes('.netlify/functions'))  return;
-  if (e.request.url.includes('guesty.com'))          return;
+  var url;
+  try { url = new URL(e.request.url); } catch (_) { return; }
+  if (url.origin !== self.location.origin) return;
+  if (url.pathname.indexOf('/.netlify/functions') === 0) return;
 
   e.respondWith(
     fetch(e.request)
       .then(function(res) {
-        var clone = res.clone();
-        caches.open(CACHE).then(function(c) { c.put(e.request, clone); });
+        if (res && res.ok) {
+          var clone = res.clone();
+          caches.open(CACHE).then(function(c) { c.put(e.request, clone); });
+        }
         return res;
       })
-      .catch(function() { return caches.match(e.request); })
+      .catch(function() {
+        return caches.match(e.request).then(function(hit) { return hit || Response.error(); });
+      })
   );
 });
 
