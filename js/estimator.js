@@ -29,10 +29,10 @@
   function totals(lines) {
     var sub = 0, cost = 0;
     (lines || []).forEach(function (l) { sub += r2(n(l.qty) * n(l.unit_price)); cost += n(l.qty) * n(l.unit_cost); });
-    sub = r2(sub); cost = r2(cost);
+    sub = r2(sub);
     var oh = r2(sub * OVERHEAD), tax = r2((sub + oh) * TAX), rev = sub + oh;
     var m = rev > 0 ? (sub - cost) / rev : 0;
-    return { subtotal: sub, overhead: oh, tax: tax, total: r2(sub + oh + tax), cost: cost, margin: Math.round(m * 10000) / 10000, meets_floor: rev > 0 && m >= MIN_MARGIN - 0.00005 };
+    return { subtotal: sub, overhead: oh, tax: tax, total: r2(sub + oh + tax), cost: r2(cost), margin: Math.round(m * 10000) / 10000, meets_floor: rev > 0 && (sub - cost) >= MIN_MARGIN * rev - 0.02 }; // 2¢ tolerance for cent rounding
   }
   function lineMargin(l) { var p = n(l.unit_price); return p > 0 ? (p - n(l.unit_cost)) / (p * (1 + OVERHEAD)) : 0; }
   function toast(msg, type) { if (typeof showToast === 'function') showToast(msg, type); else alert(msg); }
@@ -353,7 +353,7 @@
         '<td class="r"><input class="num" data-f="unit_price" type="number" step="0.01" min="0" value="' + E(l.unit_price) + '"></td>' +
         '<td class="r amt" data-amt>' + money(n(l.qty) * n(l.unit_price)) + '</td>' +
         (S.showInternal ? '<td class="int r"><input class="num" data-f="unit_cost" type="number" step="0.01" min="0" value="' + E(l.unit_cost) + '" title="' + E(l.cost_basis || 'Your cost per unit') + '"></td>' +
-          '<td class="int lm" data-lm><span class="' + (lm >= MIN_MARGIN - 0.00005 ? 'ok' : 'bad') + '">' + pct(lm) + '</span>' +
+          '<td class="int lm" data-lm><span class="' + (lm >= MIN_MARGIN - 0.0001 ? 'ok' : 'bad') + '">' + pct(lm) + '</span>' +
           (n(l.unit_price) < floorP ? '<button class="floorbtn" data-a="floor1" title="Set to 30% floor: ' + E(money(floorP)) + '">&#8593;30%</button>' : '') + '</td>' : '') +
         '<td><button class="x" data-a="del" title="Remove line">&times;</button></td></tr>';
     }).join('');
@@ -415,7 +415,7 @@
       var a = tr.querySelector('[data-amt]'); if (a) a.textContent = money(n(l.qty) * n(l.unit_price));
       var m = tr.querySelector('[data-lm]');
       if (m) { var lm = lineMargin(l), fp = priceForCost(l.unit_cost);
-        m.innerHTML = '<span class="' + (lm >= MIN_MARGIN - 0.00005 ? 'ok' : 'bad') + '">' + pct(lm) + '</span>' + (n(l.unit_price) < fp ? '<button class="floorbtn" data-a="floor1" title="Set to 30% floor: ' + E(money(fp)) + '">&#8593;30%</button>' : ''); }
+        m.innerHTML = '<span class="' + (lm >= MIN_MARGIN - 0.0001 ? 'ok' : 'bad') + '">' + pct(lm) + '</span>' + (n(l.unit_price) < fp ? '<button class="floorbtn" data-a="floor1" title="Set to 30% floor: ' + E(money(fp)) + '">&#8593;30%</button>' : ''); }
     });
   }
   function findLine(id) { return S.doc && S.doc.lines.find(function (l) { return l.id === id; }); }
