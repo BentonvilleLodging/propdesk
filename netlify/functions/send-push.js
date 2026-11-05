@@ -14,6 +14,16 @@ const SUPABASE_URL = 'https://wljtpxqdmxszplngdwsc.supabase.co';
 const { serverKey, requireTeam, internalHeaders, isScheduledInvocation, DENIED } = require('../lib/auth');
 const SUPABASE_KEY = serverKey(); // server-side key (SUPABASE_SERVICE_KEY env); tables are RLS-locked to the team
 
+// SECURITY: notifications may only link inside PropDesk. Accept a same-site
+// relative path ("/", "/?agent_run=12"); anything else (absolute URLs,
+// protocol-relative "//evil.com", javascript:, backslashes) becomes "/".
+function safePath(u) {
+  const s = String(u || '/').trim();
+  if (!s.startsWith('/') || s.startsWith('//') || s.includes('\\') || /[\s<>"']/.test(s)) return '/';
+  return s.slice(0, 300);
+}
+const clip = (v, n) => String(v == null ? '' : v).slice(0, n);
+
 // ── Supabase helpers ──────────────────────────────────────────────────────────
 async function getSubscriptions() {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/push_subscriptions?select=*`, {
@@ -36,7 +46,7 @@ async function getSubscriptions() {
 }
 
 async function removeSubscription(id) {
-  await fetch(`${SUPABASE_URL}/rest/v1/push_subscriptions?id=eq.${id}`, {
+  await fetch(`${SUPABASE_URL}/rest/v1/push_subscriptions?id=eq.${encodeURIComponent(id)}`, {
     method: 'DELETE',
     headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY },
   });
@@ -62,7 +72,7 @@ exports.handler = async function(event) {
   try { body = JSON.parse(event.body); }
   catch(e) { return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'Invalid JSON' }) }; }
 
-  const { title, message, tag, url } = body;
+  const { title, message, tag, url } = body || {};
   if (!title || !message) return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'title and message required' }) };
 
   let webpush;
@@ -76,17 +86,17 @@ exports.handler = async function(event) {
   webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
 
   const subs = await getSubscriptions();
-  console.log('Subscribers found:', subs.length, '| Title:', title);
+  console.log('Subscribers found:', subs.length, '| Title:', clip(title, 80));
 
   if (!subs.length) {
     return { statusCode: 200, headers: CORS, body: JSON.stringify({ sent: 0, failed: 0, removed: 0, note: 'No subscribers registered yet. Make sure notification permission is granted in the staff browser and a subscription is saved in push_subscriptions.' }) };
   }
 
   const payload = JSON.stringify({
-    title,
-    body:  message,
-    tag:   tag  || 'propdesk',
-    url:   url  || '/',
+    title: clip(title, 120),
+    body:  clip(message, 500),
+    tag:   clip(tag || 'propdesk', 100),
+    url:   safePath(url),
     icon:  '/apple-touch-icon.png',
     badge: '/icon-192.png',
   });
