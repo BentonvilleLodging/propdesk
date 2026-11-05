@@ -58,11 +58,15 @@ async function requireTeam(event, roles) {
   }
 }
 
+// SECURITY: this used to return true when the request body contained `next_run`
+// (the payload Netlify sends to *scheduled* functions). But the background
+// functions that called it are URL-callable, so anyone on the internet could send
+// {"next_run":1} and skip authentication. Scheduled work now always reaches those
+// functions through the cron-* dispatchers (lib/dispatch.js), which send the
+// internal key, so a request body is never trusted as proof of a scheduled call.
+// Kept as a function so existing callers fall through to requireTeam().
 function isScheduledInvocation(event) {
-  try {
-    const b = event && event.body ? JSON.parse(event.body) : null;
-    return !!(b && b.next_run);
-  } catch (e) { return false; }
+  return false;
 }
 
 const DENIED = (headers) => ({
