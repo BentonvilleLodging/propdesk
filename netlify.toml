@@ -113,9 +113,18 @@
 [functions."cron-autopilot"]
   schedule = "5 12 * * *"
 
+# Security headers.
+# CSP: scripts only from this site + the Supabase JS library on jsDelivr; network calls
+# (fetch/XHR/WebSocket) only to this site and our Supabase project, so injected script
+# can't pull in outside code or send a staff session to an attacker's server.
+# 'unsafe-inline' is required because index.html uses inline <script> and onclick handlers.
+# If something breaks after a deploy, check the browser console for "Content-Security-Policy".
 [[headers]]
   for = "/*"
   [headers.values]
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
+    Strict-Transport-Security = "max-age=31536000"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net/npm/@supabase/; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://wljtpxqdmxszplngdwsc.supabase.co wss://wljtpxqdmxszplngdwsc.supabase.co; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
