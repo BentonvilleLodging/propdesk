@@ -2,6 +2,27 @@
   publish = "."
   functions = "netlify/functions"
 
+# ── Guest Concierge: concierge.bentonvillelodgingco.com ─────────────────────
+# A separate origin from PropDesk, so nothing on the public guest page can ever touch a staff
+# session. On that domain only the Concierge page is served; staff app pages redirect away.
+[[redirects]]
+  from = "https://concierge.bentonvillelodgingco.com/"
+  to = "/concierge.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "https://concierge.bentonvillelodgingco.com/index.html"
+  to = "/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://concierge.bentonvillelodgingco.com/property-dashboard.html"
+  to = "/"
+  status = 301
+  force = true
+
 # Never serve server code / config / SQL as static files (publish = ".")
 [[redirects]]
   from = "/netlify/*"
@@ -80,6 +101,25 @@
   to = "/__blocked"
   status = 404
   force = true
+
+# The PropDesk domain never serves the guest page (keeps the two origins separate)
+[[redirects]]
+  from = "https://bentonvillelodgingcomanagement.com/concierge.html"
+  to = "/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://www.bentonvillelodgingcomanagement.com/concierge.html"
+  to = "/"
+  status = 301
+  force = true
+
+# Any other path on the concierge domain → the Concierge page (functions are unaffected)
+[[redirects]]
+  from = "https://concierge.bentonvillelodgingco.com/*"
+  to = "/concierge.html"
+  status = 200
 
 [[redirects]]
   from = "/*"
