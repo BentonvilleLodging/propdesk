@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Bentonville Lodging Concierge</title>
+<meta name="description" content="Your digital guidebook and concierge for your Bentonville Lodging Co. stay.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #f6f2ea; --paper: #fffdf8; --ink: #1d1b18; --muted: #6f695e; --line: #e4ddcf;
+    --gold: #a8893f; --gold-dark: #8a6f2e; --forest: #2f4a3a; --red: #b4483a; --green: #3f7a52;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--cream); color: var(--ink); font-family: "DM Sans", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  body { min-height: 100vh; display: flex; flex-direction: column; }
+  .hero { background: var(--forest); color: #f6f2ea; padding: 44px 20px 84px; text-align: center; position: relative; overflow: hidden; }
+  .hero::after { content: ""; position: absolute; inset: auto 0 0 0; height: 60px; background: var(--cream); border-radius: 50% 50% 0 0 / 100% 100% 0 0; transform: translateY(30px); }
+  .brand { font-family: "Playfair Display", serif; font-weight: 600; letter-spacing: .02em; font-size: 15px; text-transform: uppercase; opacity: .85; }
+  .brand .mark { display: inline-block; width: 28px; height: 28px; border: 1.5px solid #c9b47a; border-radius: 50%; line-height: 25px; font-size: 13px; margin-right: 8px; vertical-align: middle; color: #c9b47a; }
+  h1 { font-family: "Playfair Display", serif; font-weight: 600; font-size: clamp(30px, 6vw, 44px); margin: 14px 0 8px; line-height: 1.1; }
+  .tag { font-size: 15px; opacity: .85; max-width: 440px; margin: 0 auto; line-height: 1.5; }
+  main { flex: 1; width: 100%; max-width: 480px; margin: -56px auto 0; padding: 0 16px 40px; position: relative; z-index: 1; }
+  .card { background: var(--paper); border: 1px solid var(--line); border-radius: 16px; padding: 26px 22px; box-shadow: 0 10px 40px rgba(29,27,24,.08); }
+  .card h2 { font-family: "Playfair Display", serif; font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 14px; line-height: 1.5; margin: 0 0 18px; }
+  label { display: block; font-size: 13px; font-weight: 600; margin: 14px 0 6px; }
+  select, input[type=text], input[type=email] {
+    width: 100%; font: inherit; font-size: 16px; color: var(--ink); background: #fff; border: 1px solid #d6cdbb; border-radius: 10px; padding: 13px 14px; appearance: none; -webkit-appearance: none;
+  }
+  select { background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 20px) 55%, calc(100% - 14px) 55%; background-size: 6px 6px; background-repeat: no-repeat; padding-right: 36px; }
+  select:focus, input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(168,137,63,.18); }
+  .hint { font-size: 12.5px; color: var(--muted); margin-top: 6px; line-height: 1.45; }
+  .hp { position: absolute !important; left: -10000px !important; width: 1px; height: 1px; overflow: hidden; }
+  button.primary { width: 100%; margin-top: 20px; font: inherit; font-weight: 700; font-size: 16px; color: #fff; background: var(--forest); border: none; border-radius: 10px; padding: 14px; cursor: pointer; transition: background .15s; }
+  button.primary:hover { background: #243a2d; }
+  button.primary:disabled { opacity: .6; cursor: default; }
+  button.link { background: none; border: none; color: var(--muted); font: inherit; font-size: 13px; text-decoration: underline; cursor: pointer; padding: 0; }
+  .err { display: none; margin-top: 14px; background: #fbeeea; border: 1px solid #efcdc4; color: var(--red); border-radius: 10px; padding: 11px 13px; font-size: 14px; line-height: 1.45; }
+  .err.show { display: block; }
+  .spin { display: inline-block; width: 15px; height: 15px; border: 2px solid rgba(255,255,255,.5); border-right-color: transparent; border-radius: 50%; animation: s .8s linear infinite; vertical-align: -2px; margin-right: 8px; }
+  @keyframes s { to { transform: rotate(360deg); } }
+  .stay { display: flex; gap: 12px; margin: 16px 0 4px; }
+  .stay div { flex: 1; background: var(--cream); border-radius: 10px; padding: 10px 12px; }
+  .stay .k { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .stay .v { font-weight: 600; margin-top: 2px; font-size: 14.5px; }
+  .opt { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 18px; }
+  .opt h3 { margin: 0 0 4px; font-size: 15px; }
+  .check { display: flex; gap: 10px; align-items: flex-start; margin-top: 12px; font-size: 13.5px; line-height: 1.45; color: #3b372f; font-weight: 400; cursor: pointer; }
+  .check input { width: 18px; height: 18px; margin-top: 1px; accent-color: var(--forest); flex-shrink: 0; }
+  button.secondary { margin-top: 12px; font: inherit; font-weight: 600; font-size: 14px; color: var(--forest); background: #fff; border: 1.5px solid var(--forest); border-radius: 10px; padding: 10px 16px; cursor: pointer; }
+  .ok { color: var(--green); font-weight: 600; font-size: 14px; margin-top: 10px; }
+  .guide-soon { margin-top: 18px; background: var(--cream); border: 1px dashed #cfc4ad; border-radius: 12px; padding: 16px; font-size: 14px; color: var(--muted); line-height: 1.5; text-align: center; }
+  .foot { text-align: center; font-size: 12px; color: var(--muted); padding: 0 16px 28px; line-height: 1.6; }
+  .foot a { color: var(--muted); }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+  <header class="hero">
+    <div class="brand"><span class="mark">B</span>Bentonville Lodging Co.</div>
+    <h1>Bentonville Lodging Concierge</h1>
+    <p class="tag">Your digital guidebook, local tips and a concierge to answer questions about your stay.</p>
+  </header>
+
+  <main>
+    <!-- Step 1: unlock -->
+    <section class="card" id="gate">
+      <h2>Find your stay</h2>
+      <p class="sub">Choose your property and enter your reservation details to open your guide.</p>
+      <form id="gate-form" novalidate autocomplete="on">
+        <label for="prop">Property</label>
+        <select id="prop" required><option value="">Loading properties…</option></select>
+
+        <label for="ident">Confirmation code or booking email</label>
+        <input type="text" id="ident" required maxlength="160" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="e.g. HMABC12345 or you@email.com">
+        <div class="hint">Booked on Airbnb? Use your confirmation code (starts with HM) — it's in your Airbnb trip details.</div>
+
+        <div id="ln-wrap" class="hidden">
+          <label for="lname">Last name on the booking</label>
+          <input type="text" id="lname" maxlength="80" autocomplete="family-name">
+        </div>
+
+        <div class="hp" aria-hidden="true"><label for="website">Website</label><input type="text" id="website" tabindex="-1" autocomplete="off"></div>
+
+        <button type="submit" class="primary" id="unlock">Open my guide</button>
+        <div class="err" id="err" role="alert"></div>
+        <div class="hint" style="margin-top:14px;text-align:center;">Your guide opens 48 hours before check-in and stays open through checkout day.</div>
+      </form>
+    </section>
+
+    <!-- Step 2: welcome -->
+    <section class="card hidden" id="welcome">
+      <h2 id="w-hello">Welcome!</h2>
+      <p class="sub" id="w-prop"></p>
+      <div class="stay">
+        <div><div class="k">Check-in</div><div class="v" id="w-in"></div></div>
+        <div><div class="k">Checkout</div><div class="v" id="w-out"></div></div>
+      </div>
+
+      <div class="guide-soon" id="guide">Your digital guidebook and concierge chat will appear here.</div>
+
+      <div class="opt" id="opt">
+        <h3>Get Bentonville tips &amp; return-guest offers</h3>
+        <p class="sub" style="margin:0;">Trail conditions, events, restaurant picks and members-only rates for your next stay.</p>
+        <label for="nl-email">Your email</label>
+        <input type="email" id="nl-email" maxlength="160" autocomplete="email" placeholder="you@email.com">
+        <label class="check"><input type="checkbox" id="nl-consent"><span id="nl-text">Yes, email me Bentonville tips, events and return-guest offers from Bentonville Lodging Co. I can unsubscribe anytime.</span></label>
+        <button type="button" class="secondary" id="nl-btn">Sign me up</button>
+        <div class="err" id="nl-err" role="alert"></div>
+        <div class="ok hidden" id="nl-ok">&#10003; You're on the list — thanks!</div>
+      </div>
+
+      <div style="text-align:center;margin-top:20px;"><button class="link" id="signout" type="button">Not your stay? Sign out</button></div>
+    </section>
+  </main>
+
+  <footer class="foot">Need help now? Message us through your booking app.<br>&copy; Bentonville Lodging Co. · Bentonville, Arkansas</footer>
+
+<script>
+(function () {
+  'use strict';
+  var API = '/.netlify/functions/';
+  var KEY = 'blc-concierge';
+  var $ = function (id) { return document.getElementById(id); };
+  var RELAY = /@(guest\.)?airbnb\.com$|@messages\.homeaway\.com$|@guest\.booking\.com$/i;
+
+  function store(v) { try { if (v) localStorage.setItem(KEY, JSON.stringify(v)); else localStorage.removeItem(KEY); } catch (e) {} }
+  function stored() { try { var v = JSON.parse(localStorage.getItem(KEY) || 'null'); return v && v.token && new Date(v.expires_at) > new Date() ? v : null; } catch (e) { return null; } }
+  function showErr(el, msg) { el.textContent = msg; el.classList.add('show'); }
+  function hideErr(el) { el.textContent = ''; el.classList.remove('show'); }
+  function fmt(d, withTime) {
+    if (!d) return '';
+    var x = /^\d{4}-\d{2}-\d{2}$/.test(d) ? new Date(d + 'T12:00:00') : new Date(d);
+    var o = { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'America/Chicago' };
+    if (withTime) { o.hour = 'numeric'; o.minute = '2-digit'; }
+    return x.toLocaleString('en-US', o);
+  }
+
+  async function loadProperties() {
+    var sel = $('prop');
+    try {
+      var r = await fetch(API + 'concierge-properties', { credentials: 'omit' });
+      var j = await r.json();
+      if (!r.ok) throw new Error();
+      sel.innerHTML = '<option value="">Select your property</option>' + (j.properties || []).map(function (p) {
+        var o = document.createElement('option'); o.value = p.id; o.textContent = p.name; return o.outerHTML;
+      }).join('');
+      // QR codes in each home can link straight here: ?property=<listing id>
+      var pre = new URLSearchParams(location.search).get('property');
+      if (pre && sel.querySelector('option[value="' + CSS.escape(pre) + '"]')) sel.value = pre;
+    } catch (e) {
+      sel.innerHTML = '<option value="">Couldn’t load properties — refresh to try again</option>';
+    }
+  }
+
+  $('ident').addEventListener('input', function () {
+    var isEmail = this.value.indexOf('@') >= 0;
+    $('ln-wrap').classList.toggle('hidden', !isEmail);
+  });
+
+  $('gate-form').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var err = $('err'); hideErr(err);
+    var listing = $('prop').value, ident = $('ident').value.trim(), ln = $('lname').value.trim();
+    if (!listing) return showErr(err, 'Please choose your property.');
+    if (!ident) return showErr(err, 'Enter your confirmation code or booking email.');
+    if (ident.indexOf('@') >= 0 && !ln) { $('lname').focus(); return showErr(err, 'Enter the last name on the booking.'); }
+    var btn = $('unlock'); btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Checking your reservation…';
+    try {
+      var r = await fetch(API + 'concierge-verify', {
+        method: 'POST', credentials: 'omit', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listing_id: listing, identifier: ident, last_name: ln, website: $('website').value }),
+      });
+      var j = await r.json().catch(function () { return {}; });
+      if (!j.ok || !j.token) throw new Error(j.error || 'Something went wrong. Please try again.');
+      store({ token: j.token, expires_at: j.session.expires_at });
+      $('ident').value = ''; $('lname').value = '';
+      showWelcome(j.session, j.used_email);
+    } catch (e2) {
+      showErr(err, e2.message || 'Something went wrong. Please try again.');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Open my guide';
+    }
+  });
+
+  function showWelcome(s, usedEmail) {
+    $('gate').classList.add('hidden'); $('welcome').classList.remove('hidden');
+    $('w-hello').textContent = s.guest_first_name ? 'Welcome, ' + s.guest_first_name + '!' : 'Welcome!';
+    $('w-prop').textContent = 'Your stay at ' + (s.property && s.property.name ? s.property.name : 'Bentonville Lodging Co.');
+    $('w-in').textContent = fmt(s.check_in, true);
+    $('w-out').textContent = fmt(s.check_out_date);
+    if (usedEmail && !RELAY.test(usedEmail)) $('nl-email').value = usedEmail;
+    window.scrollTo(0, 0);
+  }
+
+  $('nl-btn').addEventListener('click', async function () {
+    var err = $('nl-err'); hideErr(err);
+    var email = $('nl-email').value.trim(), consent = $('nl-consent').checked, s = stored();
+    if (!consent) return showErr(err, 'Tick the box to sign up.');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return showErr(err, 'Enter a valid email address.');
+    if (!s) return signOut();
+    var btn = this; btn.disabled = true;
+    try {
+      var r = await fetch(API + 'concierge-subscribe', { method: 'POST', credentials: 'omit', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s.token }, body: JSON.stringify({ email: email, consent: true }) });
+      var j = await r.json().catch(function () { return {}; });
+      if (r.status === 401) return signOut();
+      if (!r.ok) throw new Error(j.error || 'Couldn’t sign you up. Please try again.');
+      ['nl-email', 'nl-btn'].forEach(function (id) { $(id).classList.add('hidden'); });
+      $('nl-email').previousElementSibling.classList.add('hidden');
+      $('nl-consent').closest('label').classList.add('hidden'); $('nl-ok').classList.remove('hidden');
+    } catch (e) { showErr(err, e.message); btn.disabled = false; }
+  });
+
+  function signOut() {
+    store(null);
+    $('welcome').classList.add('hidden'); $('gate').classList.remove('hidden');
+  }
+  $('signout').addEventListener('click', signOut);
+
+  async function resume() {
+    var s = stored(); if (!s) return;
+    try {
+      var r = await fetch(API + 'concierge-session', { credentials: 'omit', headers: { Authorization: 'Bearer ' + s.token } });
+      if (r.status === 401) return signOut();
+      var j = await r.json();
+      if (r.ok && j.session) { store({ token: s.token, expires_at: j.session.expires_at }); showWelcome(j.session); }
+    } catch (e) { /* offline: stay on the gate */ }
+  }
+
+  loadProperties();
+  resume();
+})();
+</script>
+</body>
+</html>
