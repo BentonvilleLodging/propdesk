@@ -1,6 +1,16 @@
-// PropDesk Service Worker — v3 (VAPID push + caching)
-var CACHE   = 'propdesk-v5';
+// PropDesk Service Worker — v4 (VAPID push + caching; same-origin notification links)
+var CACHE   = 'propdesk-v6';
 var ASSETS  = ['/'];
+
+// Only ever open PropDesk pages from a notification — never an external site.
+function safeTarget(u) {
+  var scope = self.registration.scope;
+  try {
+    var t = new URL(u || scope, scope);
+    if (t.origin === new URL(scope).origin) return t.href;
+  } catch (_) {}
+  return scope;
+}
 
 // ── Install ────────────────────────────────────────────────────────────────
 self.addEventListener('install', function(e) {
@@ -53,7 +63,7 @@ self.addEventListener('message', function(e) {
       icon:     '/apple-touch-icon.png',
       badge:    '/icon-192.png',
       renotify: true,
-      data:     { url: d.url || self.registration.scope },
+      data:     { url: safeTarget(d.url) },
     })
   );
 });
@@ -67,7 +77,7 @@ self.addEventListener('push', function(e) {
   var title = payload.title || 'PropDesk';
   var body  = payload.body  || payload.message || 'New activity.';
   var tag   = payload.tag   || 'propdesk-push';
-  var url   = payload.url   || self.registration.scope;
+  var url   = safeTarget(payload.url);
 
   e.waitUntil(
     self.registration.showNotification(title, {
@@ -84,7 +94,7 @@ self.addEventListener('push', function(e) {
 // ── Notification click → focus or open app ────────────────────────────────
 self.addEventListener('notificationclick', function(e) {
   e.notification.close();
-  var target = (e.notification.data && e.notification.data.url) || self.registration.scope;
+  var target = safeTarget(e.notification.data && e.notification.data.url);
   e.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true })
       .then(function(clients) {
