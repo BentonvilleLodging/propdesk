@@ -63,6 +63,8 @@
   .bigbtn .ic { width: 34px; height: 34px; border-radius: 10px; background: var(--cream); display: flex; align-items: center; justify-content: center; font-size: 17px; margin-bottom: 9px; }
   .bigbtn b { display: block; font-size: 15px; }
   .bigbtn span { display: block; font-size: 12.5px; color: var(--muted); margin-top: 2px; line-height: 1.35; }
+  .bigbtn.wide { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; }
+  .bigbtn.wide .ic { margin: 0; flex-shrink: 0; }
   .bigbtn.chat { background: var(--forest); border-color: var(--forest); color: #fff; }
   .bigbtn.chat .ic { background: rgba(255,255,255,.14); }
   .bigbtn.chat span { color: rgba(255,255,255,.78); }
@@ -175,6 +177,15 @@
   .lbx .x { position: absolute; top: max(12px, env(safe-area-inset-top)); right: 14px; background: none; border: none; color: #fff; font-size: 30px; cursor: pointer; }
   .lbx .nv { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,.14); border: none; color: #fff; width: 42px; height: 42px; border-radius: 50%; font-size: 22px; cursor: pointer; }
   .lbx .nv.l { left: 10px; } .lbx .nv.r { right: 10px; }
+  .pl-h { font-size: 12px; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); margin: 16px 2px 8px; }
+  .pl-chips { display: flex; gap: 6px; overflow-x: auto; margin: 0 0 4px; padding-bottom: 2px; scrollbar-width: none; }
+  .pl-chips::-webkit-scrollbar { display: none; }
+  .pl-chips button { flex-shrink: 0; font: inherit; font-size: 12.5px; font-weight: 600; color: var(--forest); background: var(--paper); border: 1px solid var(--line); border-radius: 20px; padding: 6px 11px; cursor: pointer; white-space: nowrap; }
+  .pl-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .pl-badge { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #8a6f2e; background: #f5ecd3; border-radius: 20px; padding: 2px 8px; }
+  .pl-meta { display: flex; gap: 14px; align-items: center; margin-top: 8px; font-size: 13px; }
+  .pl-meta a { color: var(--forest); font-weight: 600; text-decoration: none; }
+  .pl-mi { color: var(--muted); }
   .seg { display: flex; background: var(--cream); border: 1px solid var(--line); border-radius: 10px; padding: 3px; gap: 3px; }
   .seg button { flex: 1; font: inherit; font-size: 13px; font-weight: 600; color: var(--muted); background: none; border: none; border-radius: 8px; padding: 9px 4px; cursor: pointer; }
   .seg button.on { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
@@ -238,6 +249,7 @@
       <div class="actions2">
         <button type="button" class="bigbtn" id="open-guide"><div class="ic">&#128214;</div><b>View Home Guide</b><span>Check-in, Wi-Fi, house info &amp; rules</span></button>
         <button type="button" class="bigbtn chat" id="open-chat"><div class="ic">&#128172;</div><b>Chat With Us</b><span>Questions, help &amp; local tips</span></button>
+        <button type="button" class="bigbtn wide" id="open-todo"><div class="ic">&#129517;</div><div><b>Things to Do</b><span>Our favorite restaurants, coffee, trails &amp; sights near the house</span></div></button>
       </div>
 
       <div class="opt" id="opt">
@@ -427,6 +439,8 @@
   // ── Home Guide ──
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   function card(title) { var c = el('div', 'gcard'); if (title) c.appendChild(el('h3', null, title)); return c; }
+  var jumpAfterLoad = null;
+  $('open-todo').addEventListener('click', function () { jumpAfterLoad = 'local'; $('open-guide').click(); });
   $('open-guide').addEventListener('click', async function () {
     openSheet('guide-sheet');
     var body = $('g-body'); body.innerHTML = '<div class="g-wrap"><div class="gi"><p>Loading your guide…</p></div></div>';
@@ -435,7 +449,8 @@
       if (r.status === 401) return expired();
       var j = await r.json(); if (!r.ok || !j.guide) throw new Error();
       renderGuide(j.guide);
-    } catch (e) { body.innerHTML = '<div class="g-wrap"><div class="gi"><p>We couldn’t load your guide right now. Please try again in a moment.</p></div></div>'; }
+      if (jumpAfterLoad) { var jt = jumpAfterLoad; jumpAfterLoad = null; setTimeout(function () { jump(jt); }, 60); }
+    } catch (e) { jumpAfterLoad = null; body.innerHTML = '<div class="g-wrap"><div class="gi"><p>We couldn’t load your guide right now. Please try again in a moment.</p></div></div>'; }
   });
   // Sections, in the order guests need them. Team/Guesty items land in a tab by their section.
   var GUIDE_TABS = [
@@ -443,8 +458,8 @@
     { id: 'wifi', label: 'Wi-Fi & TV', icon: '&#128246;', secs: ['Wi-Fi', 'Tech & TV'] },
     { id: 'home', label: 'The Home', icon: '&#127969;', secs: ['Heating & cooling', 'Kitchen', 'Laundry', 'Hot tub / pool', 'Utilities', 'Supplies', 'Trash & recycling', 'Troubleshooting', 'House manual', 'General'] },
     { id: 'know', label: 'Good to Know', icon: '&#9888;&#65039;', secs: ['House quirks', 'House rules'] },
+    { id: 'local', label: 'Things to Do', icon: '&#129517;', secs: ['Local tips'] },
     { id: 'checkout', label: 'Checkout', icon: '&#128075;', secs: ['Checkout'] },
-    { id: 'local', label: 'Local', icon: '&#127860;', secs: ['Local tips'] },
     { id: 'help', label: 'Help', icon: '&#128172;', secs: ['Contact', 'Help', 'Reaching a person', 'Emergencies'] },
   ];
   var lb = { list: [], i: 0 };
@@ -471,6 +486,18 @@
       c.appendChild(pics);
     }
     return c;
+  }
+  function placeCard(x) {
+    var c = el('div', 'gi pl'), top = el('div', 'pl-top');
+    top.appendChild(el('h3', null, x.name));
+    if (x.partner) top.appendChild(el('span', 'pl-badge', 'Our partner'));
+    c.appendChild(top);
+    if (x.blurb) c.appendChild(el('p', null, x.blurb));
+    var meta = el('div', 'pl-meta');
+    if (x.miles != null) meta.appendChild(el('span', 'pl-mi', x.miles < 1 ? '< 1 mi' : '≈ ' + Math.round(x.miles) + ' mi'));
+    var dir = el('a', null, 'Directions'); dir.href = x.maps; dir.target = '_blank'; dir.rel = 'noopener noreferrer'; meta.appendChild(dir);
+    if (x.url) { var w = el('a', null, 'Website'); w.href = x.url; w.target = '_blank'; w.rel = 'noopener noreferrer'; meta.appendChild(w); }
+    c.appendChild(meta); return c;
   }
   function cardFor(x) { return x.body && x.body.length > 420 && !(x.photos && x.photos.length) ? longCard(x.title, x.body) : itemCard(x); }
   function longCard(title, text) {
@@ -519,7 +546,24 @@
       },
       know: function (sec) { if (d.house_rules) sec.appendChild(longCard('House rules', d.house_rules)); if (d.other_notes) sec.appendChild(longCard('Other things to note', d.other_notes)); },
       checkout: function (sec) { if (!buckets.checkout.length) { var c = el('div', 'gi'); c.appendChild(el('h3', null, 'Checkout ' + (p.check_out_time ? 'by ' + p.check_out_time : ''))); c.appendChild(el('p', null, 'Lock up and you’re all set. Thanks for staying with us!')); sec.appendChild(c); } },
-      local: function (sec) { if (d.neighborhood) sec.appendChild(longCard('The neighborhood', d.neighborhood)); if (d.getting_around) sec.appendChild(longCard('Getting around', d.getting_around)); },
+      local: function (sec) {
+        var pl = g.places || [];
+        if (pl.length) {
+          // closest picks first, then everything by category
+          var near = pl.filter(function (x) { return x.miles != null && x.miles <= 3; }).sort(function (a, b) { return a.miles - b.miles; }).slice(0, 4);
+          if (near.length >= 2) { sec.appendChild(el('h4', 'pl-h', 'Close to the house')); near.forEach(function (x) { sec.appendChild(placeCard(x)); }); }
+          var cats = [['Eat', 'Restaurants'], ['Coffee', 'Coffee'], ['Drinks', 'Breweries & drinks'], ['Outdoors', 'Trails & outdoors'], ['Museums & Arts', 'Museums & art'], ['Family', 'With kids'], ['Explore', 'Explore & day trips']];
+          var chips = el('div', 'pl-chips');
+          cats.forEach(function (c) { if (!pl.some(function (x) { return x.category === c[0]; })) return; var b = el('button', null, c[1]); b.type = 'button'; b.addEventListener('click', function () { var t = $('pl-' + c[0].replace(/\W/g, '')); if (t) $('g-scroll').scrollTo({ top: t.offsetTop - (document.querySelector('.g-nav') || { offsetHeight: 0 }).offsetHeight - 6, behavior: 'smooth' }); }); chips.appendChild(b); });
+          sec.insertBefore(chips, sec.children[1] || null);
+          cats.forEach(function (c) {
+            var xs = pl.filter(function (x) { return x.category === c[0]; }); if (!xs.length) return;
+            var h = el('h4', 'pl-h', c[1]); h.id = 'pl-' + c[0].replace(/\W/g, ''); sec.appendChild(h);
+            xs.forEach(function (x) { sec.appendChild(placeCard(x)); });
+          });
+        }
+        if (d.neighborhood) sec.appendChild(longCard('The neighborhood', d.neighborhood)); if (d.getting_around) sec.appendChild(longCard('Getting around', d.getting_around));
+      },
       help: function (sec) {
         var c = el('div', 'gi'); c.appendChild(el('h3', null, 'Questions? Text us.')); c.appendChild(el('p', null, 'Our AI teammate answers in seconds and loops in the team when needed. Emergencies: call 911.'));
         var hb = el('button', 'secondary', 'Chat With Us'); hb.type = 'button'; hb.addEventListener('click', function () { closeSheet('guide-sheet'); $('open-chat').click(); }); c.appendChild(hb); sec.appendChild(c);
