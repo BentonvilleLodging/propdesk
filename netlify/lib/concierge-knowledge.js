@@ -9,6 +9,7 @@
 //      the start of check-in day.
 //   3. Each listing's Guesty custom fields for check-in instructions and door code — always treated
 //      as sensitive (same release rule).
+//   4. local_places — our curated Things to Do list (public places, same for every home).
 // Never used: property_cards / properties (team codes, owner contacts, contracts, cleaning notes).
 // Rule: secrets that aren't allowed yet are never put in front of the AI, so it can't leak them.
 
@@ -100,6 +101,8 @@ async function guestyListing(listingId) {
       other_notes: clip(pd.notes, 2000), house_rules: clip(pd.houseRules, 2500),
     },
     amenities: (Array.isArray(l.amenities) ? l.amenities : []).map(String).slice(0, 150),
+    lat: l.address && Number.isFinite(+l.address.lat) ? +l.address.lat : null,
+    lng: l.address && Number.isFinite(+l.address.lng) ? +l.address.lng : null,
     parking: clip(l.parkingInstructions, 1500),
     trash_day: clip(l.trashCollectedOn, 200),
   };
@@ -119,6 +122,50 @@ async function guestyListing(listingId) {
   Object.defineProperty(data, 'arrival', { value: arrival, enumerable: false });
   cache.set(listingId, { at: Date.now(), data });
   return data;
+}
+
+// ── Things to Do (local_places — staff-curated, same list for every home) ──
+// Places from the bentonvillelodgingco.com Things to Do page are shown at every home. Extra places
+// we added for where homes are (Bella Vista trails, Beaver Lake, Rogers…) only show within 15 miles
+// of the guest's home. Distances are straight-line from the home and only shown as a rough guide.
+const CAT_ORDER = ['Eat', 'Coffee', 'Drinks', 'Outdoors', 'Museums & Arts', 'Family', 'Explore'];
+const NEAR_MI = 15;
+function miles(a, b, c, d) {
+  const R = 3958.8, r = Math.PI / 180, x = (c - a) * r, y = (d - b) * r;
+  const h = Math.sin(x / 2) ** 2 + Math.cos(a * r) * Math.cos(c * r) * Math.sin(y / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+let geoBudget = 0, geoAt = 0;
+// Fill in missing coordinates, a couple per request, from OpenStreetMap — limited to NW Arkansas so a
+// name like "Conifer" can't land in another state.
+async function fillCoords(rows) {
+  if (Date.now() - geoAt > 60000) { geoAt = Date.now(); geoBudget = 2; }
+  for (const p of rows.filter((x) => x.lat == null && x.maps_q).slice(0, geoBudget)) {
+    geoBudget--;
+    try {
+      const u = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&bounded=1&viewbox=-94.65,36.55,-93.6,35.95&q=' + encodeURIComponent(p.maps_q);
+      const r = await fetch(u, { headers: { 'Accept-Language': 'en', 'User-Agent': 'PropDesk/1.0 (bentonvillelodgingco.com)' } });
+      const j = r.ok ? await r.json() : [];
+      if (j && j[0]) { p.lat = +j[0].lat; p.lng = +j[0].lon; await I.sbPatch('local_places', `id=eq.${p.id}`, { lat: p.lat, lng: p.lng }).catch(() => {}); }
+    } catch (e) { /* try again another time */ }
+  }
+}
+let placesCache = null;
+async function localPlaces(home) {
+  if (!placesCache || Date.now() - placesCache.at > 10 * 60 * 1000) {
+    const rows = await I.sbSelect('local_places', 'select=id,name,category,blurb,url,maps_q,lat,lng,partner,source,sort&active=eq.true&order=sort.asc,id.asc&limit=300').catch(() => null);
+    if (rows) { await fillCoords(rows); placesCache = { at: Date.now(), rows }; }
+  }
+  const rows = (placesCache && placesCache.rows) || [];
+  const haveHome = home && home.lat != null && home.lng != null;
+  return rows.map((p) => {
+    const mi = haveHome && p.lat != null ? miles(home.lat, home.lng, p.lat, p.lng) : null;
+    return { name: clip(p.name, 120), category: p.category, blurb: clip(p.blurb, 300), url: /^https:\/\//.test(p.url || '') ? p.url : null,
+      maps: 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(p.maps_q || p.name), partner: !!p.partner,
+      miles: mi == null ? null : Math.round(mi * 10) / 10, sort: p.sort, source: p.source };
+  }).filter((p) => p.source === 'website' || (p.miles != null && p.miles <= NEAR_MI))
+    .sort((a, b) => (CAT_ORDER.indexOf(a.category) - CAT_ORDER.indexOf(b.category)) || (b.partner - a.partner) || ((a.miles == null ? 999 : a.miles) - (b.miles == null ? 999 : b.miles)) || (a.sort - b.sort))
+    .map(({ sort, source, ...p }) => p);
 }
 
 // session: a concierge_sessions row (already validated by C.loadSession)
@@ -153,8 +200,10 @@ async function forSession(session, listingInfo, now) {
     if (arr.instructions) guide.unshift(gx('Check-in', 'Check-in instructions', arr.instructions, true));
     if (arr.house_manual) guide.push(gx('House manual', 'House manual', arr.house_manual, true));
   }
+  const places = await localPlaces(listing).catch(() => []);
   return {
     property: { ...(listing || {}), name: info.name || '', photo: info.photo || null },
+    places,
     guest_first_name: pub.guest_first_name,
     stay: { check_in: session.check_in, check_out_date: session.check_out_date },
     sensitive_unlocked: pub.sensitive_unlocked,
