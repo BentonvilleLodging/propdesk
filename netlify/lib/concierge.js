@@ -159,9 +159,19 @@ function parseInput(identifier, lastName) {
 }
 
 // ── listings shown in the dropdown ──────────────────────────────────────
+// Cover photo = the listing's first public photo (already public on Airbnb/Vrbo), taken from the daily
+// listing_completeness_snapshots pull so the public page never has to call Guesty for it.
+function safePhoto(u) {
+  try { const x = new URL(String(u || '')); return x.protocol === 'https:' && !/["'()\\\s]/.test(x.href) ? x.href.slice(0, 600) : null; } catch (e) { return null; }
+}
 async function conciergeListings() {
-  const rows = await I.sbSelect('listing_registry', 'select=listing_id,title,nickname,concierge_name&is_listed=eq.true&tracked=eq.true&concierge_enabled=eq.true');
-  return rows.map((r) => ({ id: r.listing_id, name: String(r.concierge_name || r.title || r.nickname || '').trim() }))
+  const since = ctDateStr(new Date(Date.now() - 14 * 86400000));
+  const [rows, snaps] = await Promise.all([
+    I.sbSelect('listing_registry', 'select=listing_id,title,nickname,concierge_name&is_listed=eq.true&tracked=eq.true&concierge_enabled=eq.true'),
+    I.sbSelect('listing_completeness_snapshots', `select=listing_id,cover_photo_url,snapshot_date&snapshot_date=gte.${since}&cover_photo_url=not.is.null&order=snapshot_date.desc&limit=1000`).catch(() => []),
+  ]);
+  const photo = {}; snaps.forEach((p) => { if (!photo[p.listing_id]) photo[p.listing_id] = safePhoto(p.cover_photo_url); });
+  return rows.map((r) => ({ id: r.listing_id, name: String(r.concierge_name || r.title || r.nickname || '').trim(), photo: photo[r.listing_id] || null }))
     .filter((r) => r.id && r.name).sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -197,11 +207,14 @@ async function loadSession(event, now) {
   return { session: s };
 }
 
-function publicSession(s, listingName, now) {
+// listing: { name, photo } from conciergeListings() (a plain name string also works)
+function publicSession(s, listing, now) {
   now = now || new Date();
+  const l = typeof listing === 'string' ? { name: listing } : (listing || {});
   const sensitiveAt = s.check_in ? startOfDayCT(ctDateStr(new Date(s.check_in))) : null;
   return {
-    property: { id: s.listing_id, name: listingName || '' },
+    property: { id: s.listing_id, name: l.name || '', photo: l.photo || null },
+    sensitive_from: sensitiveAt ? sensitiveAt.toISOString() : null,
     guest_first_name: s.guest_first_name || '',
     check_in: s.check_in, check_out_date: s.check_out_date, expires_at: s.expires_at,
     sensitive_unlocked: !!(sensitiveAt && now >= sensitiveAt),
@@ -213,5 +226,5 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 module.exports = {
   reply, header, originOk, ipHash, tokenHash, newToken, safeEqual, normCode, normName, normEmail, EMAIL_RE,
   parseInput, matches, candidateReservations, reservationById, stayWindow, isActive, firstName,
-  conciergeListings, loadSession, publicSession, ctDateStr, endOfDayCT, startOfDayCT, sleep,
+  conciergeListings, loadSession, publicSession, safePhoto, ctDateStr, endOfDayCT, startOfDayCT, sleep,
 };
