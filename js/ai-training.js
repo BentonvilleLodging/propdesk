@@ -175,11 +175,12 @@
       h += itemsList(S.items) + '<div class="row" style="margin-top:8px;"><button class="b p" data-a="new">+ Add item</button></div>';
       el.innerHTML = h; return;
     }
-    if (!p.listing_id) { el.innerHTML = h + '<p class="empty" style="margin-top:14px;">Link the Guesty listing to start building this home’s guide.</p>'; return; }
+    if (!p.listing_id) h += '<div class="gg-note" style="margin-top:14px;background:#2a2516;border-color:#5a4a22;color:#e8d9a8;">Link the Guesty listing above to start filling in this home. The walkthrough below is what your team will complete for each home.</div>';
 
     // From Guesty
-    h += '<h3>From Guesty <button class="b sm" data-a="refresh" style="margin-left:auto;">↻ Refresh</button></h3><p class="sub">Pulled live from the Guesty listing. Change these in Guesty.</p>';
-    if (S.guestyErr) h += '<div class="warn">' + E(S.guestyErr) + '</div>';
+    if (p.listing_id) h += '<h3>From Guesty <button class="b sm" data-a="refresh" style="margin-left:auto;">↻ Refresh</button></h3><p class="sub">Pulled live from the Guesty listing. Change these in Guesty.</p>';
+    if (!p.listing_id) { /* nothing to pull yet */ }
+    else if (S.guestyErr) h += '<div class="warn">' + E(S.guestyErr) + '</div>';
     else if (!S.guesty) h += '<p class="empty">Loading from Guesty…</p>';
     else {
       var g = S.guesty;
@@ -233,7 +234,7 @@
     return ph.length ? '<div class="thumbs">' + ph.slice(0, 5).map(function (p) { return '<img src="' + E(S.urls[p]) + '" alt="">'; }).join('') + (ph.length > 5 ? '<span class="tag">+' + (ph.length - 5) + '</span>' : '') + '</div>' : '';
   }
   function promptRow(pr, x) {
-    if (!x) return '<div class="pr" data-a="prompt" data-k="' + E(pr.key) + '"><div class="dot"></div><div style="flex:1;min-width:0;"><div class="t">' + E(pr.title) + '</div><div class="s">' + E(pr.hint) + '</div></div></div>';
+    if (!x) return '<div class="pr" data-a="prompt" data-k="' + E(pr.key) + '"><div class="dot"></div><div style="flex:1;min-width:0;"><div class="t">' + E(pr.title) + '</div><div class="s">' + E(pr.hint) + '</div></div><span class="b sm" style="flex-shrink:0;">+ Add details &amp; photos</span></div>';
     return itemRow(x, pr.title);
   }
   function itemRow(x, title) {
@@ -334,10 +335,11 @@
       var taken = props().find(function (x) { return x.listing_id === lid && x.id !== S.prop.id; });
       if (taken && !confirm('“' + taken.name + '” is already linked to that listing. Link this property too?')) return;
       var r = await db.from('properties').update({ listing_id: lid }).eq('id', S.prop.id);
-      if (r.error) return toast('Couldn’t link: ' + r.error.message, 'error');
+      if (r.error) return toast(/listing_id|schema cache/i.test(r.error.message) ? 'Couldn’t link: the Guest Guide database update hasn’t been run in Supabase yet.' : 'Couldn’t link: ' + r.error.message, 'error');
       S.prop.listing_id = lid; toast('Linked to Guesty.', 'success');
       await Promise.all([loadItems(), loadGuesty()]); render(); badge(); return;
     }
+    if ((a === 'prompt' || a === 'new') && S.scope === 'home' && !S.prop.listing_id) { var sel = $('gg-listing'); if (sel) sel.focus(); return toast('Link this property to its Guesty listing first (top of this tab).', 'error'); }
     if (a === 'prompt') return startEdit(null, b.getAttribute('data-k'));
     if (a === 'new') return startEdit(null, null);
     if (a === 'edit') { var it = S.items.find(function (x) { return String(x.id) === b.getAttribute('data-id'); }); if (it) startEdit(it); return; }
@@ -383,7 +385,7 @@
     if (!S.prop || S.prop.id !== p.id) { S.prop = p; S.scope = 'home'; S.items = []; S.guesty = null; S.guestyErr = null; S.editing = null; S.reveal = {}; }
     S.prop = p;
     panel().innerHTML = '<p class="empty">Loading…</p>';
-    try { await loadListings(); render(); await Promise.all([S.prop.listing_id ? loadItems() : null, loadGuesty()]); } catch (e) { toast('Couldn’t load: ' + e.message, 'error'); }
+    try { await loadListings(); render(); await Promise.all([S.prop.listing_id ? loadItems() : null, S.prop.listing_id ? loadGuesty() : null]); } catch (e) { toast('Couldn’t load: ' + e.message, 'error'); }
     render(); badge();
   }
   function install() {
