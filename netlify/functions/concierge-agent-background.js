@@ -13,12 +13,15 @@ const { requireTeam, internalHeaders } = require('../lib/auth');
 const I = require('../lib/intel');
 const C = require('../lib/concierge');
 const K = require('../lib/concierge-knowledge');
+const Q = require('../lib/concierge-quick');
 
 const HISTORY = 10;
 // Cost control: (1) prompt caching — the instructions + this home's guest-safe info go first and are
 // marked cacheable, so follow-up messages within ~5 minutes re-read them at ~10% of the input price;
 // the conversation so far is cached too. (2) "thanks"/"ok"-type messages get a canned reply with no
-// API call. (3) short replies (max_tokens 500), last 10 messages of history.
+// API call. (3) simple lookups — Wi-Fi, door code, check-in/out times & steps, address, parking,
+// trash, and the walkthrough items (breaker box, thermostat…) — are answered straight from the home
+// guide by lib/concierge-quick.js, no API call. (4) short replies (max_tokens 500), last 10 messages.
 const ACK_RE = /^(thanks?( (you|so much|a lot))?|thank you( so much)?|thx|ty|ok(ay)?|k|cool|great|awesome|perfect|got it|sounds good|will do|nice|appreciate it|👍|🙏|❤️|😊)[\s!.]*$/i;
 const FALLBACK = "Sorry, I'm having trouble on my end right now. Please message us through your booking app and someone from our team will help you right away.";
 
@@ -129,18 +132,21 @@ exports.handler = async function (event) {
   const [s] = await I.sbSelect('concierge_sessions', `select=*&id=eq.${m.session_id}`).catch(() => []);
   const save = (content, extra) => I.sbInsert('concierge_messages', [Object.assign({ session_id: m.session_id, reservation_id: m.reservation_id, listing_id: m.listing_id, role: 'assistant', content }, extra || {})]).catch((e) => console.error('concierge save', e.message));
   if (!s || s.revoked || new Date(s.expires_at) <= new Date()) return save("Your guide access has ended — if you still need help, please message us through your booking app.");
+  // Canned replies only when the guest's previous message was already answered — otherwise this
+  // message has to be read together with the earlier one(s), which needs Claude.
+  const [prev] = await I.sbSelect('concierge_messages', `select=role&reservation_id=eq.${encodeURIComponent(m.reservation_id)}&id=lt.${id}&order=id.desc&limit=1`).catch(() => []);
+  const prevAnswered = !prev || prev.role === 'assistant';
   // "thanks" / "ok" → friendly canned reply, no API call
-  // (only when the guest's previous message was already answered, so a quick "thanks" can't swallow a question)
-  if (ACK_RE.test(String(m.content || '').trim())) {
-    const [prev] = await I.sbSelect('concierge_messages', `select=role&reservation_id=eq.${encodeURIComponent(m.reservation_id)}&id=lt.${id}&order=id.desc&limit=1`).catch(() => []);
-    if (!prev || prev.role === 'assistant') return save('You got it! Text me anytime if you need anything else.', { meta: { canned: true } });
-  }
+  if (prevAnswered && ACK_RE.test(String(m.content || '').trim())) return save('You got it! Text me anytime if you need anything else.', { meta: { canned: 'ack' } });
 
   const listings = await C.conciergeListings().catch(() => []);
   const l = listings.find((x) => x.id === s.listing_id);
   const name = l ? l.name : '';
   try {
     const k = await K.forSession(s, name);
+    // Simple lookup the home guide already answers → reply instantly, no API call
+    const quick = prevAnswered ? Q.quickAnswer(m.content, k) : null;
+    if (quick) return save(quick.reply, { meta: { canned: 'quick', intents: quick.intents } });
     const hist = await I.sbSelect('concierge_messages', `select=role,content&reservation_id=eq.${encodeURIComponent(m.reservation_id)}&id=lte.${id}&order=id.desc&limit=${HISTORY}`);
     const msgs = hist.reverse().map((h) => ({ role: h.role, content: h.content }));
     while (msgs.length && msgs[0].role !== 'user') msgs.shift(); // API needs to start with the user
