@@ -44,7 +44,7 @@
   .spin { display: inline-block; width: 15px; height: 15px; border: 2px solid rgba(255,255,255,.5); border-right-color: transparent; border-radius: 50%; animation: s .8s linear infinite; vertical-align: -2px; margin-right: 8px; }
   @keyframes s { to { transform: rotate(360deg); } }
   .stay { display: flex; gap: 12px; margin: 16px 0 4px; }
-  .stay div { flex: 1; background: var(--cream); border-radius: 10px; padding: 10px 12px; }
+  .stay > div { flex: 1; background: var(--cream); border-radius: 10px; padding: 10px 12px; }
   .stay .k { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
   .stay .v { font-weight: 600; margin-top: 2px; font-size: 14.5px; }
   .opt { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 18px; }
@@ -105,12 +105,24 @@
   .composer .note { max-width: 640px; margin: 6px auto 0; font-size: 11px; color: var(--muted); text-align: center; }
   .chat-err { max-width: 640px; margin: 0 auto 6px; font-size: 13px; color: var(--red); text-align: center; }
 
-  /* House photo: faded behind the page, richer behind the header */
-  #bg { position: fixed; inset: 0; z-index: -1; background: var(--cream) center / cover no-repeat; transition: opacity .6s; opacity: 0; }
+  /* House photo: the home itself, sharp and full-bleed in the header; the rest of the page sits on
+     a soft blurred, darkened copy of the same photo so the cards float over the house's own colors. */
+  #bg { position: fixed; inset: -40px; z-index: -1; background: center / cover no-repeat; filter: blur(26px) saturate(1.15) brightness(.5); opacity: 0; transition: opacity .7s; }
   #bg.on { opacity: 1; }
+  html.has-photo { background: #1c241f; }
   body.has-photo { background: transparent; }
-  body.has-photo .hero { background-size: cover; background-position: center; }
-  body.has-photo .hero::after { height: 90px; border-radius: 0; transform: none; background: linear-gradient(to bottom, rgba(246,242,234,0), rgba(246,242,234,.86)); }
+  .hero .hero-prop { display: none; }
+  body.has-photo .hero { min-height: min(64vh, 600px); padding: 22px 20px 92px; display: flex; flex-direction: column; justify-content: space-between; background-size: cover; background-position: center 58%;
+    -webkit-mask-image: linear-gradient(to bottom, #000 82%, transparent); mask-image: linear-gradient(to bottom, #000 82%, transparent); }
+  body.has-photo .hero::after { display: none; }
+  body.has-photo .hero h1 { font-size: clamp(26px, 5.4vw, 40px); text-shadow: 0 2px 18px rgba(0,0,0,.45); margin-top: 0; }
+  body.has-photo .hero .tag { display: none; }
+  body.has-photo .hero .brand { text-shadow: 0 1px 10px rgba(0,0,0,.5); opacity: .95; }
+  body.has-photo .hero .hero-prop { display: inline-block; margin: 0 auto 10px; font-size: 12.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; background: rgba(20,28,23,.45); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,.22); border-radius: 30px; padding: 6px 14px; }
+  body.has-photo main { margin-top: -64px; }
+  body.has-photo .card { box-shadow: 0 18px 50px rgba(0,0,0,.35); border-color: rgba(255,255,255,.6); }
+  body.has-photo .foot, body.has-photo .foot a { color: rgba(246,242,234,.72); }
+  @media (min-width: 760px) { body.has-photo .hero { min-height: min(70vh, 680px); } }
   .arrival { margin-top: 14px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
   .arrival .row { padding: 12px 14px; }
   .arrival .row + .row { border-top: 1px solid var(--line); }
@@ -126,7 +138,8 @@
   <div id="bg" aria-hidden="true"></div>
   <header class="hero">
     <div class="brand"><span class="mark">B</span>Bentonville Lodging Co.</div>
-    <h1>Bentonville Lodging Concierge</h1>
+    <div><div class="hero-prop" id="hero-prop"></div>
+    <h1>Bentonville Lodging Concierge</h1></div>
     <p class="tag">Your digital guidebook, local tips and a concierge to answer questions about your stay.</p>
   </header>
 
@@ -232,13 +245,13 @@
       var r = await fetch(API + 'concierge-properties', { credentials: 'omit' });
       var j = await r.json();
       if (!r.ok) throw new Error();
-      (j.properties || []).forEach(function (p) { PHOTOS[p.id] = p.photo; });
+      (j.properties || []).forEach(function (p) { PHOTOS[p.id] = p.photo; NAMES[p.id] = p.name; });
       sel.innerHTML = '<option value="">Select your property</option>' + (j.properties || []).map(function (p) {
         var o = document.createElement('option'); o.value = p.id; o.textContent = p.name; return o.outerHTML;
       }).join('');
       // QR codes in each home can link straight here: ?property=<listing id>
       var pre = new URLSearchParams(location.search).get('property');
-      if (pre && sel.querySelector('option[value="' + CSS.escape(pre) + '"]')) { sel.value = pre; setPhoto(PHOTOS[pre]); }
+      if (pre && sel.querySelector('option[value="' + CSS.escape(pre) + '"]')) { sel.value = pre; setPhoto(PHOTOS[pre], NAMES[pre]); }
     } catch (e) {
       sel.innerHTML = '<option value="">Couldn’t load properties — refresh to try again</option>';
     }
@@ -281,7 +294,7 @@
     $('w-prop').textContent = 'Your stay at ' + (s.property && s.property.name ? s.property.name : 'Bentonville Lodging Co.');
     $('w-in').textContent = fmt(s.check_in, true);
     $('w-out').textContent = fmt(s.check_out_date);
-    setPhoto(s.property && s.property.photo);
+    setPhoto(s.property && s.property.photo, s.property && s.property.name);
     loadArrival();
     if (usedEmail && !RELAY.test(usedEmail)) $('nl-email').value = usedEmail;
     window.scrollTo(0, 0);
@@ -309,7 +322,7 @@
     store(null); if (typeof stopPoll === 'function') stopPoll(); lastId = 0; chatLoaded = false; current = null;
     var m = $('msgs'); Array.prototype.slice.call(m.children).forEach(function (c) { if (c.id !== 'typing') m.removeChild(c); });
     $('welcome').classList.add('hidden'); $('gate').classList.remove('hidden');
-    $('arrival').innerHTML = ''; $('arrival').className = ''; setPhoto(PHOTOS[$('prop').value]);
+    $('arrival').innerHTML = ''; $('arrival').className = ''; setPhoto(PHOTOS[$('prop').value], NAMES[$('prop').value]);
   }
   $('signout').addEventListener('click', signOut);
 
@@ -440,20 +453,26 @@
 
 
   // ── house photo background ──
-  var PHOTOS = {};
+  var PHOTOS = {}, NAMES = {}, photoReq = 0;
   function okPhoto(u) { return typeof u === 'string' && /^https:\/\/[^\s"'()\\]+$/.test(u) ? u : null; }
-  function setPhoto(u) {
-    u = okPhoto(u); var bg = $('bg'), hero = document.querySelector('.hero');
-    if (!u) { document.body.classList.remove('has-photo'); bg.classList.remove('on'); hero.style.backgroundImage = ''; return; }
-    var img = new Image();
-    img.onload = function () {
-      bg.style.backgroundImage = 'linear-gradient(rgba(246,242,234,.84), rgba(246,242,234,.93)), url("' + u + '")';
-      hero.style.backgroundImage = 'linear-gradient(rgba(47,74,58,.80), rgba(36,58,45,.88)), url("' + u + '")';
-      document.body.classList.add('has-photo'); bg.classList.add('on');
-    };
-    img.src = u;
+  // Guesty photos are full-size originals (often 5+ MB). Ask Guesty's image CDN for a sized copy;
+  // fall back to the original if that ever fails.
+  function sized(u, w) { return /^https:\/\/assets\.guesty\.com\/image\/upload\/v\d/.test(u) ? u.replace('/image/upload/', '/image/upload/c_limit,w_' + w + ',q_auto:good,f_auto/') : u; }
+  function loadImg(urls, done) { var i = 0; (function next() { if (i >= urls.length) return done(null); var u = urls[i++], img = new Image(); img.onload = function () { done(u); }; img.onerror = next; img.src = u; })(); }
+  function setPhoto(u, name) {
+    u = okPhoto(u); var bg = $('bg'), hero = document.querySelector('.hero'), req = ++photoReq;
+    $('hero-prop').textContent = name || '';
+    if (!u) { document.documentElement.classList.remove('has-photo'); document.body.classList.remove('has-photo'); bg.classList.remove('on'); hero.style.backgroundImage = ''; bg.style.backgroundImage = ''; return; }
+    var big = Math.min(2400, Math.round(Math.max(window.innerWidth, 600) * (window.devicePixelRatio || 1)));
+    loadImg([sized(u, big), u], function (src) {
+      if (req !== photoReq || !src) return;
+      // light scrim only at the top (brand) and bottom (title) so the house itself stays clear
+      hero.style.backgroundImage = 'linear-gradient(to bottom, rgba(12,18,14,.50) 0%, rgba(12,18,14,0) 26%, rgba(12,18,14,0) 52%, rgba(12,18,14,.62) 100%), url("' + src + '")';
+      document.documentElement.classList.add('has-photo'); document.body.classList.add('has-photo');
+      loadImg([sized(u, 480), src], function (small) { if (req !== photoReq) return; bg.style.backgroundImage = 'url("' + (small || src) + '")'; bg.classList.add('on'); });
+    });
   }
-  $('prop').addEventListener('change', function () { setPhoto(PHOTOS[this.value]); });
+  $('prop').addEventListener('change', function () { setPhoto(PHOTOS[this.value], NAMES[this.value]); });
 
   // ── arrival: check-in instructions + door code (released from the start of check-in day) ──
   async function loadArrival() {
