@@ -1,9 +1,19 @@
 // netlify/functions/concierge-session.js
 // PUBLIC (token-gated). GET with "Authorization: Bearer <token>" → the guest's session summary.
-// The guidebook content endpoint will use the same check (C.loadSession).
+// DELETE with the same header → log out: the session is revoked on the server, so the token can't
+// be used again even if it was copied somewhere.
 const C = require('../lib/concierge');
+const I = require('../lib/intel');
 
 exports.handler = async function (event) {
+  if (event.httpMethod === 'DELETE') {
+    if (!C.originOk(event, true)) return C.reply(403, { error: 'forbidden' });
+    const tok = String(C.header(event, 'authorization')).replace(/^Bearer\s+/i, '').trim();
+    if (tok && tok.length >= 40 && tok.length <= 60 && /^[A-Za-z0-9_-]+$/.test(tok)) {
+      await I.sbPatch('concierge_sessions', `token_hash=eq.${C.tokenHash(tok)}&revoked=eq.false`, { revoked: true, revoked_reason: 'guest logged out' }).catch(() => {});
+    }
+    return C.reply(200, { ok: true });
+  }
   if (event.httpMethod !== 'GET') return C.reply(405, { error: 'GET only' });
   if (!C.originOk(event, false)) return C.reply(403, { error: 'forbidden' });
   try {
