@@ -47,8 +47,8 @@ function homeInfo(k) {
     .forEach(([h, v]) => { if (v) lines.push(`\n## ${h}\n${v}`); });
   if (p.amenities && p.amenities.length) lines.push(`\n## Amenities\n${p.amenities.join(', ')}`);
   if (k.guide.length) {
-    lines.push('\n## Home guide (written by our team)');
-    k.guide.forEach((g) => lines.push(`- [${g.section}] ${g.title}: ${g.body}`));
+    lines.push('\n## Home guide (written by our team + from Guesty). "photo in guide" = the guest can see a photo of it in their Home Guide.');
+    k.guide.forEach((g) => lines.push(`- [${g.section}] ${g.title}: ${g.body}${g.photos && g.photos.length && !g.ai_only ? ' (photo in guide)' : ''}`));
   }
   return lines.join('\n').slice(0, 30000);
 }
