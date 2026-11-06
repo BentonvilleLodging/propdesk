@@ -61,6 +61,10 @@ function homeInfo(k) {
     lines.push('\n## Home guide (written by our team + from Guesty). "photo in guide" = the guest can see a photo of it in their Home Guide.');
     open.forEach((g) => lines.push(line(g)));
   }
+  if (k.places && k.places.length) {
+    lines.push('\n## Things to do nearby (our curated list — recommend from this first; "partner" = our partner restaurant, mention it warmly; distances are rough, straight-line from the home)');
+    k.places.slice(0, 60).forEach((x) => lines.push(`- ${x.name} [${x.category}${x.partner ? ', partner' : ''}${x.miles != null ? ', ~' + Math.max(1, Math.round(x.miles)) + ' mi' : ''}]: ${x.blurb}`));
+  }
   const shared = lines.join('\n').slice(0, 30000);
 
   const mine = [];
