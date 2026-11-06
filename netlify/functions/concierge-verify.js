@@ -71,5 +71,5 @@ exports.handler = async function (event) {
   catch (e) { console.error('concierge session insert', e.message); return finish(503, { ok: false, error: 'The concierge is temporarily unavailable. Please try again shortly.' }); }
   await logAttempt(ipHash, listingId, true, 'ok (' + input.kind + ')');
 
-  return finish(200, { ok: true, token, session: C.publicSession(row, listing.name, now), used_email: input.kind === 'email' ? input.email : null });
+  return finish(200, { ok: true, token, session: C.publicSession(row, listing, now), used_email: input.kind === 'email' ? input.email : null });
 };
