@@ -12,7 +12,7 @@ exports.handler = async function (event) {
     if (res.error) return C.reply(res.status, { error: res.error });
     const listings = await C.conciergeListings().catch(() => []);
     const l = listings.find((x) => x.id === res.session.listing_id);
-    const k = await K.forSession(res.session, l ? l.name : '');
+    const k = await K.forSession(res.session, l || null);
     return C.reply(200, { ok: true, guide: k });
   } catch (e) {
     console.error('concierge-guide', e.message);
