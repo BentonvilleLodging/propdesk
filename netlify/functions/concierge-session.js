@@ -11,7 +11,7 @@ exports.handler = async function (event) {
     if (res.error) return C.reply(res.status, { error: res.error });
     const listings = await C.conciergeListings().catch(() => []);
     const l = listings.find((x) => x.id === res.session.listing_id);
-    return C.reply(200, { ok: true, session: C.publicSession(res.session, l ? l.name : '') });
+    return C.reply(200, { ok: true, session: C.publicSession(res.session, l || null) });
   } catch (e) {
     console.error('concierge-session', e.message);
     return C.reply(503, { error: 'unavailable' });
