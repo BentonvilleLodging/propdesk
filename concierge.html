@@ -56,6 +56,54 @@
   .guide-soon { margin-top: 18px; background: var(--cream); border: 1px dashed #cfc4ad; border-radius: 12px; padding: 16px; font-size: 14px; color: var(--muted); line-height: 1.5; text-align: center; }
   .foot { text-align: center; font-size: 12px; color: var(--muted); padding: 0 16px 28px; line-height: 1.6; }
   .foot a { color: var(--muted); }
+
+  .actions2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; }
+  .bigbtn { font: inherit; text-align: left; background: #fff; border: 1.5px solid var(--line); border-radius: 14px; padding: 14px 14px 13px; cursor: pointer; color: var(--ink); transition: border-color .15s, transform .15s; }
+  .bigbtn:hover { border-color: var(--gold); transform: translateY(-1px); }
+  .bigbtn .ic { width: 34px; height: 34px; border-radius: 10px; background: var(--cream); display: flex; align-items: center; justify-content: center; font-size: 17px; margin-bottom: 9px; }
+  .bigbtn b { display: block; font-size: 15px; }
+  .bigbtn span { display: block; font-size: 12.5px; color: var(--muted); margin-top: 2px; line-height: 1.35; }
+  .bigbtn.chat { background: var(--forest); border-color: var(--forest); color: #fff; }
+  .bigbtn.chat .ic { background: rgba(255,255,255,.14); }
+  .bigbtn.chat span { color: rgba(255,255,255,.78); }
+  .sheet { position: fixed; inset: 0; z-index: 50; background: var(--cream); display: none; flex-direction: column; }
+  .sheet.open { display: flex; }
+  .sheet-hd { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--forest); color: #f6f2ea; padding-top: max(12px, env(safe-area-inset-top)); }
+  .sheet-hd button { background: none; border: none; color: #f6f2ea; font: inherit; font-size: 15px; cursor: pointer; padding: 6px 8px 6px 0; }
+  .sheet-hd .t { font-weight: 700; font-size: 15px; line-height: 1.2; }
+  .sheet-hd .s { font-size: 12px; opacity: .78; }
+  .sheet-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .guide { max-width: 640px; margin: 0 auto; padding: 16px 16px 40px; }
+  .gcard { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; margin-bottom: 12px; }
+  .gcard h3 { margin: 0 0 8px; font-family: "Playfair Display", serif; font-size: 18px; }
+  .gcard h4 { margin: 12px 0 3px; font-size: 14px; }
+  .gcard p { margin: 0; font-size: 14.5px; line-height: 1.55; white-space: pre-line; color: #34302a; }
+  .gcard .lock { background: #fbf6e8; border: 1px solid #ecdcae; color: #7a6223; border-radius: 10px; padding: 10px 12px; font-size: 13.5px; line-height: 1.45; }
+  .gcard .secret { font-family: ui-monospace, Menlo, monospace; background: var(--cream); padding: 1px 6px; border-radius: 5px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chips span { font-size: 12.5px; background: var(--cream); border-radius: 20px; padding: 4px 10px; }
+  .kv { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .kv div { background: var(--cream); border-radius: 10px; padding: 9px 11px; } .kv .k { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); } .kv .v { font-weight: 600; font-size: 14.5px; margin-top: 2px; }
+  a.maps { display: inline-block; margin-top: 8px; font-size: 13.5px; color: var(--forest); font-weight: 600; }
+  .msgs { max-width: 640px; margin: 0 auto; padding: 16px 14px 8px; display: flex; flex-direction: column; gap: 8px; }
+  .bub { max-width: 82%; padding: 10px 13px; border-radius: 18px; font-size: 15px; line-height: 1.45; white-space: pre-wrap; word-wrap: break-word; }
+  .bub.ai { align-self: flex-start; background: #fff; border: 1px solid var(--line); border-bottom-left-radius: 6px; }
+  .bub.me { align-self: flex-end; background: var(--forest); color: #fff; border-bottom-right-radius: 6px; }
+  .bub a { color: inherit; }
+  .who { font-size: 11px; color: var(--muted); margin: 6px 4px -4px; align-self: flex-start; }
+  .typing { align-self: flex-start; background: #fff; border: 1px solid var(--line); border-radius: 18px; border-bottom-left-radius: 6px; padding: 12px 14px; display: none; }
+  .typing.on { display: block; }
+  .typing i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #b9b09d; margin: 0 2px; animation: b 1.2s infinite; }
+  .typing i:nth-child(2) { animation-delay: .15s; } .typing i:nth-child(3) { animation-delay: .3s; }
+  @keyframes b { 0%, 60%, 100% { transform: translateY(0); opacity: .5; } 30% { transform: translateY(-4px); opacity: 1; } }
+  .composer { border-top: 1px solid var(--line); background: var(--paper); padding: 10px 12px; padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+  .composer form { max-width: 640px; margin: 0 auto; display: flex; gap: 8px; align-items: flex-end; }
+  .composer textarea { flex: 1; font: inherit; font-size: 16px; border: 1px solid #d6cdbb; border-radius: 20px; padding: 10px 14px; resize: none; max-height: 120px; line-height: 1.35; background: #fff; color: var(--ink); }
+  .composer textarea:focus { outline: none; border-color: var(--gold); }
+  .composer button { background: var(--forest); color: #fff; border: none; border-radius: 50%; width: 42px; height: 42px; font-size: 18px; cursor: pointer; flex-shrink: 0; }
+  .composer button:disabled { opacity: .5; }
+  .composer .note { max-width: 640px; margin: 6px auto 0; font-size: 11px; color: var(--muted); text-align: center; }
+  .chat-err { max-width: 640px; margin: 0 auto 6px; font-size: 13px; color: var(--red); text-align: center; }
   .hidden { display: none !important; }
 </style>
 </head>
@@ -101,7 +149,10 @@
         <div><div class="k">Checkout</div><div class="v" id="w-out"></div></div>
       </div>
 
-      <div class="guide-soon" id="guide">Your digital guidebook and concierge chat will appear here.</div>
+      <div class="actions2">
+        <button type="button" class="bigbtn" id="open-guide"><div class="ic">&#128214;</div><b>View Home Guide</b><span>Check-in, Wi-Fi, house info &amp; rules</span></button>
+        <button type="button" class="bigbtn chat" id="open-chat"><div class="ic">&#128172;</div><b>Chat With Us</b><span>Questions, help &amp; local tips</span></button>
+      </div>
 
       <div class="opt" id="opt">
         <h3>Get Bentonville tips &amp; return-guest offers</h3>
@@ -117,6 +168,24 @@
       <div style="text-align:center;margin-top:20px;"><button class="link" id="signout" type="button">Not your stay? Sign out</button></div>
     </section>
   </main>
+
+
+  <!-- Home Guide -->
+  <div class="sheet" id="guide-sheet" role="dialog" aria-label="Home guide">
+    <div class="sheet-hd"><button type="button" data-close="guide-sheet">&#8249; Back</button><div><div class="t" id="g-title">Home Guide</div><div class="s">Bentonville Lodging Co.</div></div></div>
+    <div class="sheet-body"><div class="guide" id="g-body"><div class="gcard"><p>Loading your guide…</p></div></div></div>
+  </div>
+
+  <!-- Chat -->
+  <div class="sheet" id="chat-sheet" role="dialog" aria-label="Chat with us">
+    <div class="sheet-hd"><button type="button" data-close="chat-sheet">&#8249; Back</button><div><div class="t">Bentonville Lodging Co.</div><div class="s">AI teammate · usually replies in seconds</div></div></div>
+    <div class="sheet-body" id="chat-scroll"><div class="msgs" id="msgs"><div class="typing" id="typing"><i></i><i></i><i></i></div></div></div>
+    <div class="composer">
+      <div class="chat-err hidden" id="chat-err"></div>
+      <form id="chat-form"><textarea id="chat-input" rows="1" maxlength="800" placeholder="Text us…" aria-label="Message"></textarea><button type="submit" id="chat-send" aria-label="Send">&#10148;</button></form>
+      <div class="note">You're chatting with an AI teammate. For emergencies call 911.</div>
+    </div>
+  </div>
 
   <footer class="foot">Need help now? Message us through your booking app.<br>&copy; Bentonville Lodging Co. · Bentonville, Arkansas</footer>
 
@@ -188,6 +257,7 @@
   });
 
   function showWelcome(s, usedEmail) {
+    current = s;
     $('gate').classList.add('hidden'); $('welcome').classList.remove('hidden');
     $('w-hello').textContent = s.guest_first_name ? 'Welcome, ' + s.guest_first_name + '!' : 'Welcome!';
     $('w-prop').textContent = 'Your stay at ' + (s.property && s.property.name ? s.property.name : 'Bentonville Lodging Co.');
@@ -216,7 +286,8 @@
   });
 
   function signOut() {
-    store(null);
+    store(null); if (typeof stopPoll === 'function') stopPoll(); lastId = 0; chatLoaded = false; current = null;
+    var m = $('msgs'); Array.prototype.slice.call(m.children).forEach(function (c) { if (c.id !== 'typing') m.removeChild(c); });
     $('welcome').classList.add('hidden'); $('gate').classList.remove('hidden');
   }
   $('signout').addEventListener('click', signOut);
@@ -230,6 +301,121 @@
       if (r.ok && j.session) { store({ token: s.token, expires_at: j.session.expires_at }); showWelcome(j.session); }
     } catch (e) { /* offline: stay on the gate */ }
   }
+
+
+  // ── sheets ──
+  function openSheet(id) { $(id).classList.add('open'); document.body.style.overflow = 'hidden'; }
+  function closeSheet(id) { $(id).classList.remove('open'); document.body.style.overflow = ''; if (id === 'chat-sheet') stopPoll(); }
+  document.querySelectorAll('[data-close]').forEach(function (b) { b.addEventListener('click', function () { closeSheet(b.getAttribute('data-close')); }); });
+  var current = null; // last session summary
+  function authHeaders(extra) { var s = stored(); return Object.assign({ Authorization: 'Bearer ' + (s ? s.token : '') }, extra || {}); }
+  function expired() { ['guide-sheet', 'chat-sheet'].forEach(closeSheet); signOut(); showErr($('err'), 'Your guide access has ended. If you still need help, message us through your booking app.'); }
+
+  // ── Home Guide ──
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function card(title) { var c = el('div', 'gcard'); if (title) c.appendChild(el('h3', null, title)); return c; }
+  $('open-guide').addEventListener('click', async function () {
+    openSheet('guide-sheet');
+    var body = $('g-body');
+    try {
+      var r = await fetch(API + 'concierge-guide', { credentials: 'omit', headers: authHeaders() });
+      if (r.status === 401) return expired();
+      var j = await r.json(); if (!r.ok || !j.guide) throw new Error();
+      renderGuide(j.guide);
+    } catch (e) { body.innerHTML = ''; var c = card(); c.appendChild(el('p', null, 'We couldn’t load your guide right now. Please try again in a moment.')); body.appendChild(c); }
+  });
+  function renderGuide(g) {
+    var p = g.property || {}, d = p.description || {}, body = $('g-body'); body.innerHTML = '';
+    $('g-title').textContent = p.name || 'Home Guide';
+    var c = card('Your stay');
+    var kv = el('div', 'kv');
+    [['Check-in', fmt(g.stay.check_in, true) + (p.check_in_time ? '' : '')], ['Checkout', fmt(g.stay.check_out_date) + (p.check_out_time ? ' · ' + p.check_out_time : '')]].forEach(function (x) {
+      var b = el('div'); b.appendChild(el('div', 'k', x[0])); b.appendChild(el('div', 'v', x[1])); kv.appendChild(b); });
+    c.appendChild(kv);
+    if (p.address) {
+      c.appendChild(el('h4', null, 'Address')); c.appendChild(el('p', null, p.address));
+      var a = el('a', 'maps', 'Open in Maps ›'); a.href = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(p.address); a.target = '_blank'; a.rel = 'noopener noreferrer'; c.appendChild(a);
+    }
+    if (g.has_locked_items && !g.sensitive_unlocked) {
+      var lk = el('div', 'lock', 'Your door code and Wi-Fi details will appear here starting ' + fmt(g.stay.check_in) + ' (check-in day).'); lk.style.marginTop = '12px'; c.appendChild(lk);
+    }
+    body.appendChild(c);
+    // Team-written guide, grouped by section
+    var groups = {}; (g.guide || []).forEach(function (x) { (groups[x.section] = groups[x.section] || []).push(x); });
+    Object.keys(groups).forEach(function (sec) {
+      var gc = card(sec);
+      groups[sec].forEach(function (x) { gc.appendChild(el('h4', null, x.title)); var pp = el('p', null, x.body); if (x.sensitive) pp.className = 'secret-wrap'; gc.appendChild(pp); });
+      body.appendChild(gc);
+    });
+    [['About the home', d.summary], ['The space', d.space], ['Guest access', d.guest_access], ['House rules', d.house_rules], ['Other things to note', d.other_notes], ['The neighborhood', d.neighborhood], ['Getting around', d.getting_around]].forEach(function (x) {
+      if (!x[1]) return; var gc = card(x[0]); gc.appendChild(el('p', null, x[1])); body.appendChild(gc);
+    });
+    if (p.amenities && p.amenities.length) { var am = card('Amenities'), ch = el('div', 'chips'); p.amenities.forEach(function (a) { ch.appendChild(el('span', null, a)); }); am.appendChild(ch); body.appendChild(am); }
+    var help = card('Need anything?'); help.appendChild(el('p', null, 'Tap “Chat With Us” for quick answers, or message us through your booking app.'));
+    var hb = el('button', 'secondary', 'Chat With Us'); hb.type = 'button'; hb.addEventListener('click', function () { closeSheet('guide-sheet'); $('open-chat').click(); }); help.appendChild(hb); body.appendChild(help);
+  }
+
+  // ── Chat ──
+  var lastId = 0, pollT = null, pollUntil = 0, chatLoaded = false;
+  function linkify(node, text) {
+    String(text).split(/(https?:\/\/[^\s<>"']+)/g).forEach(function (part, i) {
+      if (i % 2) { var a = document.createElement('a'); a.href = part; a.textContent = part; a.target = '_blank'; a.rel = 'noopener noreferrer'; node.appendChild(a); }
+      else if (part) node.appendChild(document.createTextNode(part));
+    });
+  }
+  function addBubble(role, text, scroll) {
+    var wrap = $('msgs'), t = $('typing');
+    var b = el('div', 'bub ' + (role === 'user' ? 'me' : 'ai')); linkify(b, text);
+    wrap.insertBefore(b, t);
+    if (scroll !== false) $('chat-scroll').scrollTop = $('chat-scroll').scrollHeight;
+  }
+  function typing(on) { $('typing').classList.toggle('on', !!on); if (on) $('chat-scroll').scrollTop = $('chat-scroll').scrollHeight; }
+  function stopPoll() { if (pollT) { clearTimeout(pollT); pollT = null; } typing(false); }
+  function intro() {
+    var n = current && current.guest_first_name ? current.guest_first_name : 'there';
+    var home = current && current.property && current.property.name ? current.property.name : 'your home';
+    var w = el('div', 'who', 'Bentonville Lodging Co. · AI teammate'); $('msgs').insertBefore(w, $('typing'));
+    addBubble('assistant', 'Hi ' + n + '! I’m the Bentonville Lodging Co. AI teammate. I’m trained on common troubleshooting and support for ' + home + ', so text me like you would a person — Wi-Fi, check-in, how things work, or what to do nearby. If something needs a human, I’ll loop in our team.');
+  }
+  async function fetchMessages() {
+    var r = await fetch(API + 'concierge-chat?after=' + lastId, { credentials: 'omit', headers: authHeaders() });
+    if (r.status === 401) { expired(); return null; }
+    var j = await r.json(); if (!r.ok) throw new Error(j.error || 'error');
+    (j.messages || []).forEach(function (m) { if (m.id > lastId) { lastId = m.id; addBubble(m.role, m.content); } });
+    return j;
+  }
+  function poll() {
+    stopPoll(); typing(true);
+    pollT = setTimeout(async function () {
+      try { var j = await fetchMessages(); if (!j) return; if (j.pending && Date.now() < pollUntil) return poll(); typing(false);
+        if (j.pending) { $('chat-err').textContent = 'This is taking longer than usual — hang tight, or message us through your booking app.'; $('chat-err').classList.remove('hidden'); }
+      } catch (e) { if (Date.now() < pollUntil) return poll(); typing(false); }
+    }, 1500);
+  }
+  $('open-chat').addEventListener('click', async function () {
+    openSheet('chat-sheet');
+    if (!chatLoaded) { chatLoaded = true; intro(); try { var j = await fetchMessages(); if (j && j.pending) { pollUntil = Date.now() + 90000; poll(); } } catch (e) {} }
+    setTimeout(function () { $('chat-input').focus(); }, 50);
+  });
+  var input = $('chat-input');
+  input.addEventListener('input', function () { this.style.height = 'auto'; this.style.height = Math.min(120, this.scrollHeight) + 'px'; });
+  input.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && window.matchMedia('(pointer:fine)').matches) { e.preventDefault(); $('chat-form').requestSubmit(); } });
+  $('chat-form').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var text = input.value.trim(); if (!text) return;
+    var errEl = $('chat-err'); errEl.classList.add('hidden');
+    var btn = $('chat-send'); btn.disabled = true;
+    try {
+      var r = await fetch(API + 'concierge-chat', { method: 'POST', credentials: 'omit', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ message: text }) });
+      if (r.status === 401) return expired();
+      var j = await r.json().catch(function () { return {}; });
+      if (!r.ok) throw new Error(j.error || 'Message didn’t send — please try again.');
+      input.value = ''; input.style.height = 'auto';
+      lastId = Math.max(lastId, j.id - 1); // the poll picks up our own message + the reply
+      pollUntil = Date.now() + 90000; poll();
+    } catch (e2) { errEl.textContent = e2.message; errEl.classList.remove('hidden'); }
+    finally { btn.disabled = false; input.focus(); }
+  });
 
   loadProperties();
   resume();
