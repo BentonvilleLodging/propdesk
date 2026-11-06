@@ -3,7 +3,8 @@
 //
 // Threat model: anyone on the internet can call these endpoints. Nothing about a property beyond
 // its public listing title may be returned unless the caller proves an ACTIVE reservation:
-//   • confirmation code alone, or booking email + guest last name, matched live against Guesty
+//   • confirmation code alone, or booking email / phone number + guest last name, matched live
+//     against Guesty
 //   • reservation status 'confirmed', for the selected listing, and now is between
 //     (check-in time − 48h) and the end of checkout day (America/Chicago)
 // A match issues a random 256-bit session token; only its SHA-256 hash is stored. Every session
@@ -58,6 +59,8 @@ function safeEqual(a, b) {
 const normCode = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 const normName = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '');
 const normEmail = (s) => String(s || '').trim().toLowerCase();
+// Phone: digits only; a leading US country code 1 is dropped so "+1 (479) 555-0100" == "4795550100".
+const normPhone = (s) => { let d = String(s || '').replace(/\D/g, ''); if (d.length === 11 && d[0] === '1') d = d.slice(1); return d; };
 const EMAIL_RE = /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[^\s@<>"',;]+$/;
 
 // ── time helpers (America/Chicago) ──────────────────────────────────────
@@ -97,7 +100,7 @@ function isActive(r, now) {
 }
 
 // ── Guesty ──────────────────────────────────────────────────────────────
-const RES_FIELDS = '_id listingId status confirmationCode checkIn checkOut checkInDateLocalized checkOutDateLocalized guest source';
+const RES_FIELDS = '_id listingId status confirmationCode checkIn checkOut checkInDateLocalized checkOutDateLocalized guest guestId source';
 
 async function candidateReservations(listingId, now) {
   const filters = JSON.stringify([
@@ -121,6 +124,26 @@ function guestEmails(r) {
   const g = r.guest || {};
   return [g.email].concat(Array.isArray(g.emails) ? g.emails : []).filter(Boolean).map(normEmail);
 }
+function guestPhones(r) {
+  const g = r.guest || {};
+  return [g.phone, g.phoneNumber, g.mobile].concat(Array.isArray(g.phones) ? g.phones.map((p) => (p && typeof p === 'object' ? p.number || p.phone : p)) : [])
+    .filter(Boolean).map(normPhone).filter((d) => d.length >= 10);
+}
+// If the reservation's guest object came back without phone numbers, load them from the guest
+// record (a few active reservations per listing at most).
+async function ensurePhones(cands) {
+  for (const r of cands) {
+    if (guestPhones(r).length) continue;
+    const gid = r.guestId || (r.guest && r.guest._id);
+    if (!gid) continue;
+    try {
+      const g = await I.guestyGet(`/v1/guests-crud/${encodeURIComponent(gid)}?fields=${encodeURIComponent('phone phones')}`).catch(() => I.guestyGet(`/v1/guests/${encodeURIComponent(gid)}`));
+      const gg = (g && (g.data || g)) || {};
+      r.guest = Object.assign({}, r.guest || {}, { phone: gg.phone, phones: gg.phones });
+    } catch (e) { /* no phone → that reservation just can't match by phone */ }
+  }
+  return cands;
+}
 function guestLastNames(r) {
   const g = r.guest || {};
   const out = [];
@@ -133,21 +156,33 @@ function firstName(r) {
   return String(g.firstName || (g.fullName ? String(g.fullName).trim().split(/\s+/)[0] : '') || '').slice(0, 40);
 }
 
-// Match one reservation. Code: exact normalized match. Email: email AND last name must match.
+// Match one reservation. Code: exact normalized match. Email or phone: it AND last name must match.
 function matches(r, input) {
   if (input.kind === 'code') {
     const c = normCode(r.confirmationCode);
     return c.length >= 5 && safeEqual(c, input.code);
   }
-  const emailOk = guestEmails(r).some((e) => safeEqual(e, input.email));
   const nameOk = guestLastNames(r).some((n) => safeEqual(n, input.lastName));
+  if (input.kind === 'phone') {
+    // compare the last 10 digits, so country-code formatting differences don't matter
+    const want = input.phone.slice(-10);
+    return nameOk && guestPhones(r).some((p) => safeEqual(p.slice(-10), want));
+  }
+  const emailOk = guestEmails(r).some((e) => safeEqual(e, input.email));
   return emailOk && nameOk;
 }
 
-// Parse what the guest typed into the single field (+ last name when it's an email)
-function parseInput(identifier, lastName) {
+// Parse what the guest typed. method: 'code' | 'email' | 'phone' (older pages send none → inferred).
+function parseInput(identifier, lastName, method) {
   const raw = String(identifier || '').trim();
   if (!raw || raw.length > 160) return null;
+  if (method === 'phone') {
+    const phone = normPhone(raw), ln = normName(lastName);
+    if (phone.length < 10 || phone.length > 15 || ln.length < 2 || /[a-z@]/i.test(raw)) return null;
+    return { kind: 'phone', phone, lastName: ln };
+  }
+  if (method === 'email' && !raw.includes('@')) return null;
+  if (method === 'code' && raw.includes('@')) return null;
   if (raw.includes('@')) {
     const email = normEmail(raw), ln = normName(lastName);
     if (!EMAIL_RE.test(email) || ln.length < 2) return null;
@@ -224,7 +259,7 @@ function publicSession(s, listing, now) {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 module.exports = {
-  reply, header, originOk, ipHash, tokenHash, newToken, safeEqual, normCode, normName, normEmail, EMAIL_RE,
-  parseInput, matches, candidateReservations, reservationById, stayWindow, isActive, firstName,
+  reply, header, originOk, ipHash, tokenHash, newToken, safeEqual, normCode, normName, normEmail, normPhone, EMAIL_RE,
+  parseInput, matches, ensurePhones, candidateReservations, reservationById, stayWindow, isActive, firstName,
   conciergeListings, loadSession, publicSession, safePhoto, ctDateStr, endOfDayCT, startOfDayCT, sleep,
 };
