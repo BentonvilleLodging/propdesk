@@ -131,6 +131,50 @@
   .arrival .ins { font-size: 14.5px; line-height: 1.55; margin-top: 4px; white-space: pre-line; color: #34302a; }
   .arrival.locked { background: #fbf6e8; border-color: #ecdcae; color: #7a6223; padding: 12px 14px; font-size: 13.5px; line-height: 1.45; }
   .arrival .copy { margin-left: 10px; font: inherit; font-size: 12px; font-weight: 600; color: var(--forest); background: none; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; cursor: pointer; vertical-align: 4px; }
+  /* ── Home Guide: sticky section tabs, quick tiles, short cards ── */
+  #guide-sheet .sheet-body { scroll-behavior: smooth; position: relative; }
+  .g-hero { height: 150px; background: var(--forest) center / cover no-repeat; position: relative; }
+  .g-hero::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(12,18,14,0) 40%, rgba(12,18,14,.55)); }
+  .g-hero .n { position: absolute; left: 16px; right: 16px; bottom: 12px; z-index: 1; color: #fff; font-family: "Playfair Display", serif; font-size: 24px; font-weight: 600; text-shadow: 0 2px 10px rgba(0,0,0,.4); max-width: 640px; margin: 0 auto; }
+  .g-nav { position: sticky; top: 0; z-index: 5; background: rgba(246,242,234,.96); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+  .g-nav .in { max-width: 640px; margin: 0 auto; display: flex; gap: 6px; overflow-x: auto; padding: 10px 14px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .g-nav .in::-webkit-scrollbar { display: none; }
+  .g-nav button { flex-shrink: 0; font: inherit; font-size: 13.5px; font-weight: 600; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 30px; padding: 7px 13px; cursor: pointer; white-space: nowrap; }
+  .g-nav button.on { background: var(--forest); border-color: var(--forest); color: #fff; }
+  .g-wrap { max-width: 640px; margin: 0 auto; padding: 14px 14px 45vh; }
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 6px; }
+  .tile { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 11px 13px; min-width: 0; text-align: left; font: inherit; color: var(--ink); }
+  .tile .k { font-size: 10.5px; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); }
+  .tile .v { font-weight: 700; font-size: 15.5px; margin-top: 3px; word-break: break-word; }
+  .tile .v.mono { font-family: ui-monospace, Menlo, monospace; letter-spacing: .06em; }
+  .tile .sm { font-size: 12.5px; color: var(--muted); margin-top: 2px; word-break: break-word; }
+  .tile button.cp { font: inherit; font-size: 11.5px; font-weight: 600; color: var(--forest); background: none; border: 1px solid var(--line); border-radius: 6px; padding: 2px 7px; cursor: pointer; margin-left: 6px; vertical-align: 2px; }
+  .tile.wide { grid-column: 1 / -1; }
+  .tile a { color: var(--forest); font-weight: 600; font-size: 13px; text-decoration: none; }
+  .g-sec { scroll-margin-top: 62px; padding-top: 18px; }
+  .g-sec > h2 { font-family: "Playfair Display", serif; font-size: 21px; margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+  .g-sec > h2 .e { font-size: 18px; }
+  .gi { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 13px 15px; margin-bottom: 8px; }
+  .gi h3 { margin: 0; font-size: 15px; font-weight: 700; }
+  .gi p { margin: 4px 0 0; font-size: 14.5px; line-height: 1.5; white-space: pre-line; color: #34302a; }
+  .gi .pics { display: flex; gap: 6px; margin-top: 9px; overflow-x: auto; }
+  .gi .pics img { width: 92px; height: 92px; object-fit: cover; border-radius: 10px; cursor: zoom-in; flex-shrink: 0; border: 1px solid var(--line); }
+  .gi.lockd { background: #fbf6e8; border-color: #ecdcae; color: #7a6223; font-size: 13.5px; line-height: 1.45; }
+  .gi details summary { cursor: pointer; font-weight: 700; font-size: 15px; list-style: none; display: flex; justify-content: space-between; }
+  .gi details summary::-webkit-details-marker { display: none; }
+  .gi details summary::after { content: "+"; color: var(--muted); font-weight: 400; font-size: 18px; line-height: 1; }
+  .gi details[open] summary::after { content: "\2212"; }
+  .gi .chips { margin-top: 8px; }
+  .g-top { position: absolute; right: 16px; bottom: 18px; z-index: 6; width: 46px; height: 46px; border-radius: 50%; border: none; background: var(--forest); color: #fff; font-size: 20px; box-shadow: 0 6px 20px rgba(0,0,0,.25); cursor: pointer; opacity: 0; pointer-events: none; transition: opacity .2s; }
+  .g-top.on { opacity: 1; pointer-events: auto; }
+  #guide-sheet { position: fixed; }
+  .lbx { position: fixed; inset: 0; z-index: 80; background: rgba(10,12,11,.92); display: none; align-items: center; justify-content: center; flex-direction: column; padding: 16px; }
+  .lbx.open { display: flex; }
+  .lbx img { max-width: 100%; max-height: 80vh; border-radius: 10px; }
+  .lbx .cap { color: #eee; font-size: 14px; margin-top: 10px; text-align: center; }
+  .lbx .x { position: absolute; top: max(12px, env(safe-area-inset-top)); right: 14px; background: none; border: none; color: #fff; font-size: 30px; cursor: pointer; }
+  .lbx .nv { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,.14); border: none; color: #fff; width: 42px; height: 42px; border-radius: 50%; font-size: 22px; cursor: pointer; }
+  .lbx .nv.l { left: 10px; } .lbx .nv.r { right: 10px; }
   .hidden { display: none !important; }
 </style>
 </head>
@@ -203,8 +247,10 @@
   <!-- Home Guide -->
   <div class="sheet" id="guide-sheet" role="dialog" aria-label="Home guide">
     <div class="sheet-hd"><button type="button" data-close="guide-sheet">&#8249; Back</button><div><div class="t" id="g-title">Home Guide</div><div class="s">Bentonville Lodging Co.</div></div></div>
-    <div class="sheet-body"><div class="guide" id="g-body"><div class="gcard"><p>Loading your guide…</p></div></div></div>
+    <div class="sheet-body" id="g-scroll"><div id="g-body"><div class="g-wrap"><div class="gi"><p>Loading your guide…</p></div></div></div></div>
+    <button type="button" class="g-top" id="g-top" aria-label="Back to top">&#8593;</button>
   </div>
+  <div class="lbx" id="lbx" role="dialog" aria-label="Photo"><button type="button" class="x" data-lb="close" aria-label="Close">&times;</button><button type="button" class="nv l" data-lb="prev" aria-label="Previous">&#8249;</button><img id="lbx-img" alt=""><button type="button" class="nv r" data-lb="next" aria-label="Next">&#8250;</button><div class="cap" id="lbx-cap"></div></div>
 
   <!-- Chat -->
   <div class="sheet" id="chat-sheet" role="dialog" aria-label="Chat with us">
@@ -350,44 +396,141 @@
   function card(title) { var c = el('div', 'gcard'); if (title) c.appendChild(el('h3', null, title)); return c; }
   $('open-guide').addEventListener('click', async function () {
     openSheet('guide-sheet');
-    var body = $('g-body');
+    var body = $('g-body'); body.innerHTML = '<div class="g-wrap"><div class="gi"><p>Loading your guide…</p></div></div>';
     try {
       var r = await fetch(API + 'concierge-guide', { credentials: 'omit', headers: authHeaders() });
       if (r.status === 401) return expired();
       var j = await r.json(); if (!r.ok || !j.guide) throw new Error();
       renderGuide(j.guide);
-    } catch (e) { body.innerHTML = ''; var c = card(); c.appendChild(el('p', null, 'We couldn’t load your guide right now. Please try again in a moment.')); body.appendChild(c); }
+    } catch (e) { body.innerHTML = '<div class="g-wrap"><div class="gi"><p>We couldn’t load your guide right now. Please try again in a moment.</p></div></div>'; }
   });
+  // Sections, in the order guests need them. Team/Guesty items land in a tab by their section.
+  var GUIDE_TABS = [
+    { id: 'arrival', label: 'Arrival', icon: '&#128273;', secs: ['Check-in', 'Parking'] },
+    { id: 'wifi', label: 'Wi-Fi & TV', icon: '&#128246;', secs: ['Wi-Fi', 'Tech & TV'] },
+    { id: 'home', label: 'The Home', icon: '&#127969;', secs: ['Heating & cooling', 'Kitchen', 'Laundry', 'Hot tub / pool', 'Utilities', 'Supplies', 'Trash & recycling', 'Troubleshooting', 'House manual', 'General'] },
+    { id: 'know', label: 'Good to Know', icon: '&#9888;&#65039;', secs: ['House quirks', 'House rules'] },
+    { id: 'checkout', label: 'Checkout', icon: '&#128075;', secs: ['Checkout'] },
+    { id: 'local', label: 'Local', icon: '&#127860;', secs: ['Local tips'] },
+    { id: 'help', label: 'Help', icon: '&#128172;', secs: ['Contact', 'Help', 'Reaching a person', 'Emergencies'] },
+  ];
+  var lb = { list: [], i: 0 };
+  function openLb(list, i) { lb.list = list; lb.i = i; $('lbx').classList.add('open'); showLb(); }
+  function showLb() { var x = lb.list[lb.i]; $('lbx-img').src = x.src; $('lbx-cap').textContent = x.cap + (lb.list.length > 1 ? ' · ' + (lb.i + 1) + '/' + lb.list.length : ''); document.querySelectorAll('#lbx .nv').forEach(function (n) { n.style.display = lb.list.length > 1 ? '' : 'none'; }); }
+  $('lbx').addEventListener('click', function (e) {
+    var a = e.target.getAttribute('data-lb');
+    if (a === 'prev' || a === 'next') { lb.i = (lb.i + (a === 'next' ? 1 : -1) + lb.list.length) % lb.list.length; return showLb(); }
+    if (a === 'close' || e.target === this) this.classList.remove('open');
+  });
+  function copyBtn(text) { var b = el('button', 'cp', 'Copy'); b.type = 'button'; b.addEventListener('click', function () { try { navigator.clipboard.writeText(text); b.textContent = 'Copied'; } catch (e) {} }); return b; }
+  function tile(k, v, opt) {
+    opt = opt || {}; var t = el('div', 'tile' + (opt.wide ? ' wide' : ''));
+    t.appendChild(el('div', 'k', k)); var vv = el('div', 'v' + (opt.mono ? ' mono' : ''), v); if (opt.copy) vv.appendChild(copyBtn(opt.copy)); t.appendChild(vv);
+    if (opt.sm) t.appendChild(el('div', 'sm', opt.sm));
+    if (opt.link) { var a = el('a', null, opt.link[0]); a.href = opt.link[1]; a.target = '_blank'; a.rel = 'noopener noreferrer'; t.appendChild(a); }
+    return t;
+  }
+  function itemCard(x) {
+    var c = el('div', 'gi'); c.appendChild(el('h3', null, x.title)); if (x.body) c.appendChild(el('p', null, x.body));
+    if (x.photos && x.photos.length) {
+      var pics = el('div', 'pics'), list = x.photos.map(function (u) { return { src: u, cap: x.title }; });
+      x.photos.forEach(function (u, i) { var im = el('img'); im.src = u; im.alt = x.title; im.loading = 'lazy'; im.addEventListener('click', function () { openLb(list, i); }); pics.appendChild(im); });
+      c.appendChild(pics);
+    }
+    return c;
+  }
+  function cardFor(x) { return x.body && x.body.length > 420 && !(x.photos && x.photos.length) ? longCard(x.title, x.body) : itemCard(x); }
+  function longCard(title, text) {
+    var c = el('div', 'gi'), d = el('details'), s2 = el('summary', null, title); d.appendChild(s2); d.appendChild(el('p', null, text)); c.appendChild(d); return c;
+  }
   function renderGuide(g) {
     var p = g.property || {}, d = p.description || {}, body = $('g-body'); body.innerHTML = '';
     $('g-title').textContent = p.name || 'Home Guide';
-    var c = card('Your stay');
-    var kv = el('div', 'kv');
-    [['Check-in', fmt(g.stay.check_in, true) + (p.check_in_time ? '' : '')], ['Checkout', fmt(g.stay.check_out_date) + (p.check_out_time ? ' · ' + p.check_out_time : '')]].forEach(function (x) {
-      var b = el('div'); b.appendChild(el('div', 'k', x[0])); b.appendChild(el('div', 'v', x[1])); kv.appendChild(b); });
-    c.appendChild(kv);
-    if (p.address) {
-      c.appendChild(el('h4', null, 'Address')); c.appendChild(el('p', null, p.address));
-      var a = el('a', 'maps', 'Open in Maps ›'); a.href = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(p.address); a.target = '_blank'; a.rel = 'noopener noreferrer'; c.appendChild(a);
-    }
-    if (g.has_locked_items && !g.sensitive_unlocked) {
-      var lk = el('div', 'lock', 'Your door code, check-in instructions and Wi-Fi details will appear here starting ' + fmt(g.sensitive_from || g.stay.check_in) + ' (check-in day).'); lk.style.marginTop = '12px'; c.appendChild(lk);
-    }
-    body.appendChild(c);
-    // Team-written guide, grouped by section
-    var groups = {}; (g.guide || []).forEach(function (x) { (groups[x.section] = groups[x.section] || []).push(x); });
-    Object.keys(groups).forEach(function (sec) {
-      var gc = card(sec);
-      groups[sec].forEach(function (x) { gc.appendChild(el('h4', null, x.title)); var pp = el('p', null, x.body); if (x.sensitive) pp.className = 'secret-wrap'; gc.appendChild(pp); });
-      body.appendChild(gc);
+    // photo header
+    if (HERO_SRC) { var hz = el('div', 'g-hero'); hz.style.backgroundImage = 'url("' + HERO_SRC + '")'; hz.appendChild(el('div', 'n', p.name || '')); body.appendChild(hz); }
+    var nav = el('div', 'g-nav'), navIn = el('div', 'in'); nav.appendChild(navIn); body.appendChild(nav);
+    var wrap = el('div', 'g-wrap'); body.appendChild(wrap);
+
+    // quick tiles
+    var tiles = el('div', 'tiles');
+    var inTxt = fmt(g.stay.check_in, true), outTxt = fmt(g.stay.check_out_date) + (p.check_out_time ? ' · ' + p.check_out_time : '');
+    tiles.appendChild(tile('Check-in', inTxt)); tiles.appendChild(tile('Checkout', outTxt));
+    if (g.arrival && g.arrival.door_code) tiles.appendChild(tile('Door code', g.arrival.door_code, { mono: true, copy: g.arrival.door_code }));
+    if (g.wifi) tiles.appendChild(tile('Wi-Fi', g.wifi.password || g.wifi.name, { mono: !!g.wifi.password, copy: g.wifi.password || null, sm: g.wifi.password && g.wifi.name ? 'Network: ' + g.wifi.name : '' }));
+    if (p.address) tiles.appendChild(tile('Address', p.address, { wide: true, link: ['Open in Maps ›', 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(p.address)] }));
+    wrap.appendChild(tiles);
+
+    // bucket items into tabs
+    var bySec = {}; (g.guide || []).forEach(function (x) { (bySec[x.section] = bySec[x.section] || []).push(x); });
+    var known = {}; GUIDE_TABS.forEach(function (t) { t.secs.forEach(function (s2) { known[s2] = t.id; }); });
+    var buckets = {}; GUIDE_TABS.forEach(function (t) { buckets[t.id] = []; });
+    Object.keys(bySec).forEach(function (sec) {
+      var tid0 = known[sec] || (/check-?in|arriv|park/i.test(sec) ? 'arrival' : /check-?out|depart/i.test(sec) ? 'checkout' : /local|eat|food|restaurant|trail|bike|thing/i.test(sec) ? 'local' : /contact|help|emergenc/i.test(sec) ? 'help' : /rule|quirk|know/i.test(sec) ? 'know' : 'home');
+      // company-wide "General" items (how to reach us…) belong under Help
+      bySec[sec].forEach(function (x) { buckets[x.scope === 'company' && sec === 'General' ? 'help' : tid0].push(x); });
     });
-    [['About the home', d.summary], ['The space', d.space], ['Guest access', d.guest_access], ['House rules', d.house_rules], ['Other things to note', d.other_notes], ['The neighborhood', d.neighborhood], ['Getting around', d.getting_around]].forEach(function (x) {
-      if (!x[1]) return; var gc = card(x[0]); gc.appendChild(el('p', null, x[1])); body.appendChild(gc);
+    GUIDE_TABS.forEach(function (t) { buckets[t.id].sort(function (a, b) { var ia = t.secs.indexOf(a.section), ib = t.secs.indexOf(b.section); return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib); }); });
+    // Door code / Wi-Fi are already in the tiles; don't repeat them as cards
+    var hasCode = !!(g.arrival && g.arrival.door_code), hasWifi = !!g.wifi;
+    buckets.arrival = buckets.arrival.filter(function (x) { return !(hasCode && x.photos.length === 0 && /^(front )?door code$/i.test(x.title)); });
+    buckets.wifi = buckets.wifi.filter(function (x) { return !(hasWifi && x.photos.length === 0 && /^wi-?fi( network| password| network & password)?$/i.test(x.title)); });
+
+    var extra = {
+      arrival: function (sec) {
+        if (g.has_locked_items && !g.sensitive_unlocked) sec.appendChild(el('div', 'gi lockd', 'Your door code, Wi-Fi and check-in instructions appear here on ' + fmt(g.sensitive_from || g.stay.check_in) + ' (check-in day).'));
+        if (d.guest_access && !buckets.arrival.length) sec.appendChild(longCard('Getting in', d.guest_access));
+      },
+      home: function (sec) {
+        if (d.summary || d.space) sec.appendChild(longCard('About the home', [d.summary, d.space].filter(Boolean).join('\n\n')));
+        if (p.amenities && p.amenities.length) { var c = el('div', 'gi'), dd = el('details'); dd.appendChild(el('summary', null, 'Amenities (' + p.amenities.length + ')')); var ch = el('div', 'chips'); p.amenities.forEach(function (a) { ch.appendChild(el('span', null, a)); }); dd.appendChild(ch); c.appendChild(dd); sec.appendChild(c); }
+      },
+      know: function (sec) { if (d.house_rules) sec.appendChild(longCard('House rules', d.house_rules)); if (d.other_notes) sec.appendChild(longCard('Other things to note', d.other_notes)); },
+      checkout: function (sec) { if (!buckets.checkout.length) { var c = el('div', 'gi'); c.appendChild(el('h3', null, 'Checkout ' + (p.check_out_time ? 'by ' + p.check_out_time : ''))); c.appendChild(el('p', null, 'Lock up and you’re all set. Thanks for staying with us!')); sec.appendChild(c); } },
+      local: function (sec) { if (d.neighborhood) sec.appendChild(longCard('The neighborhood', d.neighborhood)); if (d.getting_around) sec.appendChild(longCard('Getting around', d.getting_around)); },
+      help: function (sec) {
+        var c = el('div', 'gi'); c.appendChild(el('h3', null, 'Questions? Text us.')); c.appendChild(el('p', null, 'Our AI teammate answers in seconds and loops in the team when needed. Emergencies: call 911.'));
+        var hb = el('button', 'secondary', 'Chat With Us'); hb.type = 'button'; hb.addEventListener('click', function () { closeSheet('guide-sheet'); $('open-chat').click(); }); c.appendChild(hb); sec.appendChild(c);
+      },
+    };
+    var shown = [];
+    GUIDE_TABS.forEach(function (t) {
+      var sec = el('section', 'g-sec'); sec.id = 'gs-' + t.id;
+      var h = el('h2'); h.innerHTML = '<span class="e">' + t.icon + '</span>'; h.appendChild(document.createTextNode(t.label)); sec.appendChild(h);
+      var before = sec.childNodes.length;
+      if (t.id === 'arrival' || t.id === 'help') { if (extra[t.id]) extra[t.id](sec); buckets[t.id].forEach(function (x) { sec.appendChild(cardFor(x)); }); }
+      else { buckets[t.id].forEach(function (x) { sec.appendChild(cardFor(x)); }); if (extra[t.id]) extra[t.id](sec); }
+      if (sec.childNodes.length === before) return; // nothing to show → no tab
+      wrap.appendChild(sec); shown.push(t);
+      var b = el('button'); b.type = 'button'; b.innerHTML = t.label; b.setAttribute('data-t', t.id);
+      b.addEventListener('click', function () { jump(t.id); }); navIn.appendChild(b);
     });
-    if (p.amenities && p.amenities.length) { var am = card('Amenities'), ch = el('div', 'chips'); p.amenities.forEach(function (a) { ch.appendChild(el('span', null, a)); }); am.appendChild(ch); body.appendChild(am); }
-    var help = card('Need anything?'); help.appendChild(el('p', null, 'Tap “Chat With Us” for quick answers, or message us through your booking app.'));
-    var hb = el('button', 'secondary', 'Chat With Us'); hb.type = 'button'; hb.addEventListener('click', function () { closeSheet('guide-sheet'); $('open-chat').click(); }); help.appendChild(hb); body.appendChild(help);
+    setActiveTab(shown.length ? shown[0].id : null);
+    $('g-scroll').scrollTop = 0;
   }
+  function jump(id) {
+    var sc = $('g-scroll'), sec = $('gs-' + id); if (!sec) return;
+    var navH = (document.querySelector('.g-nav') || { offsetHeight: 0 }).offsetHeight;
+    sc.scrollTo({ top: sec.offsetTop - navH - 4, behavior: 'smooth' });
+    setActiveTab(id); spyLock = Date.now() + 700;
+  }
+  var spyLock = 0;
+  function setActiveTab(id) {
+    document.querySelectorAll('.g-nav button').forEach(function (b) {
+      var on = b.getAttribute('data-t') === id; b.classList.toggle('on', on);
+      if (on) { var n = b.parentNode; n.scrollTo({ left: b.offsetLeft - n.clientWidth / 2 + b.offsetWidth / 2, behavior: 'smooth' }); }
+    });
+  }
+  $('g-scroll').addEventListener('scroll', function () {
+    var sc = this; $('g-top').classList.toggle('on', sc.scrollTop > 420);
+    if (Date.now() < spyLock) return;
+    var navH = (document.querySelector('.g-nav') || { offsetHeight: 0 }).offsetHeight, cur = null;
+    document.querySelectorAll('.g-sec').forEach(function (s2) { if (s2.offsetTop - navH - 30 <= sc.scrollTop) cur = s2.id.slice(3); });
+    if (sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 4) { var all = document.querySelectorAll('.g-sec'); if (all.length) cur = all[all.length - 1].id.slice(3); }
+    var first = document.querySelector('.g-sec'); if (!cur && first) cur = first.id.slice(3);
+    var onBtn = document.querySelector('.g-nav button.on');
+    if (cur && (!onBtn || onBtn.getAttribute('data-t') !== cur)) setActiveTab(cur);
+  }, { passive: true });
+  $('g-top').addEventListener('click', function () { $('g-scroll').scrollTo({ top: 0, behavior: 'smooth' }); });
 
   // ── Chat ──
   var lastId = 0, pollT = null, pollUntil = 0, chatLoaded = false;
@@ -453,7 +596,7 @@
 
 
   // ── house photo background ──
-  var PHOTOS = {}, NAMES = {}, photoReq = 0;
+  var PHOTOS = {}, NAMES = {}, photoReq = 0, HERO_SRC = null;
   function okPhoto(u) { return typeof u === 'string' && /^https:\/\/[^\s"'()\\]+$/.test(u) ? u : null; }
   // Guesty photos are full-size originals (often 5+ MB). Ask Guesty's image CDN for a sized copy;
   // fall back to the original if that ever fails.
@@ -462,10 +605,11 @@
   function setPhoto(u, name) {
     u = okPhoto(u); var bg = $('bg'), hero = document.querySelector('.hero'), req = ++photoReq;
     $('hero-prop').textContent = name || '';
-    if (!u) { document.documentElement.classList.remove('has-photo'); document.body.classList.remove('has-photo'); bg.classList.remove('on'); hero.style.backgroundImage = ''; bg.style.backgroundImage = ''; return; }
+    if (!u) { HERO_SRC = null; document.documentElement.classList.remove('has-photo'); document.body.classList.remove('has-photo'); bg.classList.remove('on'); hero.style.backgroundImage = ''; bg.style.backgroundImage = ''; return; }
     var big = Math.min(2400, Math.round(Math.max(window.innerWidth, 600) * (window.devicePixelRatio || 1)));
     loadImg([sized(u, big), u], function (src) {
       if (req !== photoReq || !src) return;
+      HERO_SRC = src;
       // light scrim only at the top (brand) and bottom (title) so the house itself stays clear
       hero.style.backgroundImage = 'linear-gradient(to bottom, rgba(12,18,14,.50) 0%, rgba(12,18,14,0) 26%, rgba(12,18,14,0) 52%, rgba(12,18,14,.62) 100%), url("' + src + '")';
       document.documentElement.classList.add('has-photo'); document.body.classList.add('has-photo');
