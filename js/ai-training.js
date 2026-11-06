@@ -115,7 +115,7 @@
   async function loadListings() {
     if (S.listings.length) return S.listings;
     var r = await db.from('listing_registry').select('listing_id,nickname,title,concierge_name').eq('is_listed', true).order('nickname');
-    S.listings = (r.data || []).map(function (l) { return { id: l.listing_id, label: (l.concierge_name || l.title || l.nickname) + (l.nickname ? ' (' + l.nickname + ')' : ''), keys: [l.nickname, l.title, l.concierge_name].map(norm) }; });
+    S.listings = (r.data || []).map(function (l) { return { id: l.listing_id, gname: String(l.nickname || l.title || '').trim(), label: (l.concierge_name || l.title || l.nickname) + (l.nickname ? ' (' + l.nickname + ')' : ''), keys: [l.nickname, l.title, l.concierge_name].map(norm) }; });
     return S.listings;
   }
   function suggest(name) {
@@ -168,6 +168,8 @@
     var h = '<div class="gg-note">This tab + the home’s guest info in Guesty are the <b>only</b> things the guest Home Guide and AI chat know about this home. Owner info, contracts, care and cleaning notes stay team-only. <b>Sensitive</b> items are released on check-in day.</div>';
     h += '<span class="lbl">Guesty listing</span><div class="row"><select id="gg-listing" style="flex:1;min-width:220px;">' + opts + '</select><button class="b p" data-a="link">' + (p.listing_id ? 'Update' : 'Link') + '</button></div>';
     if (!p.listing_id) h += '<div class="warn">' + (sug ? 'Suggested match selected — confirm with Link.' : 'Pick the Guesty listing for this property.') + '</div>';
+    var linkedL = p.listing_id && S.listings.find(function (l) { return l.id === p.listing_id; });
+    if (linkedL && linkedL.gname && linkedL.gname !== p.name) h += '<div class="warn">Guesty calls this listing “' + E(linkedL.gname) + '”. <button class="b sm" data-a="usename">Use Guesty name</button></div>';
     h += '<div class="tabs2"><button class="tab2' + (S.scope === 'home' ? ' on' : '') + '" data-a="scope-home">This home</button><button class="tab2' + (S.scope === 'all' ? ' on' : '') + '" data-a="scope-all">All homes</button></div>';
 
     if (S.scope === 'all') {
@@ -337,9 +339,12 @@
       var r = await db.from('properties').update({ listing_id: lid }).eq('id', S.prop.id);
       if (r.error) return toast(/listing_id|schema cache/i.test(r.error.message) ? 'Couldn’t link: the Guest Guide database update hasn’t been run in Supabase yet.' : 'Couldn’t link: ' + r.error.message, 'error');
       S.prop.listing_id = lid; toast('Linked to Guesty.', 'success');
+      var L = S.listings.find(function (l) { return l.id === lid; });
+      if (L && L.gname && L.gname !== S.prop.name && confirm('Rename “' + S.prop.name + '” to “' + L.gname + '” so it matches Guesty?')) await renameProperty(S.prop, L.gname);
       await Promise.all([loadItems(), loadGuesty()]); render(); badge(); return;
     }
     if ((a === 'prompt' || a === 'new') && S.scope === 'home' && !S.prop.listing_id) { var sel = $('gg-listing'); if (sel) sel.focus(); return toast('Link this property to its Guesty listing first (top of this tab).', 'error'); }
+    if (a === 'usename') { var L2 = S.listings.find(function (l) { return l.id === S.prop.listing_id; }); if (L2 && L2.gname) { await renameProperty(S.prop, L2.gname); render(); } return; }
     if (a === 'prompt') return startEdit(null, b.getAttribute('data-k'));
     if (a === 'new') return startEdit(null, null);
     if (a === 'edit') { var it = S.items.find(function (x) { return String(x.id) === b.getAttribute('data-id'); }); if (it) startEdit(it); return; }
@@ -373,6 +378,64 @@
     await loadItems(); render(); badge();
   }
 
+  // ── property name (editable; can follow the Guesty listing name) ─────────
+  // Invoices store the property NAME, so a rename also updates this property's charges and
+  // recurring invoices — otherwise they'd lose their link (package badge, totals by property).
+  async function renameProperty(p, newName) {
+    newName = String(newName || '').trim(); var old = p.name;
+    if (!newName || newName === old) return true;
+    if (props().some(function (x) { return x.id !== p.id && String(x.name).trim().toLowerCase() === newName.toLowerCase(); })) { toast('Another property is already named “' + newName + '”.', 'error'); return false; }
+    var r = await db.from('properties').update({ name: newName }).eq('id', p.id);
+    if (r.error) { toast('Rename failed: ' + r.error.message, 'error'); return false; }
+    var errs = [];
+    for (var t of ['prop_charges', 'recurring_invoices']) {
+      var u = await db.from(t).update({ property_name: newName }).eq('property_name', old);
+      if (u.error) errs.push(t + ': ' + u.error.message);
+    }
+    props().forEach(function (x) { if (x.id === p.id) x.name = newName; }); p.name = newName;
+    ['invCharges', 'propCharges', 'recurringInvoices'].forEach(function (k) { var arr = window[k]; if (Array.isArray(arr)) arr.forEach(function (c) { if (c && c.property_name === old) c.property_name = newName; }); });
+    var hd = $('prop-detail-name'); if (hd && window.currentPropertyId === p.id) hd.textContent = newName;
+    if (typeof renderPropertyGrid === 'function') try { renderPropertyGrid(); } catch (e) {}
+    toast(errs.length ? 'Renamed, but some invoices didn’t update: ' + errs.join('; ') : 'Renamed to “' + newName + '”.', errs.length ? 'error' : 'success');
+    return true;
+  }
+  function nameInput() {
+    var i = $('pe-name');
+    if (!i) {
+      var hd = $('prop-detail-name'); if (!hd) return null;
+      i = document.createElement('input'); i.id = 'pe-name'; i.type = 'text'; i.maxLength = 120; i.placeholder = 'Property name (match Guesty)';
+      i.style.cssText = 'display:none;width:100%;min-width:220px;font:inherit;font-size:17px;font-weight:600;background:var(--surface2,#242422);border:1px solid var(--accent,#c8a96e);color:var(--text,#f0ede6);border-radius:6px;padding:6px 9px;box-sizing:border-box;';
+      hd.parentNode.insertBefore(i, hd.nextSibling);
+    }
+    return i;
+  }
+  function showNameEdit(on) {
+    var i = nameInput(), hd = $('prop-detail-name'); if (!i || !hd) return;
+    var p = currentProp();
+    if (on && p) { i.value = p.name || ''; i.style.display = ''; hd.style.display = 'none'; }
+    else { i.style.display = 'none'; hd.style.display = ''; }
+  }
+  function wrapEdit() {
+    if (typeof window.togglePropEdit === 'function' && !window.togglePropEdit.__gg) {
+      var t0 = window.togglePropEdit;
+      window.togglePropEdit = function () { var r = t0.apply(this, arguments); showNameEdit(!!window.propEditMode); return r; };
+      window.togglePropEdit.__gg = true;
+    }
+    if (typeof window.savePropEdits === 'function' && !window.savePropEdits.__gg) {
+      var s0 = window.savePropEdits;
+      window.savePropEdits = async function () {
+        var i = $('pe-name'), p = currentProp();
+        if (i && i.style.display !== 'none' && p) {
+          var nn = i.value.trim();
+          if (!nn) return toast('The property needs a name.', 'error');
+          if (nn !== p.name && !(await renameProperty(p, nn))) return;
+        }
+        var r = await s0.apply(this, arguments); showNameEdit(false); return r;
+      };
+      window.savePropEdits.__gg = true;
+    }
+  }
+
   // ── tab wiring ────────────────────────────────────────────────────────
   function badge() {
     var b = $('gg-tab-btn'); if (!b) return;
@@ -399,11 +462,12 @@
     var pn = document.createElement('div'); pn.className = 'prop-tab-panel'; pn.id = 'proptab-guide'; pn.style.display = 'none';
     last.parentNode.insertBefore(pn, last.nextSibling);
     pn.addEventListener('click', onClick);
+    wrapEdit();
     pn.addEventListener('change', function (e) { if (e.target.id === 'gg-file' && e.target.files && e.target.files.length) addPhotos(e.target.files); });
     // New property opened → forget the previous one's state
     if (typeof window.openPropertyDetail === 'function' && !window.openPropertyDetail.__gg) {
       var orig = window.openPropertyDetail;
-      window.openPropertyDetail = function () { S.prop = null; S.editing = null; var r = orig.apply(this, arguments); btn.innerHTML = '&#129302; Guest Guide &amp; AI'; return r; };
+      window.openPropertyDetail = function () { S.prop = null; S.editing = null; var r = orig.apply(this, arguments); btn.innerHTML = '&#129302; Guest Guide &amp; AI'; showNameEdit(false); return r; };
       window.openPropertyDetail.__gg = true;
     }
     return true;
