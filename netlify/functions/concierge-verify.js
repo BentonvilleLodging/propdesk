@@ -1,8 +1,8 @@
 // netlify/functions/concierge-verify.js
-// PUBLIC. POST { listing_id, identifier, last_name?, website? }  → { ok, token, session } | generic failure
+// PUBLIC. POST { listing_id, method?, identifier, last_name?, website? }  → { ok, token, session } | generic failure
 //
 // Unlocks a guest's Concierge only when Guesty has an ACTIVE reservation for THAT listing whose
-// confirmation code matches, or whose booking email AND guest last name both match.
+// confirmation code matches, or whose booking email (or phone number) AND guest last name both match.
 // Active = status confirmed and now is within (check-in − 48h) … end of checkout day (Central).
 // Every response for a non-match is identical (same message, same minimum response time), so the
 // endpoint never reveals whether a code, email or reservation exists. Failed attempts are
@@ -11,7 +11,7 @@ const C = require('../lib/concierge');
 const I = require('../lib/intel');
 
 const MIN_MS = 900;
-const NO_MATCH = "We couldn't find an active reservation for that property. Check the property and your confirmation code, or use the email on your booking plus your last name. The guide opens 48 hours before check-in.";
+const NO_MATCH = "We couldn't find an active reservation for that property. Check the property and try your confirmation code, or the email or phone number on your booking plus your last name. The guide opens 48 hours before check-in.";
 
 async function logAttempt(ipHash, listingId, ok, reason) {
   await I.sbInsert('concierge_attempts', [{ ip_hash: ipHash, listing_id: listingId || null, ok, reason }]).catch(() => {});
@@ -41,7 +41,8 @@ exports.handler = async function (event) {
     return finish(503, { ok: false, error: 'The concierge is temporarily unavailable. Please try again shortly.' });
   }
 
-  const input = C.parseInput(b.identifier, b.last_name);
+  const method = ['code', 'email', 'phone'].includes(b.method) ? b.method : null;
+  const input = C.parseInput(b.identifier, b.last_name, method);
   if (!listingId || !input) { await logAttempt(ipHash, listingId, false, 'bad input'); return finish(200, { ok: false, error: NO_MATCH }); }
 
   let listings;
@@ -56,6 +57,7 @@ exports.handler = async function (event) {
     console.error('concierge guesty lookup failed', e.message); // not counted against the guest
     return finish(503, { ok: false, error: 'We couldn’t reach our reservation system. Please try again in a minute.' });
   }
+  if (input.kind === 'phone') await C.ensurePhones(cands);
   const r = cands.find((x) => C.matches(x, input));
   if (!r) { await logAttempt(ipHash, listingId, false, 'no match (' + input.kind + ')'); return finish(200, { ok: false, error: NO_MATCH }); }
 
