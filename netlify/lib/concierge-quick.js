@@ -28,6 +28,10 @@ const INTENTS = [
   { key: 'address', test: has(/\b(address|where is the (house|home|cabin|property)|location of the (house|home|cabin|property))\b/i) },
   { key: 'parking', test: has(/\b(park|parking|where (do|can|should) (we|i) park|garage|driveway)\b/i) },
   { key: 'trash', test: has(/\b(trash|garbage|recycl\w*|bins?|rubbish)\b/i) },
+  // Things to Do picks (curated list) — only plain "where's good coffee / where should we eat" lookups
+  { key: 'place', cat: 'Coffee', test: (t) => /\b(coffee|espresso|latte|cafe|café)\b/i.test(t) && /\b(where|good|best|recommend\w*|nearby|close|near|spot|shop|place|get)\b/i.test(t) && !/\b(maker|keurig|pods?|k-?cups?|filters?|machine)\b/i.test(t) },
+  { key: 'place', cat: 'Eat', test: (t) => /\b(restaurants?|eat|dinner|lunch|breakfast|brunch|food)\b/i.test(t) && /\b(where|good|best|recommend\w*|nearby|close|near|spot|places?|grab)\b/i.test(t) },
+  { key: 'place', cat: 'Drinks', test: (t) => /\b(brewery|breweries|beer|bars?|drinks?|cocktails?)\b/i.test(t) && /\b(where|good|best|recommend\w*|nearby|close|near|spot|places?|grab)\b/i.test(t) },
   // Things the team documents in the walkthrough — answered only as "where is / how do I use"
   { key: 'item', titles: [/breaker/i], test: has(/\b(breakers?|breaker box|electrical panel|fuse box)\b/i) },
   { key: 'item', titles: [/water heater/i], test: has(/\b(water heater|hot water heater)\b/i) },
@@ -97,6 +101,13 @@ const ANSWER = {
     const xs = (k.guide || []).filter((g) => g.section === 'Trash & recycling' || /trash|recycl/i.test(g.title));
     return xs.length ? xs.map((x) => clip(x.body, 400) + photoNote(x)).join(' ') : null;
   },
+  place(k, intent) {
+    const xs = (k.places || []).filter((p) => p.category === intent.cat);
+    if (!xs.length) return null;
+    const top = xs.slice(0, 3).map((p) => `${p.name}${p.miles != null ? ' (~' + Math.max(1, Math.round(p.miles)) + ' mi)' : ''} — ${p.blurb}`);
+    const label = { Coffee: 'coffee spots', Eat: 'places to eat', Drinks: 'spots for a drink' }[intent.cat];
+    return `A few ${label} we love:\n• ${top.join('\n• ')}\nThere’s more in the Things to Do tab of your Home Guide.`;
+  },
   item(k, intent) {
     const x = find(k, (g) => !g.sensitive && intent.titles.some((re) => re.test(g.title)));
     return x ? `${x.title}: ${clip(x.body, 500)}${photoNote(x)}` : null;
@@ -108,12 +119,14 @@ function quickAnswer(message, k) {
   const t = String(message || '').replace(/[‘’ʼ]/g, "'").replace(/\s+/g, ' ').trim();
   if (!t || t.length > MAX_LEN || !k) return null;
   if (PROBLEM.test(t)) return null;
-  if (REQUEST.test(t) && !/^(when|what time)\b/i.test(t)) return null; // "when can we check in?" is still a lookup
+  if (REQUEST.test(t) && !/^(when|what time|where)\b/i.test(t)) return null; // "when can we check in?" / "where can we get coffee?" are still lookups
   let hits = INTENTS.filter((i) => i.test(t));
   // the more specific check-in / checkout intents win over the time questions
   if (hits.some((h) => h.key === 'checkin_how')) hits = hits.filter((h) => h.key !== 'checkin');
   if (hits.some((h) => h.key === 'checkout_how')) hits = hits.filter((h) => h.key !== 'checkout');
   if (hits.some((h) => h.key === 'wifi')) hits = hits.filter((h) => !(h.key === 'item' && /router/.test(String(h.titles))) || /router|modem/i.test(t));
+  // "where's good coffee" is about coffee shops, not the coffee maker
+  if (hits.some((h) => h.key === 'place' && h.cat === 'Coffee')) hits = hits.filter((h) => !(h.key === 'item' && /coffee/.test(String(h.titles))));
   if (!hits.length || hits.length > 3) return null;
   // If the message has lots of words the intents didn't explain, it's probably not a simple lookup.
   if (t.split(' ').length > 18) return null;
@@ -123,7 +136,7 @@ function quickAnswer(message, k) {
     if (!a) return null; // missing info for any part → let Claude handle the whole message
     if (!parts.includes(a)) parts.push(a);
   }
-  return { reply: parts.join('\n\n'), intents: hits.map((h) => h.key === 'item' ? 'item:' + String(h.titles[0]).replace(/[/\\i]/g, '') : h.key) };
+  return { reply: parts.join('\n\n'), intents: hits.map((h) => h.key === 'item' ? 'item:' + String(h.titles[0]).replace(/[/\\i]/g, '') : h.key === 'place' ? 'place:' + h.cat : h.key) };
 }
 
 module.exports = { quickAnswer, PROBLEM, REQUEST };
