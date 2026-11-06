@@ -3,12 +3,14 @@
 //   POST { message }        → stores the guest's message, starts the agent → { ok, id }
 //   GET  ?after=<id>        → messages after <id> for this reservation + whether a reply is pending
 // The AI runs in concierge-agent-background (internal key only — guests can't call it directly).
-// Limits per reservation: 30 messages/hour, 100/day, 300/stay; 800/day across all guests.
+// Limits per reservation: 20 messages/hour, 40/day, 150/stay; 300/day across all guests
+// (concierge_chat_limits). Staff get a push when all-homes chat volume hits 150 and 250 in a day.
 const C = require('../lib/concierge');
 const I = require('../lib/intel');
 const { internalHeaders } = require('../lib/auth');
 
 const MAX_LEN = 800;
+const ALERT_AT = [150, 250]; // all-homes guest messages in 24h
 
 exports.handler = async function (event) {
   const isPost = event.httpMethod === 'POST';
@@ -43,6 +45,11 @@ exports.handler = async function (event) {
   try {
     const lim = await I.sbRpc('concierge_chat_limits', { p_reservation_id: s.reservation_id });
     if (lim && lim.blocked) return C.reply(429, { error: 'You’ve sent a lot of messages — please message us through your booking app and our team will jump in.' });
+    if (lim && ALERT_AT.includes(lim.global_day)) {
+      const base0 = process.env.URL || 'https://bentonvillelodgingcomanagement.com';
+      await fetch(`${base0}/.netlify/functions/send-push`, { method: 'POST', headers: internalHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ title: '💬 Concierge chat volume', message: `${lim.global_day} guest chat messages in the last 24 hours (daily cap is 300). Check for unusual use.`, tag: 'concierge-volume', url: '/' }) }).catch(() => {});
+    }
     const [msg] = await I.sbInsert('concierge_messages', [{ session_id: s.id, reservation_id: s.reservation_id, listing_id: s.listing_id, role: 'user', content: text }]);
     const base = process.env.URL || 'https://bentonvillelodgingcomanagement.com';
     const r = await fetch(`${base}/.netlify/functions/concierge-agent-background`, {
