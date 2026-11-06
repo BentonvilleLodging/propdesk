@@ -28,7 +28,7 @@
   .card h2 { font-family: "Playfair Display", serif; font-size: 22px; margin: 0 0 4px; }
   .sub { color: var(--muted); font-size: 14px; line-height: 1.5; margin: 0 0 18px; }
   label { display: block; font-size: 13px; font-weight: 600; margin: 14px 0 6px; }
-  select, input[type=text], input[type=email] {
+  select, input[type=text], input[type=email], input[type=tel] {
     width: 100%; font: inherit; font-size: 16px; color: var(--ink); background: #fff; border: 1px solid #d6cdbb; border-radius: 10px; padding: 13px 14px; appearance: none; -webkit-appearance: none;
   }
   select { background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 20px) 55%, calc(100% - 14px) 55%; background-size: 6px 6px; background-repeat: no-repeat; padding-right: 36px; }
@@ -175,11 +175,16 @@
   .lbx .x { position: absolute; top: max(12px, env(safe-area-inset-top)); right: 14px; background: none; border: none; color: #fff; font-size: 30px; cursor: pointer; }
   .lbx .nv { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,.14); border: none; color: #fff; width: 42px; height: 42px; border-radius: 50%; font-size: 22px; cursor: pointer; }
   .lbx .nv.l { left: 10px; } .lbx .nv.r { right: 10px; }
+  .seg { display: flex; background: var(--cream); border: 1px solid var(--line); border-radius: 10px; padding: 3px; gap: 3px; }
+  .seg button { flex: 1; font: inherit; font-size: 13px; font-weight: 600; color: var(--muted); background: none; border: none; border-radius: 8px; padding: 9px 4px; cursor: pointer; }
+  .seg button.on { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  .logout { position: fixed; top: max(12px, env(safe-area-inset-top)); right: 12px; z-index: 40; font: inherit; font-size: 13px; font-weight: 600; color: #fff; background: rgba(20,28,23,.55); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,.3); border-radius: 30px; padding: 7px 13px; cursor: pointer; }
   .hidden { display: none !important; }
 </style>
 </head>
 <body>
   <div id="bg" aria-hidden="true"></div>
+  <button type="button" class="logout hidden" id="logout">Log out</button>
   <header class="hero">
     <div class="brand"><span class="mark">B</span>Bentonville Lodging Co.</div>
     <div><div class="hero-prop" id="hero-prop"></div>
@@ -196,14 +201,21 @@
         <label for="prop">Property</label>
         <select id="prop" required><option value="">Loading properties…</option></select>
 
-        <label for="ident">Confirmation code or booking email</label>
-        <input type="text" id="ident" required maxlength="160" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="e.g. HMABC12345 or you@email.com">
-        <div class="hint">Booked on Airbnb? Use your confirmation code (starts with HM) — it's in your Airbnb trip details.</div>
+        <label>Find my reservation with</label>
+        <div class="seg" role="tablist" id="method">
+          <button type="button" role="tab" data-m="phone" class="on">Phone</button>
+          <button type="button" role="tab" data-m="code">Booking code</button>
+          <button type="button" role="tab" data-m="email">Email</button>
+        </div>
 
-        <div id="ln-wrap" class="hidden">
+        <div id="ln-wrap">
           <label for="lname">Last name on the booking</label>
           <input type="text" id="lname" maxlength="80" autocomplete="family-name">
         </div>
+
+        <label for="ident" id="ident-lbl">Phone number on the booking</label>
+        <input type="tel" id="ident" required maxlength="160" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="(479) 555-0100" autocomplete="tel">
+        <div class="hint" id="ident-hint">The mobile number you booked with.</div>
 
         <div class="hp" aria-hidden="true"><label for="website">Website</label><input type="text" id="website" tabindex="-1" autocomplete="off"></div>
 
@@ -239,7 +251,7 @@
         <div class="ok hidden" id="nl-ok">&#10003; You're on the list — thanks!</div>
       </div>
 
-      <div style="text-align:center;margin-top:20px;"><button class="link" id="signout" type="button">Not your stay? Sign out</button></div>
+      <div style="text-align:center;margin-top:20px;"><button class="link" id="signout" type="button">Not your stay? Log out</button></div>
     </section>
   </main>
 
@@ -303,23 +315,36 @@
     }
   }
 
-  $('ident').addEventListener('input', function () {
-    var isEmail = this.value.indexOf('@') >= 0;
-    $('ln-wrap').classList.toggle('hidden', !isEmail);
-  });
+  // How the guest proves the booking: phone + last name, confirmation code, or email + last name
+  var METHOD = 'phone';
+  var METHODS = {
+    phone: { lbl: 'Phone number on the booking', ph: '(479) 555-0100', type: 'tel', ac: 'tel', hint: 'The mobile number you booked with.', last: true },
+    code: { lbl: 'Confirmation code', ph: 'e.g. HMABC12345', type: 'text', ac: 'off', hint: 'Booked on Airbnb? It starts with HM — find it in your Airbnb trip details.', last: false },
+    email: { lbl: 'Email on the booking', ph: 'you@email.com', type: 'email', ac: 'email', hint: 'The email address you booked with.', last: true },
+  };
+  function setMethod(m) {
+    METHOD = m; var c = METHODS[m];
+    document.querySelectorAll('#method button').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-m') === m); b.setAttribute('aria-selected', b.getAttribute('data-m') === m); });
+    $('ident-lbl').textContent = c.lbl; $('ident-hint').textContent = c.hint;
+    var i = $('ident'); i.type = c.type; i.placeholder = c.ph; i.setAttribute('autocomplete', c.ac); i.value = '';
+    $('ln-wrap').classList.toggle('hidden', !c.last); hideErr($('err'));
+  }
+  document.querySelectorAll('#method button').forEach(function (b) { b.addEventListener('click', function () { setMethod(b.getAttribute('data-m')); }); });
 
   $('gate-form').addEventListener('submit', async function (e) {
     e.preventDefault();
     var err = $('err'); hideErr(err);
     var listing = $('prop').value, ident = $('ident').value.trim(), ln = $('lname').value.trim();
     if (!listing) return showErr(err, 'Please choose your property.');
-    if (!ident) return showErr(err, 'Enter your confirmation code or booking email.');
-    if (ident.indexOf('@') >= 0 && !ln) { $('lname').focus(); return showErr(err, 'Enter the last name on the booking.'); }
+    if (METHODS[METHOD].last && !ln) { $('lname').focus(); return showErr(err, 'Enter the last name on the booking.'); }
+    if (!ident) { $('ident').focus(); return showErr(err, 'Enter your ' + METHODS[METHOD].lbl.toLowerCase() + '.'); }
+    if (METHOD === 'phone' && ident.replace(/\D/g, '').length < 10) return showErr(err, 'Enter the full phone number, including area code.');
+    if (METHOD === 'email' && ident.indexOf('@') < 0) return showErr(err, 'Enter the email address on the booking.');
     var btn = $('unlock'); btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Checking your reservation…';
     try {
       var r = await fetch(API + 'concierge-verify', {
         method: 'POST', credentials: 'omit', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ listing_id: listing, identifier: ident, last_name: ln, website: $('website').value }),
+        body: JSON.stringify({ listing_id: listing, method: METHOD, identifier: ident, last_name: METHODS[METHOD].last ? ln : '', website: $('website').value }),
       });
       var j = await r.json().catch(function () { return {}; });
       if (!j.ok || !j.token) throw new Error(j.error || 'Something went wrong. Please try again.');
@@ -335,7 +360,7 @@
 
   function showWelcome(s, usedEmail) {
     current = s;
-    $('gate').classList.add('hidden'); $('welcome').classList.remove('hidden');
+    $('gate').classList.add('hidden'); $('welcome').classList.remove('hidden'); $('logout').classList.remove('hidden');
     $('w-hello').textContent = s.guest_first_name ? 'Welcome, ' + s.guest_first_name + '!' : 'Welcome!';
     $('w-prop').textContent = 'Your stay at ' + (s.property && s.property.name ? s.property.name : 'Bentonville Lodging Co.');
     $('w-in').textContent = fmt(s.check_in, true);
@@ -367,10 +392,18 @@
   function signOut() {
     store(null); if (typeof stopPoll === 'function') stopPoll(); lastId = 0; chatLoaded = false; current = null;
     var m = $('msgs'); Array.prototype.slice.call(m.children).forEach(function (c) { if (c.id !== 'typing') m.removeChild(c); });
-    $('welcome').classList.add('hidden'); $('gate').classList.remove('hidden');
+    $('welcome').classList.add('hidden'); $('gate').classList.remove('hidden'); $('logout').classList.add('hidden');
     $('arrival').innerHTML = ''; $('arrival').className = ''; setPhoto(PHOTOS[$('prop').value], NAMES[$('prop').value]);
   }
-  $('signout').addEventListener('click', signOut);
+  // Log out: revoke the session on the server too, then forget it on this device.
+  async function logOut() {
+    var s = stored();
+    ['guide-sheet', 'chat-sheet'].forEach(function (id) { if ($(id).classList.contains('open')) closeSheet(id); });
+    if (s) { try { await fetch(API + 'concierge-session', { method: 'DELETE', credentials: 'omit', headers: { Authorization: 'Bearer ' + s.token } }); } catch (e) {} }
+    signOut(); window.scrollTo(0, 0);
+  }
+  $('signout').addEventListener('click', logOut);
+  $('logout').addEventListener('click', logOut);
 
   async function resume() {
     var s = stored(); if (!s) return;
