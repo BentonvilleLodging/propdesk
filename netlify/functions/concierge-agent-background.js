@@ -14,7 +14,12 @@ const I = require('../lib/intel');
 const C = require('../lib/concierge');
 const K = require('../lib/concierge-knowledge');
 
-const HISTORY = 16;
+const HISTORY = 10;
+// Cost control: (1) prompt caching — the instructions + this home's guest-safe info go first and are
+// marked cacheable, so follow-up messages within ~5 minutes re-read them at ~10% of the input price;
+// the conversation so far is cached too. (2) "thanks"/"ok"-type messages get a canned reply with no
+// API call. (3) short replies (max_tokens 500), last 10 messages of history.
+const ACK_RE = /^(thanks?( (you|so much|a lot))?|thank you( so much)?|thx|ty|ok(ay)?|k|cool|great|awesome|perfect|got it|sounds good|will do|nice|appreciate it|👍|🙏|❤️|😊)[\s!.]*$/i;
 const FALLBACK = "Sorry, I'm having trouble on my end right now. Please message us through your booking app and someone from our team will help you right away.";
 
 const SYSTEM = `You are the Bentonville Lodging Co. support teammate — an AI assistant that helps guests during their stay at one of our homes in Northwest Arkansas. Guests know you're an AI teammate trained on common troubleshooting and support for their home.
@@ -34,23 +39,33 @@ Boundaries: you only help with this guest's stay and the local area. You have no
 Reply with ONLY a JSON object, no markdown:
 {"reply":"what you text the guest","escalate":false,"urgency":"none|normal|urgent|emergency","summary":"if escalating: one line for staff describing the issue; otherwise empty"}`;
 
+// Split into the part that's the same for every guest of this home (cached) and the part that's
+// specific to this guest / today (not cached). Sensitive items are only in the second part, so the
+// cached block never changes on check-in day and is shared by everyone chatting about this home.
 function homeInfo(k) {
   const p = k.property || {};
   const lines = [];
   lines.push(`Home: ${p.name || ''}${p.address ? ' — ' + p.address : ''}`);
   if (p.type || p.bedrooms || p.bathrooms || p.sleeps) lines.push(`Details: ${[p.type, p.bedrooms != null ? p.bedrooms + ' bedrooms' : '', p.bathrooms != null ? p.bathrooms + ' bathrooms' : '', p.sleeps ? 'sleeps ' + p.sleeps : ''].filter(Boolean).join(', ')}`);
   if (p.check_in_time || p.check_out_time) lines.push(`Check-in time: ${p.check_in_time || 'see listing'} · Checkout time: ${p.check_out_time || 'see listing'}`);
-  lines.push(`This guest: ${k.guest_first_name || 'guest'} · check-in ${k.stay.check_in ? new Date(k.stay.check_in).toLocaleString('en-US', { timeZone: 'America/Chicago', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''} · checkout ${k.stay.check_out_date || ''}`);
-  lines.push(k.sensitive_unlocked ? 'Sensitive items (codes/Wi-Fi): released — share them if the guest asks.' : (k.has_locked_items ? 'Sensitive items (codes/Wi-Fi): NOT released yet — they appear in the guest’s guide starting check-in day.' : 'Sensitive items: none on file.'));
   const d = (p.description || {});
   [['About the home', d.summary], ['The space', d.space], ['Guest access', d.guest_access], ['Neighborhood', d.neighborhood], ['Getting around', d.getting_around], ['Other things to note', d.other_notes], ['House rules', d.house_rules]]
     .forEach(([h, v]) => { if (v) lines.push(`\n## ${h}\n${v}`); });
   if (p.amenities && p.amenities.length) lines.push(`\n## Amenities\n${p.amenities.join(', ')}`);
-  if (k.guide.length) {
+  const line = (g) => `- [${g.section}] ${g.title}: ${g.body}${g.photos && g.photos.length && !g.ai_only ? ' (photo in guide)' : ''}`;
+  const open = k.guide.filter((g) => !g.sensitive), secret = k.guide.filter((g) => g.sensitive);
+  if (open.length) {
     lines.push('\n## Home guide (written by our team + from Guesty). "photo in guide" = the guest can see a photo of it in their Home Guide.');
-    k.guide.forEach((g) => lines.push(`- [${g.section}] ${g.title}: ${g.body}${g.photos && g.photos.length && !g.ai_only ? ' (photo in guide)' : ''}`));
+    open.forEach((g) => lines.push(line(g)));
   }
-  return lines.join('\n').slice(0, 30000);
+  const shared = lines.join('\n').slice(0, 30000);
+
+  const mine = [];
+  mine.push(`This guest: ${k.guest_first_name || 'guest'} · check-in ${k.stay.check_in ? new Date(k.stay.check_in).toLocaleString('en-US', { timeZone: 'America/Chicago', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''} · checkout ${k.stay.check_out_date || ''}`);
+  mine.push(k.sensitive_unlocked ? 'Sensitive items (codes/Wi-Fi): released — share them if the guest asks.' : (k.has_locked_items ? 'Sensitive items (codes/Wi-Fi): NOT released yet — they appear in the guest’s guide starting check-in day.' : 'Sensitive items: none on file.'));
+  if (secret.length) { mine.push('\n## Sensitive items (released today)'); secret.forEach((g) => mine.push(line(g))); }
+  mine.push(`\nToday is ${new Date().toLocaleDateString('en-US', { timeZone: 'America/Chicago', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })} (Central time).`);
+  return { shared, mine: mine.join('\n').slice(0, 12000) };
 }
 
 async function callClaude(system, messages) {
@@ -62,7 +77,7 @@ async function callClaude(system, messages) {
       method: 'POST', signal: ctrl.signal,
       headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json',
         ...(process.env.ANTHROPIC_WORKSPACE_ID ? { 'anthropic-workspace-id': process.env.ANTHROPIC_WORKSPACE_ID } : {}) },
-      body: JSON.stringify({ model: process.env.CONCIERGE_MODEL || I.CLAUDE_MODEL, max_tokens: 800, system, messages }),
+      body: JSON.stringify({ model: process.env.CONCIERGE_MODEL || I.CLAUDE_MODEL, max_tokens: 500, system, messages }),
     });
     const raw = await res.text();
     if (!res.ok) throw new Error(`Claude ${res.status}: ${raw.slice(0, 200)}`);
@@ -114,6 +129,12 @@ exports.handler = async function (event) {
   const [s] = await I.sbSelect('concierge_sessions', `select=*&id=eq.${m.session_id}`).catch(() => []);
   const save = (content, extra) => I.sbInsert('concierge_messages', [Object.assign({ session_id: m.session_id, reservation_id: m.reservation_id, listing_id: m.listing_id, role: 'assistant', content }, extra || {})]).catch((e) => console.error('concierge save', e.message));
   if (!s || s.revoked || new Date(s.expires_at) <= new Date()) return save("Your guide access has ended — if you still need help, please message us through your booking app.");
+  // "thanks" / "ok" → friendly canned reply, no API call
+  // (only when the guest's previous message was already answered, so a quick "thanks" can't swallow a question)
+  if (ACK_RE.test(String(m.content || '').trim())) {
+    const [prev] = await I.sbSelect('concierge_messages', `select=role&reservation_id=eq.${encodeURIComponent(m.reservation_id)}&id=lt.${id}&order=id.desc&limit=1`).catch(() => []);
+    if (!prev || prev.role === 'assistant') return save('You got it! Text me anytime if you need anything else.', { meta: { canned: true } });
+  }
 
   const listings = await C.conciergeListings().catch(() => []);
   const l = listings.find((x) => x.id === s.listing_id);
@@ -125,7 +146,14 @@ exports.handler = async function (event) {
     while (msgs.length && msgs[0].role !== 'user') msgs.shift(); // API needs to start with the user
     const merged = []; // merge consecutive same-role turns
     msgs.forEach((x) => { if (merged.length && merged[merged.length - 1].role === x.role) merged[merged.length - 1].content += '\n' + x.content; else merged.push({ ...x }); });
-    const system = SYSTEM + '\n\nHOME_INFO (facts you may use):\n' + homeInfo(k) + `\n\nToday is ${new Date().toLocaleDateString('en-US', { timeZone: 'America/Chicago', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })} (Central time).`;
+    const hi = homeInfo(k);
+    const system = [
+      { type: 'text', text: SYSTEM + '\n\nHOME_INFO (facts you may use):\n' + hi.shared, cache_control: { type: 'ephemeral' } },
+      { type: 'text', text: 'THIS GUEST / TODAY:\n' + hi.mine },
+    ];
+    // cache the conversation so far, so the next message only pays full price for what's new
+    const lastMsg = merged[merged.length - 1];
+    if (lastMsg) lastMsg.content = [{ type: 'text', text: lastMsg.content, cache_control: { type: 'ephemeral' } }];
     const out0 = await callClaude(system, merged);
     const out = parse(out0.text) || { reply: FALLBACK, escalate: true, urgency: 'normal', summary: 'AI reply could not be read' };
     if (out.escalate) await notifyStaff(s, name, out, m.content); // before saving, so the 30-min de-dupe doesn't see this reply
