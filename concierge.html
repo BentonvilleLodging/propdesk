@@ -104,10 +104,26 @@
   .composer button:disabled { opacity: .5; }
   .composer .note { max-width: 640px; margin: 6px auto 0; font-size: 11px; color: var(--muted); text-align: center; }
   .chat-err { max-width: 640px; margin: 0 auto 6px; font-size: 13px; color: var(--red); text-align: center; }
+
+  /* House photo: faded behind the page, richer behind the header */
+  #bg { position: fixed; inset: 0; z-index: -1; background: var(--cream) center / cover no-repeat; transition: opacity .6s; opacity: 0; }
+  #bg.on { opacity: 1; }
+  body.has-photo { background: transparent; }
+  body.has-photo .hero { background-size: cover; background-position: center; }
+  body.has-photo .hero::after { height: 90px; border-radius: 0; transform: none; background: linear-gradient(to bottom, rgba(246,242,234,0), rgba(246,242,234,.86)); }
+  .arrival { margin-top: 14px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .arrival .row { padding: 12px 14px; }
+  .arrival .row + .row { border-top: 1px solid var(--line); }
+  .arrival .k { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .arrival .code { font-family: ui-monospace, Menlo, monospace; font-size: 24px; font-weight: 700; letter-spacing: .12em; margin-top: 4px; }
+  .arrival .ins { font-size: 14.5px; line-height: 1.55; margin-top: 4px; white-space: pre-line; color: #34302a; }
+  .arrival.locked { background: #fbf6e8; border-color: #ecdcae; color: #7a6223; padding: 12px 14px; font-size: 13.5px; line-height: 1.45; }
+  .arrival .copy { margin-left: 10px; font: inherit; font-size: 12px; font-weight: 600; color: var(--forest); background: none; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; cursor: pointer; vertical-align: 4px; }
   .hidden { display: none !important; }
 </style>
 </head>
 <body>
+  <div id="bg" aria-hidden="true"></div>
   <header class="hero">
     <div class="brand"><span class="mark">B</span>Bentonville Lodging Co.</div>
     <h1>Bentonville Lodging Concierge</h1>
@@ -148,6 +164,7 @@
         <div><div class="k">Check-in</div><div class="v" id="w-in"></div></div>
         <div><div class="k">Checkout</div><div class="v" id="w-out"></div></div>
       </div>
+      <div id="arrival"></div>
 
       <div class="actions2">
         <button type="button" class="bigbtn" id="open-guide"><div class="ic">&#128214;</div><b>View Home Guide</b><span>Check-in, Wi-Fi, house info &amp; rules</span></button>
@@ -215,12 +232,13 @@
       var r = await fetch(API + 'concierge-properties', { credentials: 'omit' });
       var j = await r.json();
       if (!r.ok) throw new Error();
+      (j.properties || []).forEach(function (p) { PHOTOS[p.id] = p.photo; });
       sel.innerHTML = '<option value="">Select your property</option>' + (j.properties || []).map(function (p) {
         var o = document.createElement('option'); o.value = p.id; o.textContent = p.name; return o.outerHTML;
       }).join('');
       // QR codes in each home can link straight here: ?property=<listing id>
       var pre = new URLSearchParams(location.search).get('property');
-      if (pre && sel.querySelector('option[value="' + CSS.escape(pre) + '"]')) sel.value = pre;
+      if (pre && sel.querySelector('option[value="' + CSS.escape(pre) + '"]')) { sel.value = pre; setPhoto(PHOTOS[pre]); }
     } catch (e) {
       sel.innerHTML = '<option value="">Couldn’t load properties — refresh to try again</option>';
     }
@@ -263,6 +281,8 @@
     $('w-prop').textContent = 'Your stay at ' + (s.property && s.property.name ? s.property.name : 'Bentonville Lodging Co.');
     $('w-in').textContent = fmt(s.check_in, true);
     $('w-out').textContent = fmt(s.check_out_date);
+    setPhoto(s.property && s.property.photo);
+    loadArrival();
     if (usedEmail && !RELAY.test(usedEmail)) $('nl-email').value = usedEmail;
     window.scrollTo(0, 0);
   }
@@ -289,6 +309,7 @@
     store(null); if (typeof stopPoll === 'function') stopPoll(); lastId = 0; chatLoaded = false; current = null;
     var m = $('msgs'); Array.prototype.slice.call(m.children).forEach(function (c) { if (c.id !== 'typing') m.removeChild(c); });
     $('welcome').classList.add('hidden'); $('gate').classList.remove('hidden');
+    $('arrival').innerHTML = ''; $('arrival').className = ''; setPhoto(PHOTOS[$('prop').value]);
   }
   $('signout').addEventListener('click', signOut);
 
@@ -337,7 +358,7 @@
       var a = el('a', 'maps', 'Open in Maps ›'); a.href = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(p.address); a.target = '_blank'; a.rel = 'noopener noreferrer'; c.appendChild(a);
     }
     if (g.has_locked_items && !g.sensitive_unlocked) {
-      var lk = el('div', 'lock', 'Your door code and Wi-Fi details will appear here starting ' + fmt(g.stay.check_in) + ' (check-in day).'); lk.style.marginTop = '12px'; c.appendChild(lk);
+      var lk = el('div', 'lock', 'Your door code, check-in instructions and Wi-Fi details will appear here starting ' + fmt(g.sensitive_from || g.stay.check_in) + ' (check-in day).'); lk.style.marginTop = '12px'; c.appendChild(lk);
     }
     body.appendChild(c);
     // Team-written guide, grouped by section
@@ -416,6 +437,53 @@
     } catch (e2) { errEl.textContent = e2.message; errEl.classList.remove('hidden'); }
     finally { btn.disabled = false; input.focus(); }
   });
+
+
+  // ── house photo background ──
+  var PHOTOS = {};
+  function okPhoto(u) { return typeof u === 'string' && /^https:\/\/[^\s"'()\\]+$/.test(u) ? u : null; }
+  function setPhoto(u) {
+    u = okPhoto(u); var bg = $('bg'), hero = document.querySelector('.hero');
+    if (!u) { document.body.classList.remove('has-photo'); bg.classList.remove('on'); hero.style.backgroundImage = ''; return; }
+    var img = new Image();
+    img.onload = function () {
+      bg.style.backgroundImage = 'linear-gradient(rgba(246,242,234,.84), rgba(246,242,234,.93)), url("' + u + '")';
+      hero.style.backgroundImage = 'linear-gradient(rgba(47,74,58,.80), rgba(36,58,45,.88)), url("' + u + '")';
+      document.body.classList.add('has-photo'); bg.classList.add('on');
+    };
+    img.src = u;
+  }
+  $('prop').addEventListener('change', function () { setPhoto(PHOTOS[this.value]); });
+
+  // ── arrival: check-in instructions + door code (released from the start of check-in day) ──
+  async function loadArrival() {
+    var box = $('arrival'); box.innerHTML = ''; box.className = '';
+    try {
+      var r = await fetch(API + 'concierge-guide', { credentials: 'omit', headers: { Authorization: 'Bearer ' + (stored() || {}).token } });
+      if (!r.ok) return;
+      var g = (await r.json()).guide || {};
+      if (g.arrival && (g.arrival.instructions || g.arrival.door_code)) {
+        box.className = 'arrival';
+        if (g.arrival.door_code) {
+          var row = document.createElement('div'); row.className = 'row';
+          row.innerHTML = '<div class="k">Door code</div>';
+          var code = document.createElement('div'); code.className = 'code'; code.textContent = g.arrival.door_code;
+          var cp = document.createElement('button'); cp.type = 'button'; cp.className = 'copy'; cp.textContent = 'Copy';
+          cp.addEventListener('click', function () { try { navigator.clipboard.writeText(g.arrival.door_code); cp.textContent = 'Copied'; } catch (e) {} });
+          code.appendChild(cp); row.appendChild(code); box.appendChild(row);
+        }
+        if (g.arrival.instructions) {
+          var row2 = document.createElement('div'); row2.className = 'row';
+          row2.innerHTML = '<div class="k">Check-in instructions</div>';
+          var ins = document.createElement('div'); ins.className = 'ins'; ins.textContent = g.arrival.instructions;
+          row2.appendChild(ins); box.appendChild(row2);
+        }
+      } else if (g.has_arrival_info && !g.sensitive_unlocked) {
+        box.className = 'arrival locked';
+        box.textContent = 'Your door code and check-in instructions will appear here on ' + fmt(g.sensitive_from || g.stay.check_in) + ' (check-in day).';
+      }
+    } catch (e) { /* the rest of the page still works */ }
+  }
 
   loadProperties();
   resume();
