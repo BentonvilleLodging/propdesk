@@ -23,9 +23,12 @@
   var norm = function (s) { return String(s || '').toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]/g, ''); };
   var BUCKET = 'guide-photos', MAX_PHOTOS = 8;
 
-  var SECTIONS = ['Check-in', 'Wi-Fi', 'Parking', 'Heating & cooling', 'Kitchen', 'Laundry', 'Hot tub / pool', 'Utilities', 'Tech & TV', 'Supplies', 'Trash & recycling', 'House quirks', 'Troubleshooting', 'House rules', 'Checkout', 'Local tips', 'General'];
+  var SECTIONS = ['About the home', 'Check-in', 'Wi-Fi', 'Parking', 'Heating & cooling', 'Kitchen', 'Laundry', 'Hot tub / pool', 'Utilities', 'Tech & TV', 'Supplies', 'Trash & recycling', 'House quirks', 'Troubleshooting', 'House rules', 'Checkout', 'Local tips', 'General'];
   // The on-site walkthrough. key → one item per home (except quirks, which can repeat).
   var PROMPTS = [
+    { group: 'Overview', items: [
+      { key: 'overview', section: 'About the home', title: 'Home overview', hint: 'A short, practical intro shown at the top of the guest guide (replaces the Guesty marketing description): layout, how many it sleeps, kitchen, laundry, TV/Wi-Fi, parking, trash, quiet hours, checkout time.' },
+    ] },
     { group: 'Utilities', items: [
       { key: 'breaker', section: 'Utilities', title: 'Breaker box', hint: 'Where is it? Any labels? e.g. "Garage, left wall behind the bikes. Kitchen is #7."' },
       { key: 'water_heater', section: 'Utilities', title: 'Water heater', hint: 'Location, gas or electric, how long hot water lasts, how to relight.' },
