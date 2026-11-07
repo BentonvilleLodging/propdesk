@@ -456,7 +456,7 @@
   var GUIDE_TABS = [
     { id: 'arrival', label: 'Arrival', icon: '&#128273;', secs: ['Check-in', 'Parking'] },
     { id: 'wifi', label: 'Wi-Fi & TV', icon: '&#128246;', secs: ['Wi-Fi', 'Tech & TV'] },
-    { id: 'home', label: 'The Home', icon: '&#127969;', secs: ['Heating & cooling', 'Kitchen', 'Laundry', 'Hot tub / pool', 'Utilities', 'Supplies', 'Trash & recycling', 'Troubleshooting', 'House manual', 'General'] },
+    { id: 'home', label: 'The Home', icon: '&#127969;', secs: ['About the home', 'Heating & cooling', 'Kitchen', 'Laundry', 'Hot tub / pool', 'Utilities', 'Supplies', 'Trash & recycling', 'Troubleshooting', 'House manual', 'General'] },
     { id: 'know', label: 'Good to Know', icon: '&#9888;&#65039;', secs: ['House quirks', 'House rules'] },
     { id: 'local', label: 'Things to Do', icon: '&#129517;', secs: ['Local tips'] },
     { id: 'checkout', label: 'Checkout', icon: '&#128075;', secs: ['Checkout'] },
@@ -499,7 +499,7 @@
     if (x.url) { var w = el('a', null, 'Website'); w.href = x.url; w.target = '_blank'; w.rel = 'noopener noreferrer'; meta.appendChild(w); }
     c.appendChild(meta); return c;
   }
-  function cardFor(x) { return x.body && x.body.length > 420 && !(x.photos && x.photos.length) ? longCard(x.title, x.body) : itemCard(x); }
+  function cardFor(x) { return x.section !== 'About the home' && x.body && x.body.length > 420 && !(x.photos && x.photos.length) ? longCard(x.title, x.body) : itemCard(x); }
   function longCard(title, text) {
     var c = el('div', 'gi'), d = el('details'), s2 = el('summary', null, title); d.appendChild(s2); d.appendChild(el('p', null, text)); c.appendChild(d); return c;
   }
@@ -541,7 +541,8 @@
         if (d.guest_access && !buckets.arrival.length) sec.appendChild(longCard('Getting in', d.guest_access));
       },
       home: function (sec) {
-        if (d.summary || d.space) sec.appendChild(longCard('About the home', [d.summary, d.space].filter(Boolean).join('\n\n')));
+        // Our team's overview replaces Guesty's marketing description when the home has one
+        if (!buckets.home.some(function (x) { return x.section === 'About the home'; }) && (d.summary || d.space)) sec.appendChild(longCard('About the home', [d.summary, d.space].filter(Boolean).join('\n\n')));
         if (p.amenities && p.amenities.length) { var c = el('div', 'gi'), dd = el('details'); dd.appendChild(el('summary', null, 'Amenities (' + p.amenities.length + ')')); var ch = el('div', 'chips'); p.amenities.forEach(function (a) { ch.appendChild(el('span', null, a)); }); dd.appendChild(ch); c.appendChild(dd); sec.appendChild(c); }
       },
       know: function (sec) { if (d.house_rules) sec.appendChild(longCard('House rules', d.house_rules)); if (d.other_notes) sec.appendChild(longCard('Other things to note', d.other_notes)); },
