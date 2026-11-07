@@ -43,7 +43,7 @@ const INTENTS = [
   { key: 'item', titles: [/tv|stream/i], test: has(/\b(tv|television|remote|netflix|streaming|roku|hulu|apple tv|youtube tv)\b/i) },
   { key: 'item', titles: [/coffee/i], test: has(/\b(coffee|keurig|k-?cups?|nespresso|pods?)\b/i) },
   { key: 'item', titles: [/dishwasher/i], test: has(/\bdish ?washer\b/i) },
-  { key: 'item', titles: [/washer|dryer|laundry/i], test: has(/\b(washer|dryer|laundry|washing machine|detergent)\b/i) },
+  { key: 'item', titles: [/\bwasher\b|\bdryer\b|laundry/i], test: (t) => /\b(washer|dryer|laundry|washing machine|detergent)\b/i.test(t) && !/hair ?dryer/i.test(t) },
   { key: 'item', titles: [/linen|towel/i], test: has(/\b(towels?|linens?|sheets|blankets?|pillows?)\b/i) },
   { key: 'item', titles: [/supplies|paper/i], test: has(/\b(toilet paper|tp|paper towels?|trash bags?|cleaning supplies)\b/i) },
 ];
@@ -114,6 +114,62 @@ const ANSWER = {
   },
 };
 
+// ── Generic lookup: "where are the plates?", "do you have a toaster?", "what are the quiet hours?" ──
+// Matches the question against THIS home's own guide items (titles count most), so every item the team
+// writes in PropDesk automatically becomes an instant answer — no per-question setup.
+const STOP = new Set('a an the is are was be do does did you we i me my our us your there here any some of in on at to for and or with it its this that these those where what which how can could would should have has had get find located location kept keep need want please thanks thank hi hey hello house home unit cabin place stay room one extra use used using put go more other whats wheres theres got see'.split(' '));
+// Same-thing words (first word is the shared key). Exact words still score higher than synonyms.
+const SYN = [
+  ['silverware', 'fork', 'forks', 'spoon', 'spoons', 'knife', 'knives', 'utensil', 'utensils', 'cutlery', 'flatware'],
+  ['plate', 'plates', 'bowl', 'bowls'],
+  ['glass', 'glasses', 'cup', 'cups', 'mug', 'mugs', 'tumbler', 'tumblers', 'wineglass'],
+  ['pot', 'pots', 'pan', 'pans', 'skillet', 'skillets', 'cookware'],
+  ['oven', 'stove', 'burner', 'burners', 'range', 'cooktop', 'stovetop'],
+  ['colander', 'colanders', 'strainer', 'strainers'],
+  ['spice', 'spices', 'salt', 'pepper', 'oil', 'oils', 'seasoning', 'seasonings'],
+  ['kettle', 'teapot'], ['frenchpress'], ['pourover'],
+  ['tupperware', 'container', 'containers'],
+  ['towel', 'towels', 'washcloth', 'washcloths'], ['blanket', 'blankets', 'throw', 'throws'], ['pillow', 'pillows'],
+  ['quiethours'], ['occupancy'], ['smoking', 'smoke', 'vape', 'vaping'], ['firework', 'fireworks'],
+  ['iron', 'ironing'], ['hairdryer'], ['vacuum', 'broom', 'mop'], ['grill', 'bbq', 'charcoal', 'propane'],
+  ['soap', 'dishsoap', 'detergent', 'sponge', 'sponges'], ['remote', 'remotes'], ['shower', 'bathtub'],
+  ['papertowel'], ['toiletpaper', 'tp'],
+];
+const SYN_OF = {}; SYN.forEach((g) => g.forEach((w) => { SYN_OF[w] = g[0]; }));
+const PHRASES = [[/hair ?dryers?/g, 'hairdryer'], [/wine ?glass(es)?/g, 'wineglass'], [/french ?press(es)?/g, 'frenchpress'], [/pour ?-?overs?/g, 'pourover'],
+  [/dish ?soap/g, 'dishsoap'], [/paper ?towels?/g, 'papertowel'], [/toilet ?paper/g, 'toiletpaper'], [/quiet ?hours?/g, 'quiethours'], [/(max(imum)? )?occupancy|how many (guests|people)/g, 'occupancy']];
+const stem = (w) => (w.endsWith('ies') ? w.slice(0, -3) + 'y' : w.endsWith('s') && !w.endsWith('ss') && w.length > 3 ? w.slice(0, -1) : w);
+function toks(text) {
+  let t = String(text || '').toLowerCase().replace(/[’']/g, '');
+  PHRASES.forEach(([re, r]) => { t = t.replace(re, ' ' + r + ' '); });
+  const out = [];
+  t.replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).forEach((w) => { if (w && w.length >= 3 && !STOP.has(w)) out.push({ raw: stem(w), canon: SYN_OF[w] || stem(w) }); });
+  return out;
+}
+function index(text) { const ts = toks(text); return { raw: new Set(ts.map((x) => x.raw)), canon: new Set(ts.map((x) => x.canon)) }; }
+const LOOKUP_Q = /^(where|do (you|we|they) have|does (it|the \w+) have|is there|are there|any |have you got|what kind|what are the|what is the|what's the|whats the|how (do|does) (i|we|you) (use|turn on|work|run|start))\b|\bwhere\b/i;
+function lookup(t, k) {
+  if (!LOOKUP_Q.test(t)) return null;
+  const want = toks(t); if (!want.length) return null;
+  const items = (k.guide || []).filter((g) => g.source === 'team' && g.body && g.section !== 'About the home'); // the overview repeats everything — match the specific items
+  const scored = items.map((g) => {
+    const ti = index(g.title), bi = index(g.body); let sc = 0, titleHit = false;
+    want.forEach((w) => {
+      if (ti.raw.has(w.raw)) { sc += 4; titleHit = true; } else if (ti.canon.has(w.canon)) { sc += 3; titleHit = true; }
+      else if (bi.raw.has(w.raw)) sc += 2; else if (bi.canon.has(w.canon)) sc += 1;
+    });
+    return { g, sc, titleHit, home: g.scope !== 'company' };
+  }).filter((x) => x.sc >= 2).sort((a, b) => b.sc - a.sc || (b.home - a.home));
+  if (!scored.length) return null;
+  const best = scored[0].sc, tied = scored.filter((x) => x.sc === best);
+  let top;
+  if (tied.length === 1) top = tied;
+  else if (tied.length === 2 && tied.every((x) => x.titleHit)) top = tied; // e.g. "glasses and plates?"
+  else return null; // too ambiguous → let Claude sort it out
+  const yes = /^(do (you|we|they) have|does|is there|are there|any |have you got)/i.test(t) ? 'Yes! ' : '';
+  return { reply: yes + top.map((x) => `${x.g.title}: ${clip(x.g.body, 700)}${photoNote(x.g)}`).join('\n\n'), intents: ['lookup:' + top.map((x) => x.g.title).join('|')] };
+}
+
 // → { reply, intents } or null (null = send to Claude)
 function quickAnswer(message, k) {
   const t = String(message || '').replace(/[‘’ʼ]/g, "'").replace(/\s+/g, ' ').trim();
@@ -127,9 +183,10 @@ function quickAnswer(message, k) {
   if (hits.some((h) => h.key === 'wifi')) hits = hits.filter((h) => !(h.key === 'item' && /router/.test(String(h.titles))) || /router|modem/i.test(t));
   // "where's good coffee" is about coffee shops, not the coffee maker
   if (hits.some((h) => h.key === 'place' && h.cat === 'Coffee')) hits = hits.filter((h) => !(h.key === 'item' && /coffee/.test(String(h.titles))));
-  if (!hits.length || hits.length > 3) return null;
   // If the message has lots of words the intents didn't explain, it's probably not a simple lookup.
   if (t.split(' ').length > 18) return null;
+  if (!hits.length) return lookup(t, k); // not one of the common questions → try this home's own guide items
+  if (hits.length > 3) return null;
   const parts = [];
   for (const h of hits) {
     const a = ANSWER[h.key](k, h);
