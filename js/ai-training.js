@@ -480,5 +480,7 @@
     if (!install()) { var t = 0, iv = setInterval(function () { if (install() || ++t > 30) clearInterval(iv); }, 1000); }
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+  // Also load the PropDesk Concierge dashboard (js/concierge-dashboard.js)
+  if (!document.querySelector('script[src^="/js/concierge-dashboard.js"]')) { var cs = document.createElement('script'); cs.src = '/js/concierge-dashboard.js'; cs.defer = true; document.head.appendChild(cs); }
   window.PropDeskGuestGuide = { open: function () { var b = $('gg-tab-btn'); if (b) openTab(b); } };
 })();
