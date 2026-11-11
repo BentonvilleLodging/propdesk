@@ -4,6 +4,7 @@
 // PRICE_LABS_SECRET, CLAUDE_SECRET.
 
 const { SUPABASE_URL, serverHeaders } = require('./auth');
+const T = require('./trust');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const today = () => new Date().toISOString().slice(0, 10);
@@ -99,6 +100,7 @@ async function guestyGet(path, attempt) {
 // ── PriceLabs Customer API ──────────────────────────────────────────────
 async function plFetch(method, path, body, attempt) {
   attempt = attempt || 0;
+  T.assertWrite('pricelabs', method, path, body);
   const res = await fetch('https://api.pricelabs.co' + path, {
     method,
     headers: { 'X-API-Key': process.env.PRICE_LABS_SECRET, Accept: 'application/json', ...(body ? { 'Content-Type': 'application/json' } : {}) },
@@ -204,30 +206,19 @@ async function readStream(res, onText, signal) {
 //   parse    'json' (default) | 'none' (caller parses text itself, e.g. NDJSON)
 //   timeoutMs  abort and return what was streamed so far
 async function claude({ system, user, maxTokens, tools, model, kind, purpose, parse, timeoutMs, onText }) {
-  const apiKey = process.env.CLAUDE_SECRET;
-  if (!apiKey) throw new Error('CLAUDE_SECRET env var not set');
+  if (!process.env.CLAUDE_SECRET) throw new Error('CLAUDE_SECRET env var not set');
   const useModel = model || CLAUDE_MODEL;
   const slot = await reserveClaudeCall(kind, purpose, useModel);
 
-  const send = async (withThinkingParam, signal) => fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    signal,
-    headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'Content-Type': 'application/json',
-      ...(process.env.ANTHROPIC_WORKSPACE_ID ? { 'anthropic-workspace-id': process.env.ANTHROPIC_WORKSPACE_ID } : {}),
-    },
-    body: JSON.stringify({
-      model: useModel,
-      max_tokens: Math.max(maxTokens || 0, 8000),
-      stream: true,
-      system,
-      messages: [{ role: 'user', content: typeof user === 'string' ? user : JSON.stringify(user) }],
-      ...(tools ? { tools } : {}),
-      ...(withThinkingParam ? { thinking: { type: 'disabled' } } : {}),
-    }),
-  });
+  const send = async (withThinkingParam, signal) => T.anthropicFetch({
+    model: useModel,
+    max_tokens: Math.max(maxTokens || 0, 8000),
+    stream: true,
+    system,
+    messages: [{ role: 'user', content: typeof user === 'string' ? user : JSON.stringify(user) }],
+    ...(tools ? { tools } : {}),
+    ...(withThinkingParam ? { thinking: { type: 'disabled' } } : {}),
+  }, { signal });
 
   const ctrl = new AbortController();
   const timer = timeoutMs ? setTimeout(() => ctrl.abort(), timeoutMs) : null;

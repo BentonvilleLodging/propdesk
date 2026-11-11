@@ -14,6 +14,7 @@
 // 30% margin floor after 10% overhead. Margin is never shown to the client.
 
 const { requireTeam } = require('../lib/auth');
+const T = require('../lib/trust');
 const I = require('../lib/intel');
 const P = require('../lib/estimate-pricing');
 
@@ -40,21 +41,11 @@ Return ONLY a JSON object, no markdown:
 const clip = (s, n) => (s == null ? '' : String(s).slice(0, n));
 
 async function callClaude(user) {
-  const apiKey = process.env.CLAUDE_SECRET;
-  if (!apiKey) throw new Error('CLAUDE_SECRET env var not set');
   const model = process.env.ESTIMATE_MODEL || I.CLAUDE_MODEL;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 8 * 60000);
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      signal: ctrl.signal,
-      headers: {
-        'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json',
-        ...(process.env.ANTHROPIC_WORKSPACE_ID ? { 'anthropic-workspace-id': process.env.ANTHROPIC_WORKSPACE_ID } : {}),
-      },
-      body: JSON.stringify({ model, max_tokens: 8000, system: SYSTEM, messages: [{ role: 'user', content: JSON.stringify(user) }] }),
-    });
+    const res = await T.anthropicFetch({ model, max_tokens: 8000, system: SYSTEM, messages: [{ role: 'user', content: JSON.stringify(user) }] }, { signal: ctrl.signal });
     const raw = await res.text();
     if (!res.ok) { const e = new Error(`Claude API ${res.status}: ${raw.slice(0, 300)}`); e.http = true; throw e; }
     const msg = JSON.parse(raw);

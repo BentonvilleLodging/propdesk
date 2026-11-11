@@ -7,6 +7,7 @@
 // (concierge_chat_limits). Staff get a push when all-homes chat volume hits 150 and 250 in a day.
 const C = require('../lib/concierge');
 const I = require('../lib/intel');
+const T = require('../lib/trust');
 const { internalHeaders } = require('../lib/auth');
 
 const MAX_LEN = 800;
@@ -50,7 +51,10 @@ exports.handler = async function (event) {
       await fetch(`${base0}/.netlify/functions/send-push`, { method: 'POST', headers: internalHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ title: '💬 Concierge chat volume', message: `${lim.global_day} guest chat messages in the last 24 hours (daily cap is 300). Check for unusual use.`, tag: 'concierge-volume', url: '/' }) }).catch(() => {});
     }
-    const [msg] = await I.sbInsert('concierge_messages', [{ session_id: s.id, reservation_id: s.reservation_id, listing_id: s.listing_id, role: 'user', content: text }]);
+    // Trust layer: card / SSN / bank numbers, emails and phone numbers are stripped BEFORE the
+    // message is stored or reaches the AI — they never sit in our database or go to Claude.
+    const clean = T.redact(text);
+    const [msg] = await I.sbInsert('concierge_messages', [{ session_id: s.id, reservation_id: s.reservation_id, listing_id: s.listing_id, role: 'user', content: clean.text, ...(clean.found.length ? { meta: { redacted: clean.found } } : {}) }]);
     const base = process.env.URL || 'https://bentonvillelodgingcomanagement.com';
     const r = await fetch(`${base}/.netlify/functions/concierge-agent-background`, {
       method: 'POST', headers: internalHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ message_id: msg.id }),

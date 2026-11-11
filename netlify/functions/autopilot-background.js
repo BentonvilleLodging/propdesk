@@ -93,6 +93,7 @@ exports.handler = async function (event) {
     const agentPending = await I.sbSelect('pricing_proposals', `select=listing_id,stay_date&source=eq.agent&status=eq.pending&stay_date=gte.${today}`).catch(() => []);
     const until = R.addDays(today, R.RULES.horizonDays + 10);
     const counts = { auto: {}, pending: {} };
+    const msLocked = await A.minStayLockedListings();
 
     for (const l of reg) {
       const lid = l.listing_id, name = l.nickname || l.title || lid;
@@ -111,7 +112,9 @@ exports.handler = async function (event) {
         catch (e) { foreignUnknown = true; summary.errors.push(`${name}: couldn't read PriceLabs overrides (${e.message.slice(0, 120)})`); }
 
         agentLocked.concat(agentPending).filter((o) => o.listing_id === lid).forEach((o) => foreign.add(o.stay_date));
-        const props = R.proposeForListing({ dates, today, minPrice: num(p.min), ours, foreign, eventDates });
+        let props = R.proposeForListing({ dates, today, minPrice: num(p.min), ours, foreign, eventDates });
+        // PriceLabs refuses min-stay overrides on this listing → keep the price part only.
+        if (msLocked.has(lid)) props = props.map((x) => (x.kind === 'set' ? { ...x, proposed_min_stay: null } : x)).filter((x) => x.kind !== 'set' || x.proposed_price != null);
         summary.listings++;
         // Today's run replaces any earlier pending proposals for this listing.
         await I.sbPatch('pricing_proposals', `listing_id=eq.${encodeURIComponent(lid)}&status=eq.pending&source=eq.autopilot`, { status: 'superseded' }).catch(() => {});
