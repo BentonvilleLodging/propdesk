@@ -11,6 +11,7 @@
 //     complaints, early check-in/late checkout requests) is escalated: staff get a push notification.
 const { requireTeam, internalHeaders } = require('../lib/auth');
 const I = require('../lib/intel');
+const T = require('../lib/trust');
 const C = require('../lib/concierge');
 const K = require('../lib/concierge-knowledge');
 const Q = require('../lib/concierge-quick');
@@ -34,6 +35,8 @@ What you know: ONLY the HOME_INFO provided below for this guest's home (our team
 Codes & Wi-Fi: only share door codes, lock codes or Wi-Fi details that appear in HOME_INFO. If HOME_INFO says sensitive items unlock on check-in day and the guest asks early, tell them those details appear in their guide starting the day of check-in.
 
 Hand off to a human (escalate=true) for: lockouts or codes not working, no heat/AC/hot water/power/water, leaks or flooding, broken or damaged items, pests, cleanliness problems, noise/neighbor issues, safety concerns, anything about payments/refunds/discounts/cancellations, early check-in or late checkout requests, extra guests or pets, or anything you can't resolve. Tell the guest you've let the team know and they'll follow up shortly. Don't promise refunds, credits, times or exceptions.
+
+Payment & ID details: if a guest's message shows something like [card number removed], [bank number removed] or [SSN removed], they tried to send sensitive info — tell them kindly not to share payment or ID details in this chat (it was not saved) and that our team handles anything payment-related through their booking platform; escalate only if they have a payment question.
 
 Emergencies (fire, smoke, gas smell, carbon monoxide alarm, medical emergency, crime): tell them to get safe and call 911 first, then escalate with urgency "emergency".
 
@@ -76,16 +79,9 @@ function homeInfo(k) {
 }
 
 async function callClaude(system, messages) {
-  const apiKey = process.env.CLAUDE_SECRET;
-  if (!apiKey) throw new Error('CLAUDE_SECRET not set');
   const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 90000);
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST', signal: ctrl.signal,
-      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json',
-        ...(process.env.ANTHROPIC_WORKSPACE_ID ? { 'anthropic-workspace-id': process.env.ANTHROPIC_WORKSPACE_ID } : {}) },
-      body: JSON.stringify({ model: process.env.CONCIERGE_MODEL || I.CLAUDE_MODEL, max_tokens: 500, system, messages }),
-    });
+    const res = await T.anthropicFetch({ model: process.env.CONCIERGE_MODEL || I.CLAUDE_MODEL, max_tokens: 500, system, messages }, { signal: ctrl.signal });
     const raw = await res.text();
     if (!res.ok) throw new Error(`Claude ${res.status}: ${raw.slice(0, 200)}`);
     const msg = JSON.parse(raw);

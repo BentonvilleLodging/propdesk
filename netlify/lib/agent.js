@@ -65,12 +65,13 @@ async function datePacks(flagged, today) {
   const until = R.addDays(today, GUARD.horizonDays);
   const activeOurs = await I.sbSelect('autopilot_overrides', `select=*&active=eq.true&stay_date=gte.${today}`).catch(() => []);
   const pendingRows = await I.sbSelect('pricing_proposals', `select=listing_id,stay_date,source&status=eq.pending&stay_date=gte.${today}`).catch(() => []);
+  const msLocked = await A.minStayLockedListings();
   const ctx = {};
   for (const f of flagged) {
     const lid = f.listing_id;
     const p = plMap[String(lid)];
     const c = { listing_id: lid, name: f.name, auto: f.auto, pms: (p && p.pms) || 'guesty', minPrice: p ? num(p.min) : null, inPriceLabs: !!p,
-      dates: {}, ours: {}, foreign: new Set(), foreignUnknown: false };
+      dates: {}, ours: {}, foreign: new Set(), foreignUnknown: false, minStayLocked: msLocked.has(lid) };
     activeOurs.filter((o) => o.listing_id === lid).forEach((o) => {
       c.ours[o.stay_date] = { ...o, price: num(o.price), original_price: num(o.original_price), min_stay: num(o.min_stay), original_min_stay: num(o.original_min_stay) };
     });
@@ -129,6 +130,7 @@ function validate(changes, c, today, eventDates) {
       else if (price < base && (d.demand === 'High Demand' || eventDates.has(date))) { rej(date, 'High-demand / event night — no discounts'); price = null; }
       else if (live != null && Math.abs(price - live) / live < GUARD.minChange) price = null; // too small to bother
     }
+    if (ms != null && c.minStayLocked) { rej(date, 'Min-stay customization is off in PriceLabs — price only'); ms = null; }
     if (ms != null) {
       ms = Math.round(ms);
       if (ms < 1 || ms > GUARD.maxMinStay) { rej(date, `Min stay ${ms} outside 1–${GUARD.maxMinStay}`); ms = null; }

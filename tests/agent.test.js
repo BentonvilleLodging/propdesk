@@ -54,6 +54,14 @@ assert.strictEqual(AG.validate([{ date: '2026-10-30', price: 180 }], { ...ctx, i
 // tiny change is dropped silently
 assert.strictEqual(AG.validate([{ date: '2026-10-30', price: 197 }], ctx, today).ok.length, 0);
 
+// min-stay locked listing: min stay is dropped (with a reason), price still goes through
+const locked = { ...ctx, minStayLocked: true };
+const ml = AG.validate([{ date: '2026-10-30', price: 175, min_stay: 1 }, { date: '2026-11-01', min_stay: 1 }], locked, today);
+assert.strictEqual(ml.ok.length, 1);
+assert.strictEqual(ml.ok[0].proposed_price, 175);
+assert.strictEqual(ml.ok[0].proposed_min_stay, null);
+assert(ml.rejected.every((x) => /Min-stay customization/.test(x.reason)));
+
 // triage
 const packs = [
   { listing_id: 'A', name: 'Behind', pack: { occupancy_vs_market_pct: { next30: [40, 60], next7: [20, 50] }, next_90_days_calendar: { windows: { next14: { open_nights: 10 } } } } },

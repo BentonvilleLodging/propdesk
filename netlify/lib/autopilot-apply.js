@@ -5,10 +5,12 @@
 // after a person approves).
 
 const I = require('./intel');
+const T = require('./trust');
 
 const PL = 'https://api.pricelabs.co';
 
 async function plRaw(method, path, body) {
+  T.assertWrite('pricelabs', method, path, body);
   const res = await fetch(PL + path, {
     method,
     headers: { 'X-API-Key': process.env.PRICE_LABS_SECRET, Accept: 'application/json', ...(body ? { 'Content-Type': 'application/json' } : {}) },
@@ -36,6 +38,19 @@ function toOverride(date, price, minStay) {
   if (minStay != null) o.min_stay = Number(minStay);
   o.reason = 'PropDesk autopilot';
   return o;
+}
+
+// PriceLabs 400 when a listing doesn't have min-stay customization enabled.
+const MIN_STAY_LOCKED_MSG = 'Min-stay customization is off for this listing in PriceLabs, so PropDesk can only change its price.';
+const isMinStayLocked = (e) => /enable min stay customization/i.test(String((e && e.message) || e));
+
+// Listings PriceLabs has refused a min-stay override for in the last 14 days. The agent and the
+// daily autopilot stop proposing min-stay changes for these (price changes still go through).
+// Turning min-stay customization on in PriceLabs clears it automatically after 14 days.
+async function minStayLockedListings() {
+  const since = new Date(Date.now() - 14 * 864e5).toISOString();
+  const rows = await I.sbSelect('pricing_proposals', `select=listing_id&error=ilike.*min*stay*customization*&decided_at=gte.${since}`).catch(() => []);
+  return new Set(rows.map((r) => r.listing_id));
 }
 
 async function postOverrides(lid, pms, overrides) { return plRaw('POST', dsoPath(lid), { pms, overrides, update_children: false }); }
@@ -68,8 +83,27 @@ async function applyProposals(lid, proposals, { who, auto, pms, ours, nickname, 
 
   let okSets = [], okRemoves = [];
   if (sets.length) {
-    try { await postOverrides(lid, pms, sets.map((p) => toOverride(p.stay_date, p.proposed_price != null ? p.proposed_price : p.current_price, p.proposed_min_stay))); okSets = sets; }
-    catch (e) { await fail(sets, e.message); }
+    const push = (rows) => postOverrides(lid, pms, rows.map((p) => toOverride(p.stay_date, p.proposed_price != null ? p.proposed_price : p.current_price, p.proposed_min_stay)));
+    try { await push(sets); okSets = sets; }
+    catch (e) {
+      if (!isMinStayLocked(e)) { await fail(sets, e.message); }
+      else {
+        // PriceLabs won't take min-stay overrides on this listing (min-stay customization is off).
+        // PriceLabs rejects the WHOLE batch, so retry with prices only: price changes still land,
+        // min-stay-only changes are marked failed with a plain-English reason.
+        const msOnly = sets.filter((p) => p.proposed_price == null);
+        const priced = sets.filter((p) => p.proposed_price != null);
+        if (msOnly.length) await fail(msOnly, MIN_STAY_LOCKED_MSG);
+        const stripped = priced.filter((p) => p.proposed_min_stay != null);
+        priced.forEach((p) => { p.proposed_min_stay = null; });
+        if (priced.length) {
+          try {
+            await push(priced); okSets = priced;
+            if (stripped.length) await I.sbPatch('pricing_proposals', `id=in.(${stripped.map((r) => r.id).join(',')})`, { proposed_min_stay: null, error: 'Price applied; min stay skipped — ' + MIN_STAY_LOCKED_MSG }).catch(() => {});
+          } catch (e2) { await fail(priced, e2.message); }
+        }
+      }
+    }
   }
   if (removes.length) {
     try { await deleteOverrides(lid, pms, removes.map((p) => p.stay_date)); okRemoves = removes; }
@@ -122,4 +156,4 @@ async function revertDsoEdit(e, pms) {
   await I.sbPatch('pricing_proposals', `edit_id=eq.${e.id}`, { status: 'reverted' }).catch(() => {});
 }
 
-module.exports = { getOverrides, postOverrides, deleteOverrides, toOverride, plListingMap, applyProposals, revertDsoEdit };
+module.exports = { getOverrides, postOverrides, deleteOverrides, toOverride, plListingMap, applyProposals, revertDsoEdit, isMinStayLocked, minStayLockedListings, MIN_STAY_LOCKED_MSG };

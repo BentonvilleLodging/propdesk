@@ -251,7 +251,7 @@ STEP 4 — PRICING ACTIONS for every listing in data.flagged (and ONLY those), a
 - Never touch nights with s other than "open" or a lock of "manual override". Never discount High Demand or event nights. Stay within -15% / +30% of the current price and at or above min_price.
 - Prefer fewer, higher-impact changes; no change is a valid answer. "why" cites the numbers.
 {"type":"actions","listing_id":"","diagnosis":"1-2 sentences: why this listing is losing visibility","changes":[{"date":"YYYY-MM-DD","price":0,"min_stay":null,"why":""}]}
-Use null for price or min_stay to leave it unchanged. One "actions" line per flagged listing (empty changes allowed).
+Use null for price or min_stay to leave it unchanged. If a flagged listing has min_stay_locked: true, PriceLabs will not accept min-stay changes for it — always use min_stay: null there and work with price only. One "actions" line per flagged listing (empty changes allowed).
 
 Limits per listing: max 4 search_actions, max 4 pricelabs_settings, max 3 review_themes, max 2 owner_items, max 2 data_gaps. Keep each "why"/"evidence" to one sentence that cites the number.
 "search_filter_amenities_missing" lists high-value Airbnb filters NOT on the amenity list — only recommend ticking one if reviews/description show the home has it; otherwise consider it for owner_items.`;
@@ -269,6 +269,9 @@ function parseNdjson(text) {
 const clampScore = (v) => (num(v) != null ? Math.max(0, Math.min(100, Math.round(num(v)))) : null);
 const arr = (v, n) => (Array.isArray(v) ? v.slice(0, n) : []);
 
+// NOTE: these rows never land on the to-do list. The DB trigger todos_server_to_suggestions turns
+// every server-side insert into public.todos into a pending todo_suggestions row, which shows in the
+// daily brief and only becomes a to-do when someone clicks Add (Luke's rule, Nov 2026).
 const QUEUE_MAX = 15;
 async function queueActions(rows, byId) {
   const open = await I.sbSelect('todos', 'select=title,property&completed=eq.false').catch(() => []);
@@ -340,6 +343,7 @@ exports.handler = async function (event) {
     const flaggedForPrompt = flagged.map((f) => ({
       listing_id: f.listing_id, nickname: f.name, black_cabins_auto: f.auto, flags: f.flags,
       min_price: ctx[f.listing_id] ? ctx[f.listing_id].minPrice : null,
+      min_stay_locked: ctx[f.listing_id] ? !!ctx[f.listing_id].minStayLocked : false,
       next_30_nights: ctx[f.listing_id] ? AG.nightsForPrompt(ctx[f.listing_id]) : [],
     }));
 

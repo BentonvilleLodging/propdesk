@@ -15,6 +15,7 @@
 
 const { requireTeam, SUPABASE_URL, PUBLISHABLE_KEY } = require('../lib/auth');
 const I = require('../lib/intel');
+const T = require('../lib/trust');
 const { diagnose } = require('../lib/rankdiag');
 
 const CORS = { 'Content-Type': 'application/json', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' };
@@ -31,6 +32,7 @@ async function whoAmI(event) {
 }
 
 async function guestyWrite(method, path, body) {
+  T.assertWrite('guesty', method, path, body);
   const token = await I.guestyToken();
   const res = await fetch('https://open-api.guesty.com' + path, {
     method, headers: { Authorization: 'Bearer ' + token, Accept: 'application/json', 'Content-Type': 'application/json' }, body: JSON.stringify(body),
