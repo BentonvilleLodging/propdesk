@@ -79,6 +79,12 @@
   force = true
 
 [[redirects]]
+  from = "/supabase_autopilot_optin_commissions.sql"
+  to = "/__blocked"
+  status = 404
+  force = true
+
+[[redirects]]
   from = "/supabase_claude_budget.sql"
   to = "/__blocked"
   status = 404

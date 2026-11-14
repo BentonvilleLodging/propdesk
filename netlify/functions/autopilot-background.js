@@ -8,8 +8,11 @@
 //   2. For every tracked listing: compare the next 21 open nights with what comparable homes
 //      are booking at (listing_rank_dates, refreshed daily by the sync) and propose
 //      date-specific PRICE and MINIMUM-STAY overrides (lib/autopilot-rules.js).
-//   3. Listings tagged "Black Cabins" in Guesty → applied to PriceLabs immediately.
-//      Every other listing → 'pending' until a staff member approves on the Approvals tab.
+//   3. Listings tagged "Black Cabins" in Guesty, or opted in by their owner in PropDesk
+//      (listing_registry.autopilot_opt_in — e.g. Lakeside Hideaway) → applied to PriceLabs
+//      immediately. Every other listing → 'pending' until a staff member approves.
+//      Each listing runs on its pricing profile ('standard' or 'large_home'), with the owner's
+//      minimum price / minimum nights from the Properties page as hard floors.
 //      Nothing other than price and min stay is ever changed automatically.
 //   4. Push notification summary to the team.
 
@@ -72,14 +75,15 @@ exports.handler = async function (event) {
   try {
     await bookkeeping(today, summary).catch((e) => summary.errors.push('bookkeeping: ' + e.message));
 
-    // Fresh Guesty tags — the auto-apply decision always comes from Guesty itself.
+    // Fresh Guesty tags (Black Cabins) + owner opt-ins recorded in PropDesk.
     const g = await I.guestyGet(`/v1/listings?limit=100&fields=${encodeURIComponent('_id nickname tags isListed')}`);
     const gl = g.results || g.data || (Array.isArray(g) ? g : []);
-    const autoSet = new Set(gl.filter((l) => R.isAutoApplyListing(l)).map((l) => l._id));
-    summary.black_cabins = autoSet.size;
+    const plMap = await A.plListingMap();
+    const { autoSet, byId: pctx } = await A.pricingContext(gl, plMap);
+    summary.black_cabins = gl.filter((l) => R.isAutoApplyListing(l)).length;
+    summary.opted_in = Object.values(pctx).filter((c) => c.optIn).length;
 
     const reg = await I.sbSelect('listing_registry', 'select=listing_id,nickname,title&is_listed=eq.true&tracked=eq.true');
-    const plMap = await A.plListingMap();
     const mi = await I.sbSelect('market_intel', 'select=events&order=created_at.desc&limit=1').catch(() => []);
     const eventDates = new Set();
     ((mi[0] && mi[0].events) || []).filter((e) => e.demand_impact === 'high' && e.start_date).forEach((e) => {
@@ -112,7 +116,10 @@ exports.handler = async function (event) {
         catch (e) { foreignUnknown = true; summary.errors.push(`${name}: couldn't read PriceLabs overrides (${e.message.slice(0, 120)})`); }
 
         agentLocked.concat(agentPending).filter((o) => o.listing_id === lid).forEach((o) => foreign.add(o.stay_date));
-        let props = R.proposeForListing({ dates, today, minPrice: num(p.min), ours, foreign, eventDates });
+        const pc = pctx[lid] || { profile: 'standard', minPrice: num(p.min), minNights: null, market: {} };
+        if (pc.profile !== 'standard' && !pc.market.compsMatched) summary.errors.push(`${name}: comps aren't ${pc.market.compCategory ? 'bedroom-matched (PriceLabs category ' + pc.market.compCategory + ')' : 'available'} — price changes paused, min stay only`);
+        if (pc.ownerMin != null && pc.plMin != null && pc.plMin < pc.ownerMin) summary.errors.push(`${name}: PriceLabs minimum $${Math.round(pc.plMin)} is below the owner's $${Math.round(pc.ownerMin)} minimum on the Properties page — autopilot uses $${Math.round(pc.ownerMin)}`);
+        let props = R.proposeForListing({ dates, today, minPrice: pc.minPrice != null ? pc.minPrice : num(p.min), minNights: pc.minNights, ours, foreign, eventDates, profile: pc.profile, market: pc.market });
         // PriceLabs refuses min-stay overrides on this listing → keep the price part only.
         if (msLocked.has(lid)) props = props.map((x) => (x.kind === 'set' ? { ...x, proposed_min_stay: null } : x)).filter((x) => x.kind !== 'set' || x.proposed_price != null);
         summary.listings++;
@@ -126,7 +133,7 @@ exports.handler = async function (event) {
           original_price: x.original_price, original_min_stay: x.original_min_stay, current_price: x.current_price, current_min_stay: x.current_min_stay,
           proposed_price: x.proposed_price, proposed_min_stay: x.proposed_min_stay, reasons: x.reasons, evidence: x.evidence,
           auto: isAuto, status: 'pending',
-          error: autoSet.has(lid) && foreignUnknown ? 'Black Cabins listing held for approval: existing PriceLabs overrides could not be checked.' : null,
+          error: autoSet.has(lid) && foreignUnknown ? 'Autopilot listing held for approval: existing PriceLabs overrides could not be checked.' : null,
         })));
         if (isAuto) {
           const r = await A.applyProposals(lid, inserted, { who: 'autopilot', auto: true, pms, ours, nickname: name });
@@ -144,7 +151,7 @@ exports.handler = async function (event) {
 
     // Team push summary
     if (summary.auto_applied || summary.pending || summary.failed) {
-      const msg = [summary.auto_applied ? `${summary.auto_applied} price/min-stay changes applied on Black Cabins` : null,
+      const msg = [summary.auto_applied ? `${summary.auto_applied} price/min-stay changes applied on autopilot listings (${Object.keys(counts.auto).join(', ')})` : null,
         summary.pending ? `${summary.pending} changes on ${Object.keys(counts.pending).length} other listings need approval` : null,
         summary.failed ? `${summary.failed} failed` : null].filter(Boolean).join(' · ');
       const base = process.env.URL || 'https://bentonvillelodgingcomanagement.com';

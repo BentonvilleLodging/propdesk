@@ -20,6 +20,7 @@
 
 const { requireTeam, isScheduledInvocation, SUPABASE_URL, serverHeaders } = require('../lib/auth');
 const I = require('../lib/intel');
+const { removedListingIds } = require('../lib/removed');
 const { diagnose } = require('../lib/rankdiag');
 const { isAutoApplyListing } = require('../lib/autopilot-rules');
 
@@ -213,9 +214,11 @@ exports.handler = async function (event) {
   try {
     // 1. Registry ────────────────────────────────────────────────────────
     const lData = await I.guestyGet(`/v1/listings?limit=100&fields=${encodeURIComponent('_id title nickname isListed active status listingType bedrooms accommodates pictures publicDescription amenities integrations tags')}`);
-    const all = lData.results || lData.data || (Array.isArray(lData) ? lData : []);
-    const existing = await I.sbSelect('listing_registry', 'select=listing_id,tracked').catch(() => []);
+    const removed = await removedListingIds();
+    const all = (lData.results || lData.data || (Array.isArray(lData) ? lData : [])).filter((l) => !removed.has(l._id)); // no longer managed
+    const existing = await I.sbSelect('listing_registry', 'select=listing_id,tracked,autopilot_opt_in').catch(() => []);
     const trackedMap = {}; existing.forEach((r) => { trackedMap[r.listing_id] = r.tracked; });
+    const optIn = new Set(existing.filter((r) => r.autopilot_opt_in === true).map((r) => r.listing_id));
     const airbnbIdOf = (l) => {
       const ints = Array.isArray(l.integrations) ? l.integrations : [];
       const a = ints.find((x) => /airbnb/i.test(x.platform || ''));
@@ -233,7 +236,7 @@ exports.handler = async function (event) {
       airbnb_listing_id: airbnbIdOf(l), vrbo_listing_id: vrboIdOf(l),
       tracked: trackedMap[l._id] !== undefined ? trackedMap[l._id] : true,
       guesty_tags: Array.isArray(l.tags) ? l.tags.map(String) : [],
-      auto_apply: isAutoApplyListing(l),
+      auto_apply: isAutoApplyListing(l) || optIn.has(l._id), // Black Cabins tag OR owner opt-in
       updated_at: new Date().toISOString(),
     })), 'listing_id');
     const listings = all.filter((l) => l.isListed === true && trackedMap[l._id] !== false);

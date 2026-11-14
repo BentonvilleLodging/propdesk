@@ -1,6 +1,6 @@
 // netlify/functions/pricing-approvals.js
 //
-// Approvals for pricing / min-stay proposals on listings that are NOT tagged "Black Cabins"
+// Approvals for pricing / min-stay proposals on listings that are NOT on autopilot (Black Cabins tag / owner opt-in)
 // (those are applied automatically by autopilot-background). Staff only.
 //   POST { action: 'approve', ids: [...] }  → pushes the overrides to PriceLabs, logs an undoable edit
 //   POST { action: 'reject',  ids: [...] }

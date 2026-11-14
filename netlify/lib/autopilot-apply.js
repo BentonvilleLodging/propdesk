@@ -1,11 +1,12 @@
 // netlify/lib/autopilot-apply.js
 // Pushes approved / auto-approved pricing proposals to PriceLabs as date-specific overrides
 // (DSOs), records them, and logs a listing_edits row so the change can be undone in one tap.
-// Used by autopilot-background (Black Cabins, automatic) and pricing-approvals (everyone else,
+// Used by autopilot-background (Black Cabins + owner opt-ins, automatic) and pricing-approvals (everyone else,
 // after a person approves).
 
 const I = require('./intel');
 const T = require('./trust');
+const R = require('./autopilot-rules');
 
 const PL = 'https://api.pricelabs.co';
 
@@ -156,4 +157,46 @@ async function revertDsoEdit(e, pms) {
   await I.sbPatch('pricing_proposals', `edit_id=eq.${e.id}`, { status: 'reverted' }).catch(() => {});
 }
 
-module.exports = { getOverrides, postOverrides, deleteOverrides, toOverride, plListingMap, applyProposals, revertDsoEdit, isMinStayLocked, minStayLockedListings, MIN_STAY_LOCKED_MSG };
+// Everything the rules need per listing beyond the calendar:
+//   who is on autopilot (Black Cabins tag in Guesty OR owner opt-in recorded in PropDesk),
+//   pricing profile, owner floors from the Properties page, and market positioning
+//   (bedroom-matched comps, location/size premium, booking pace vs market).
+// guestyListings: live Guesty listings with tags. Returns { autoSet, byId: { [lid]: ctx } }.
+async function pricingContext(guestyListings, plMap) {
+  const [reg, props, daily, intel] = await Promise.all([
+    I.sbSelect('listing_registry', 'select=listing_id,bedrooms,autopilot_opt_in,autopilot_profile').catch(() => []),
+    I.sbSelect('properties', 'select=listing_id,min_price,min_nights&listing_id=not.is.null').catch(() => []),
+    I.sbSelect('pricelabs_daily', `select=listing_id,snapshot_date,base_price,occupancy_pct_30d,market_occupancy_pct_30d&snapshot_date=gte.${R.addDays(I.today(), -3)}&order=snapshot_date.desc`).catch(() => []),
+    I.sbSelect('pricelabs_intel', `select=listing_id,snapshot_date,neighborhood&snapshot_date=gte.${R.addDays(I.today(), -3)}&order=snapshot_date.desc`).catch(() => []),
+  ]);
+  const first = (rows) => { const m = {}; rows.forEach((r) => { if (!m[r.listing_id]) m[r.listing_id] = r; }); return m; };
+  const P = first(props), D = first(daily), N = first(intel);
+  const num = (v) => { if (v === null || v === undefined || v === '') return null; const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
+  const autoSet = R.autoApplySet(guestyListings, reg);
+  const byId = {};
+  reg.forEach((r) => {
+    const lid = r.listing_id;
+    const profile = r.autopilot_profile || 'standard';
+    const RL = R.rulesFor(profile);
+    const pl = plMap ? plMap[String(lid)] : null;
+    const nb = (N[lid] && N[lid].neighborhood) || {};
+    const cat = (nb.future_prices_next30 && nb.future_prices_next30.category) || (nb.base_price_percentiles && nb.base_price_percentiles.category) || null;
+    const br = num(r.bedrooms);
+    const plMin = pl ? num(pl.min) : null, ownerMin = P[lid] ? num(P[lid].min_price) : null;
+    const floor = [plMin, ownerMin].filter((v) => v != null);
+    const base = D[lid] ? num(D[lid].base_price) : (pl ? num(pl.base) : null);
+    byId[lid] = {
+      profile, auto: autoSet.has(lid), optIn: r.autopilot_opt_in === true,
+      minPrice: floor.length ? Math.max(...floor) : null, plMin, ownerMin,
+      minNights: P[lid] ? num(P[lid].min_nights) : null,
+      market: {
+        compCategory: cat, compsMatched: cat != null && br != null && String(cat) === String(Math.round(br)),
+        premium: R.positioningPremium(base, nb.base_price_percentiles && nb.base_price_percentiles.p50, RL.premiumCap || 1),
+        occ30: D[lid] ? num(D[lid].occupancy_pct_30d) : null, mktOcc30: D[lid] ? num(D[lid].market_occupancy_pct_30d) : null,
+      },
+    };
+  });
+  return { autoSet, byId };
+}
+
+module.exports = { pricingContext, getOverrides, postOverrides, deleteOverrides, toOverride, plListingMap, applyProposals, revertDsoEdit, isMinStayLocked, minStayLockedListings, MIN_STAY_LOCKED_MSG };

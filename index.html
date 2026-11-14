@@ -3663,7 +3663,7 @@
     <div class="li-panel">
       <div class="li-panel-head">
         <div><div class="li-panel-title">Pricing &amp; min-stay autopilot</div>
-          <div class="li-muted" style="font-size:12px;">Runs daily at 7 AM Central for the next 21 nights. <strong>Black Cabins</strong> (Guesty tag) listings change automatically; every other listing waits for approval here. Only date prices and minimum stays are ever changed.</div></div>
+          <div class="li-muted" style="font-size:12px;">Runs daily at 7 AM Central for the next 21 nights. <strong>Black Cabins</strong> (Guesty tag) and owner opt-ins (Lakeside Hideaway) change automatically; every other listing waits for approval here. Only date prices and minimum stays are ever changed, never below the owner's minimum price / nights on the Properties page.</div></div>
         <button class="expand-btn" id="ap-run-btn" onclick="apRunNow()">&#9654; Run now</button>
       </div>
       <div id="ap-meta" class="li-muted" style="font-size:12px;margin-bottom:10px;"></div>
@@ -8494,7 +8494,7 @@ async function apLoad() {
   if (meta) {
     var bc = (window._liRegistry || []).filter(function(r) { return r.auto_apply && r.is_listed; }).map(function(r) { return liName(r.nickname || r.title); });
     var h = run && run.completedAt ? 'Last run ' + liAgo(run.completedAt) + ': ' + (run.auto_applied || 0) + ' applied automatically · ' + (run.pending || 0) + ' sent for approval' + (run.fatalError ? ' · <span style="color:var(--red);">' + esc(run.fatalError) + '</span>' : '') : (run && run.running ? 'Running…' : 'Has not run yet.');
-    h += '<br><strong>Auto (Black Cabins tag):</strong> ' + (bc.length ? bc.map(esc).join(', ') : 'none found yet — the tag is read on the next data sync');
+    h += '<br><strong>Autopilot (Black Cabins tag + owner opt-ins):</strong> ' + (bc.length ? bc.map(esc).join(', ') : 'none found yet — read on the next data sync');
     if (run && run.errors && run.errors.length) h += '<details style="margin-top:4px;"><summary>' + run.errors.length + ' warnings</summary>' + run.errors.map(esc).join('<br>') + '</details>';
     var fails = q[4].data || [];
     if (fails.length) h += '<details style="margin-top:4px;color:var(--red);"><summary>' + fails.length + ' changes PriceLabs rejected</summary>' + fails.map(function(f) { return esc(apName(f.listing_id)) + ' ' + esc(f.stay_date) + ': ' + esc(f.error || ''); }).join('<br>') + '</details>';
@@ -8618,7 +8618,7 @@ function agRender(run, st, edits) {
   if (run.summary) h += '<div class="ag-summary">' + esc(run.summary) + '</div>';
 
   // 1. What the agent did
-  h += '<div class="ag-sec"><div class="ag-sec-title">&#9989; Applied automatically · Black Cabins <span class="ag-count">' + nA + '</span></div>';
+  h += '<div class="ag-sec"><div class="ag-sec-title">&#9989; Applied automatically · Autopilot listings <span class="ag-count">' + nA + '</span></div>';
   h += applied.length ? applied.map(function(a) {
     var undone = a.edit_id && edits[a.edit_id] === 'reverted';
     return '<div class="ag-listing"><div class="ag-listing-head"><strong>' + esc(a.name) + '</strong>' +
@@ -8655,7 +8655,7 @@ function agRender(run, st, edits) {
   }
 
   // 4. Why listings were flagged + guardrails
-  if (flagged.length) h += '<details class="ag-sec"><summary class="ag-sec-title" style="cursor:pointer;">Why these listings were flagged</summary>' + flagged.map(function(f) { return '<div style="font-size:12.5px;padding:3px 0;"><strong>' + esc(f.name) + '</strong>' + (f.auto ? ' <span class="li-pill">Black Cabins</span>' : '') + ' — <span class="li-muted">' + esc((f.flags || []).join(' · ')) + '</span></div>'; }).join('') + '</details>';
+  if (flagged.length) h += '<details class="ag-sec"><summary class="ag-sec-title" style="cursor:pointer;">Why these listings were flagged</summary>' + flagged.map(function(f) { return '<div style="font-size:12.5px;padding:3px 0;"><strong>' + esc(f.name) + '</strong>' + (f.auto ? ' <span class="li-pill">Autopilot</span>' : '') + ' — <span class="li-muted">' + esc((f.flags || []).join(' · ')) + '</span></div>'; }).join('') + '</details>';
   if (rej.length) h += '<details class="ag-sec"><summary class="ag-sec-title" style="cursor:pointer;">Blocked by guardrails <span class="ag-count">' + rej.length + '</span></summary>' + rej.map(function(x) { return '<div class="li-muted" style="font-size:12px;">' + esc(x.name || '') + (x.date ? ' ' + esc(x.date) : '') + ': ' + esc(x.reason) + '</div>'; }).join('') + '</details>';
   if (run.error && run.status !== 'failed') h += '<div class="li-muted" style="font-size:11px;">&#9888; ' + esc(run.error) + '</div>';
   document.getElementById('ag-body').innerHTML = h;

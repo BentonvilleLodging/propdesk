@@ -23,14 +23,15 @@
 // SEARCH HEALTH AGENT (Mon + Thu, both weekly Claude slots — see supabase_agent.sql):
 // before the request, lib/agent.js triages every listing (no Claude) and attaches the next 30
 // nights for the flagged ones. Claude adds one {"type":"actions"} line per flagged listing with
-// date price / min-stay changes. Guardrails validate them; "Black Cabins" listings are pushed to
-// PriceLabs immediately, all others wait for approval. Result → agent_runs + team push; the
+// date price / min-stay changes. Guardrails validate them; autopilot listings (Black Cabins tag or
+// owner opt-in, e.g. Lakeside Hideaway) are pushed to PriceLabs immediately, all others wait for approval. Result → agent_runs + team push; the
 // Listing Intelligence page shows it in a summary modal.
 
 const { requireTeam, isScheduledInvocation } = require('../lib/auth');
 const I = require('../lib/intel');
 const AG = require('../lib/agent');
 const R = require('../lib/autopilot-rules');
+const A = require('../lib/autopilot-apply');
 const { internalHeaders } = require('../lib/auth');
 
 const STATUS_KEY = 'listing_intel_last_run';
@@ -43,7 +44,7 @@ const daysAgo = (n) => new Date(Date.now() - n * 86400000).toISOString();
 const clip = (s, n) => (s ? String(s).replace(/\s+/g, ' ').trim().slice(0, n) : s);
 
 // What Airbnb itself says drives ranking (help article 39) + PriceLabs levers we control.
-const SYSTEM_PROMPT = `You are the revenue-management and search-visibility strategist for Bentonville Lodging Co. (BLC), a professional short-term-rental manager in Bentonville / Northwest Arkansas (mountain-biking trails, Crystal Bridges, Walmart HQ business travel, Beaver Lake). BLC earns a percentage of each listing's net accommodation revenue, so the goal is more booked nights at strong rates on every listing.
+const SYSTEM_PROMPT = `You are the revenue-management and search-visibility strategist for Bentonville Lodging Co. (BLC), a professional short-term-rental manager in Bentonville / Northwest Arkansas (mountain-biking trails, Crystal Bridges, Walmart HQ business travel, Beaver Lake). BLC earns a commission on each listing's accommodation fare (15% on "Essentials" homes, 25% on "Full Set" homes), so the goal is maximum accommodation revenue — more booked nights at strong rates — on every listing.
 
 How Airbnb says it ranks homes (Airbnb Help Center, "How search results work"):
 - PRICE: total price is compared with similar nearby listings for the same dates; listings priced below comparable options tend to rank higher. Price has a large effect.
@@ -248,7 +249,8 @@ OUTPUT FORMAT — NDJSON: one complete JSON object per line, no markdown, no pro
 STEP 4 — PRICING ACTIONS for every listing in data.flagged (and ONLY those), after all "listing" lines. data.flagged gives why triage flagged it and its next 30 nights: d=date, s=status, price, ms=min stay, page=best Airbnb page (or "not shown"), comp_booked=what comparable homes are booking at that night, comp_p50=comparable median list price, lock=existing override. Propose date-specific changes that win back search placement and bookings:
 - Price open nights that are off page 1 / not shown and priced well above comp_booked toward ~0–5% above comp_booked. Raise nights clearly underpriced vs comps or inside a high-demand event.
 - Lower min stay to fill gaps between bookings and for nights inside 7 days; raise it only for event nights.
-- Never touch nights with s other than "open" or a lock of "manual override". Never discount High Demand or event nights. Stay within -15% / +30% of the current price and at or above min_price.
+- Never touch nights with s other than "open" or a lock of "manual override". Never discount High Demand or event nights. Stay within -15% / +30% of the current price, at or above min_price, and never set min_stay below min_nights (the owner's minimum).
+- pricing_profile "large_home" (e.g. Lakeside Hideaway, a 3-BR / sleeps-8 home near Beaver Lake): comp_booked / comp_p50 are bedroom-matched comps (comps.compCategory) — trust them only when comps.compsMatched is true. Price to maximize revenue, not occupancy: keep its location/size premium (comps.premium), discount at most 10% and only when its pace (comps.occ30) is behind market (comps.mktOcc30) or the night is inside 5 days; when it is pacing ahead of market and a night sits well under comp_booked, RAISE it toward comp_booked. Keep 2+ night minimums (turnover cost on a large home).
 - Prefer fewer, higher-impact changes; no change is a valid answer. "why" cites the numbers.
 {"type":"actions","listing_id":"","diagnosis":"1-2 sentences: why this listing is losing visibility","changes":[{"date":"YYYY-MM-DD","price":0,"min_stay":null,"why":""}]}
 Use null for price or min_stay to leave it unchanged. If a flagged listing has min_stay_locked: true, PriceLabs will not accept min-stay changes for it — always use min_stay: null there and work with price only. One "actions" line per flagged listing (empty changes allowed).
@@ -326,23 +328,27 @@ exports.handler = async function (event) {
     let flagged = [], ctx = {};
     if (portfolioRun) {
       [agentRun] = await I.sbInsert('agent_runs', [{ kind: kind === 'weekly' ? 'scheduled' : 'manual' }]).catch(() => [null]);
-      let autoSet;
+      let autoSet, pctx = {};
       try {
-        // The auto-apply decision always comes from Guesty's live tags.
+        // Auto-apply = Guesty's live "Black Cabins" tag OR an owner opt-in recorded in PropDesk.
         const g = await I.guestyGet(`/v1/listings?limit=100&fields=${encodeURIComponent('_id tags')}`);
         const gl = g.results || g.data || (Array.isArray(g) ? g : []);
-        autoSet = new Set(gl.filter((l) => R.isAutoApplyListing(l)).map((l) => l._id));
+        const pc = await A.pricingContext(gl, await A.plListingMap());
+        autoSet = pc.autoSet; pctx = pc.byId;
       } catch (e) {
         autoSet = new Set(); // can't confirm tags → nothing is auto-applied this run
         status.agent_warn = 'Guesty tags unavailable — every change this run waits for approval.';
       }
       flagged = AG.triage(packs, autoSet, day);
-      ctx = await AG.datePacks(flagged, day);
+      ctx = await AG.datePacks(flagged, day, pctx);
       status.flagged = flagged.length;
     }
     const flaggedForPrompt = flagged.map((f) => ({
-      listing_id: f.listing_id, nickname: f.name, black_cabins_auto: f.auto, flags: f.flags,
+      listing_id: f.listing_id, nickname: f.name, autopilot: f.auto, flags: f.flags,
       min_price: ctx[f.listing_id] ? ctx[f.listing_id].minPrice : null,
+      min_nights: ctx[f.listing_id] ? ctx[f.listing_id].minNights : null,
+      pricing_profile: ctx[f.listing_id] ? ctx[f.listing_id].profile : 'standard',
+      comps: ctx[f.listing_id] ? ctx[f.listing_id].market : null,
       min_stay_locked: ctx[f.listing_id] ? !!ctx[f.listing_id].minStayLocked : false,
       next_30_nights: ctx[f.listing_id] ? AG.nightsForPrompt(ctx[f.listing_id]) : [],
     }));
@@ -398,7 +404,7 @@ exports.handler = async function (event) {
     // Action queue: the top non-pricing action per listing becomes a team to-do (due in 7 days).
     // Pricing / min-stay is handled by the autopilot + Approvals tab, so it is never queued here.
     try { status.todos_created = await queueActions(rows, byId); } catch (e) { status.todo_error = e.message.slice(0, 200); }
-    // ── Agent steps 4–5: validate + apply (Black Cabins) / queue for approval (everyone else) ──
+    // ── Agent steps 4–5: validate + apply (autopilot listings) / queue for approval (everyone else) ──
     if (agentRun) {
       try {
         const actionLines = lines.filter((l) => l.type === 'actions' && l.listing_id);
@@ -418,7 +424,7 @@ exports.handler = async function (event) {
         });
         const nA = ex.applied.reduce((s, x) => s + x.changes.length, 0), nP = ex.pending.reduce((s, x) => s + x.changes.length, 0);
         status.agent = { run_id: agentRun.id, applied: nA, pending: nP, rejected: ex.rejected.length };
-        const msg = [nA ? `${nA} changes applied on ${ex.applied.length} Black Cabins listing${ex.applied.length > 1 ? 's' : ''}` : null,
+        const msg = [nA ? `${nA} changes applied on ${ex.applied.length} autopilot listing${ex.applied.length > 1 ? 's' : ''}` : null,
           nP ? `${nP} changes on ${ex.pending.length} listing${ex.pending.length > 1 ? 's' : ''} need approval` : null].filter(Boolean).join(' · ')
           || `${flagged.length} listings reviewed — no pricing changes needed`;
         const base = process.env.URL || 'https://bentonvillelodgingcomanagement.com';
