@@ -26,6 +26,7 @@
 // Status is written to app_cache key 'recap_snapshot_last_run'.
 
 const crypto = require('crypto');
+const { removedListingIds } = require('../lib/removed');
 
 const SUPABASE_URL = 'https://wljtpxqdmxszplngdwsc.supabase.co';
 const { serverKey, requireTeam } = require('../lib/auth');
@@ -136,7 +137,8 @@ async function pullReservations(token) {
 
   // listing nicknames
   const lData = await gGet(`/v1/listings?limit=100&fields=${encodeURIComponent('_id nickname title isListed status')}`, token);
-  const listings = lData.results || lData.data || [];
+  const removed = await removedListingIds(); // listings BLC no longer manages
+  const listings = (lData.results || lData.data || []).filter((l) => !removed.has(l._id));
   const nick = {};
   for (const l of listings) nick[l._id] = l.nickname || l.title || l._id;
 
@@ -177,10 +179,9 @@ async function pullReservations(token) {
     else throw e;
   }
 
-  const rows = all.map((r) => {
+  const rows = all.filter((r) => !removed.has(r.listingId)).map((r) => {
     const m = r.money || {};
     const accom = num(m.fareAccommodationAdjusted) ?? num(m.fareAccommodation);
-    const channelFee = num(m.hostServiceFee) || 0;
     const checkIn = day(r.checkIn);
     const checkOut = day(r.checkOut);
     const nights = r.nightsCount ?? (checkIn && checkOut ? Math.round((new Date(checkOut) - new Date(checkIn)) / 86400000) : null);
@@ -203,8 +204,10 @@ async function pullReservations(token) {
       total_taxes: num(m.totalTaxes),
       host_payout: num(m.hostPayout),
       net_income: num(m.netIncome),
-      // Management-fee base: accommodation revenue net of channel fees, excluding cleaning
-      commissionable_rev: accom !== null ? Math.round((accom - channelFee) * 100) / 100 : null,
+      // Commission base (Nov 2026): the nightly accommodation fare (after discounts), excluding
+      // cleaning, taxes and guest fees. Channel fees are NOT deducted. Commission % comes from the
+      // property's package on the Properties page: Essentials 15%, Full Set 25% (listing_fee_config).
+      commissionable_rev: accom !== null ? Math.round(accom * 100) / 100 : null,
       currency: m.currency || 'USD',
       money: {
         fareAccommodation: m.fareAccommodation, fareAccommodationAdjusted: m.fareAccommodationAdjusted,

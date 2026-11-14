@@ -62,6 +62,16 @@ assert.strictEqual(ml.ok[0].proposed_price, 175);
 assert.strictEqual(ml.ok[0].proposed_min_stay, null);
 assert(ml.rejected.every((x) => /Min-stay customization/.test(x.reason)));
 
+// large_home (Lakeside Hideaway): owner min nights + 10% max drop + no discounts on unmatched comps
+const big = { ...ctx, profile: 'large_home', minNights: 2, market: { compsMatched: true } };
+const lh = AG.validate([{ date: '2026-10-30', price: 175 }, { date: '2026-11-01', min_stay: 1 }, { date: '2026-11-04', price: 185, min_stay: 2 }], big, today);
+assert.deepStrictEqual(lh.ok.map((x) => x.stay_date), ['2026-11-04']);           // −7.5% of the original $200, min stay 3 → 2
+assert(lh.rejected.some((x) => /more than 10% below/.test(x.reason)));
+assert(lh.rejected.some((x) => /owner's 2-night minimum/.test(x.reason)));
+const lh2 = AG.validate([{ date: '2026-11-04', price: 185 }], { ...big, market: { compsMatched: false } }, today);
+assert.strictEqual(lh2.ok.length, 0);
+assert(/not bedroom-matched/.test(lh2.rejected[0].reason));
+
 // triage
 const packs = [
   { listing_id: 'A', name: 'Behind', pack: { occupancy_vs_market_pct: { next30: [40, 60], next7: [20, 50] }, next_90_days_calendar: { windows: { next14: { open_nights: 10 } } } } },

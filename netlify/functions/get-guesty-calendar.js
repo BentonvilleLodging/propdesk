@@ -17,6 +17,7 @@ const CORS = {
 
 const SUPABASE_URL = 'https://wljtpxqdmxszplngdwsc.supabase.co';
 const { serverKey, requireTeam, internalHeaders, isScheduledInvocation, DENIED } = require('../lib/auth');
+const { removedListingIds } = require('../lib/removed');
 const SUPABASE_KEY = serverKey(); // server-side key (SUPABASE_SERVICE_KEY env); tables are RLS-locked to the team
 const CACHE_KEY    = 'guesty_token';
 
@@ -159,7 +160,8 @@ exports.handler = async function(event) {
     // isListed:true  = listed/active on booking channels
     // status:'active' = also used in some account configs
     // We keep a listing if EITHER isListed===true OR status==='active'
-    const allListings = lData.results || lData.data || (Array.isArray(lData) ? lData : []);
+    const removed = await removedListingIds(); // listings BLC no longer manages
+    const allListings = (lData.results || lData.data || (Array.isArray(lData) ? lData : [])).filter(l => !removed.has(l._id));
     const listings = allListings.filter(l => l.isListed === true || l.status === 'active');
     console.log('all listings from API:', allListings.length);
     console.log('active listings after filter:', listings.length, listings.map(l => l.nickname || l.title).join(', '));
@@ -200,7 +202,7 @@ exports.handler = async function(event) {
       if (skip >= 500) break;
     }
 
-    const normRes = reservations.map(r => ({
+    const normRes = reservations.filter(r => !removed.has(r.listingId)).map(r => ({
       _id:              r._id,
       listingId:        r.listingId,
       guestName:        (r.guest && r.guest.fullName) || r.guestName || '',

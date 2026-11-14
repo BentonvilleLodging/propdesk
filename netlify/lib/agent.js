@@ -8,11 +8,12 @@
 //   3. Claude          The ONE weekly-budget request also returns an "actions" line per flagged
 //                      listing: date-specific price / min-stay changes with a reason.
 //   4. validate()      Hard guardrails — anything outside them is rejected and logged, never sent.
-//   5. execute()       Listings tagged "Black Cabins" in Guesty → pushed to PriceLabs now (undoable).
+//   5. execute()       Autopilot listings (Guesty "Black Cabins" tag, or owner opt-in in PropDesk such
+//                      as Lakeside Hideaway) → pushed to PriceLabs now (undoable).
 //                      Every other listing → 'pending' on the Approvals list for a person.
 //
-// SCOPE RULE (Luke, Oct 2026): only date PRICE and MINIMUM STAY are ever changed automatically,
-// and only for "Black Cabins" listings.
+// SCOPE RULE (Luke, Oct 2026; opt-ins Nov 2026): only date PRICE and MINIMUM STAY are ever changed
+// automatically, and only for autopilot listings.
 
 const I = require('./intel');
 const R = require('./autopilot-rules');
@@ -60,7 +61,8 @@ function triage(packs, autoSet, today) {
 }
 
 // ── 2. Date packs for flagged listings ──────────────────────────────────
-async function datePacks(flagged, today) {
+async function datePacks(flagged, today, pctx) {
+  pctx = pctx || {};
   const plMap = await A.plListingMap();
   const until = R.addDays(today, GUARD.horizonDays);
   const activeOurs = await I.sbSelect('autopilot_overrides', `select=*&active=eq.true&stay_date=gte.${today}`).catch(() => []);
@@ -70,7 +72,11 @@ async function datePacks(flagged, today) {
   for (const f of flagged) {
     const lid = f.listing_id;
     const p = plMap[String(lid)];
-    const c = { listing_id: lid, name: f.name, auto: f.auto, pms: (p && p.pms) || 'guesty', minPrice: p ? num(p.min) : null, inPriceLabs: !!p,
+    const x = pctx[lid] || {};
+    const c = { listing_id: lid, name: f.name, auto: f.auto, pms: (p && p.pms) || 'guesty', inPriceLabs: !!p,
+      // floor = max(PriceLabs minimum, owner minimum on the Properties page)
+      minPrice: x.minPrice != null ? x.minPrice : (p ? num(p.min) : null), minNights: x.minNights != null ? x.minNights : null,
+      profile: x.profile || 'standard', market: x.market || {},
       dates: {}, ours: {}, foreign: new Set(), foreignUnknown: false, minStayLocked: msLocked.has(lid) };
     activeOurs.filter((o) => o.listing_id === lid).forEach((o) => {
       c.ours[o.stay_date] = { ...o, price: num(o.price), original_price: num(o.original_price), min_stay: num(o.min_stay), original_min_stay: num(o.original_min_stay) };
@@ -105,6 +111,7 @@ function validate(changes, c, today, eventDates) {
   eventDates = eventDates || new Set();
   const ok = [], rejected = [], seen = new Set();
   const rej = (date, reason) => rejected.push({ date: date || '?', reason });
+  const maxDrop = c && c.profile && R.PROFILES[c.profile] && R.PROFILES[c.profile].maxDrop != null ? R.PROFILES[c.profile].maxDrop : GUARD.maxDrop;
   if (!c || !c.inPriceLabs) { (changes || []).forEach((x) => rej(x && x.date, 'Listing not found in PriceLabs')); return { ok, rejected }; }
   (changes || []).slice(0, 60).forEach((x) => {
     const date = x && String(x.date || '').slice(0, 10);
@@ -124,9 +131,10 @@ function validate(changes, c, today, eventDates) {
     if (price != null) {
       price = Math.round(price);
       if (base == null) { rej(date, 'No current price to compare'); price = null; }
-      else if (price < base * (1 - GUARD.maxDrop)) { rej(date, `$${price} is more than ${GUARD.maxDrop * 100}% below $${Math.round(base)}`); price = null; }
+      else if (price < base * (1 - maxDrop)) { rej(date, `$${price} is more than ${Math.round(maxDrop * 100)}% below $${Math.round(base)}`); price = null; }
       else if (price > base * (1 + GUARD.maxRaise)) { rej(date, `$${price} is more than ${GUARD.maxRaise * 100}% above $${Math.round(base)}`); price = null; }
-      else if (c.minPrice != null && price < c.minPrice) { rej(date, `$${price} is below the PriceLabs minimum $${Math.round(c.minPrice)}`); price = null; }
+      else if (c.minPrice != null && price < c.minPrice) { rej(date, `$${price} is below the minimum price $${Math.round(c.minPrice)}`); price = null; }
+      else if (price < base && c.profile === 'large_home' && c.market && c.market.compsMatched === false) { rej(date, 'Comparable homes are not bedroom-matched — no discounts'); price = null; }
       else if (price < base && (d.demand === 'High Demand' || eventDates.has(date))) { rej(date, 'High-demand / event night — no discounts'); price = null; }
       else if (live != null && Math.abs(price - live) / live < GUARD.minChange) price = null; // too small to bother
     }
@@ -134,6 +142,7 @@ function validate(changes, c, today, eventDates) {
     if (ms != null) {
       ms = Math.round(ms);
       if (ms < 1 || ms > GUARD.maxMinStay) { rej(date, `Min stay ${ms} outside 1–${GUARD.maxMinStay}`); ms = null; }
+      else if (c.minNights != null && ms < c.minNights) { rej(date, `Min stay ${ms} is below the owner's ${c.minNights}-night minimum`); ms = null; }
       else if (ms === curMs) ms = null;
     }
     if (price == null && ms == null) return;
@@ -177,7 +186,7 @@ async function execute({ runId, actionLines, ctx, today, eventDates }) {
         stay_date: p.stay_date, kind: p.kind, original_price: p.original_price, original_min_stay: p.original_min_stay,
         current_price: p.current_price, current_min_stay: p.current_min_stay, proposed_price: p.proposed_price, proposed_min_stay: p.proposed_min_stay,
         reasons: p.reasons, evidence: p.evidence, auto: isAuto, status: 'pending',
-        error: c.auto && c.foreignUnknown ? 'Black Cabins listing held for approval: existing PriceLabs overrides could not be checked.' : null,
+        error: c.auto && c.foreignUnknown ? 'Autopilot listing held for approval: existing PriceLabs overrides could not be checked.' : null,
       })));
       if (isAuto) {
         const r = await A.applyProposals(c.listing_id, inserted, { who: 'agent', auto: true, pms: c.pms, ours: c.ours, nickname: c.name, label: 'Agent' });
