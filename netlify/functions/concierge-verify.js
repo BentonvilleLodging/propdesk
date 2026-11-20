@@ -22,7 +22,13 @@ exports.handler = async function (event) {
   const finish = async (status, body) => { const wait = MIN_MS - (Date.now() - started); if (wait > 0) await C.sleep(wait + Math.floor(Math.random() * 150)); return C.reply(status, body); };
 
   if (event.httpMethod !== 'POST') return C.reply(405, { error: 'POST only' });
-  if (!C.originOk(event, true)) return C.reply(403, { error: 'forbidden' });
+  if (!C.originOk(event, true)) {
+    // Record what the browser actually sent, so "forbidden" reports can be diagnosed from the attempts log.
+    const why = 'bad origin: ' + (C.header(event, 'origin') || '(none)').slice(0, 80) + ' | sfs=' + (C.header(event, 'sec-fetch-site') || '-').slice(0, 20) + ' | host=' + (C.header(event, 'host') || '-').slice(0, 60);
+    console.warn('concierge-verify ' + why);
+    await logAttempt(C.ipHash(event), null, false, why);
+    return C.reply(403, { error: 'forbidden' });
+  }
   if ((event.body || '').length > 2000) return C.reply(413, { error: 'too large' });
 
   let b = {};
