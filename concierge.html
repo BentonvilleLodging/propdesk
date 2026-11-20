@@ -141,9 +141,9 @@
   .g-hero::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(12,18,14,0) 40%, rgba(12,18,14,.55)); }
   .g-hero .n { position: absolute; left: 16px; right: 16px; bottom: 12px; z-index: 1; color: #fff; font-family: "Playfair Display", serif; font-size: 24px; font-weight: 600; text-shadow: 0 2px 10px rgba(0,0,0,.4); max-width: 640px; margin: 0 auto; }
   .g-nav { position: sticky; top: 0; z-index: 5; background: rgba(246,242,234,.96); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
-  .g-nav .in { max-width: 640px; margin: 0 auto; display: flex; gap: 6px; overflow-x: auto; padding: 10px 14px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .g-nav .in { max-width: 640px; margin: 0 auto; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; padding: 9px 10px; }
   .g-nav .in::-webkit-scrollbar { display: none; }
-  .g-nav button { flex-shrink: 0; font: inherit; font-size: 13.5px; font-weight: 600; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 30px; padding: 7px 13px; cursor: pointer; white-space: nowrap; }
+  .g-nav button { flex-shrink: 0; font: inherit; font-size: 13px; font-weight: 600; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 30px; padding: 6px 11px; cursor: pointer; white-space: nowrap; }
   .g-nav button.on { background: var(--forest); border-color: var(--forest); color: #fff; }
   .g-wrap { max-width: 640px; margin: 0 auto; padding: 14px 14px 45vh; }
   .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 6px; }
@@ -155,7 +155,7 @@
   .tile button.cp { font: inherit; font-size: 11.5px; font-weight: 600; color: var(--forest); background: none; border: 1px solid var(--line); border-radius: 6px; padding: 2px 7px; cursor: pointer; margin-left: 6px; vertical-align: 2px; }
   .tile.wide { grid-column: 1 / -1; }
   .tile a { color: var(--forest); font-weight: 600; font-size: 13px; text-decoration: none; }
-  .g-sec { scroll-margin-top: 62px; padding-top: 18px; }
+  .g-sec { scroll-margin-top: 100px; padding-top: 18px; }
   .g-sec > h2 { font-family: "Playfair Display", serif; font-size: 21px; margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
   .g-sec > h2 .e { font-size: 18px; }
   .gi { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 13px 15px; margin-bottom: 8px; }
@@ -460,8 +460,8 @@
     { id: 'wifi', label: 'Wi-Fi & TV', icon: '&#128246;', secs: ['Wi-Fi', 'Tech & TV'] },
     { id: 'home', label: 'The Home', icon: '&#127969;', secs: ['About the home', 'Heating & cooling', 'Kitchen', 'Laundry', 'Hot tub / pool', 'Utilities', 'Supplies', 'Trash & recycling', 'Troubleshooting', 'House manual', 'General'] },
     { id: 'know', label: 'Good to Know', icon: '&#9888;&#65039;', secs: ['House quirks', 'House rules'] },
-    { id: 'local', label: 'Things to Do', icon: '&#129517;', secs: ['Local tips'] },
     { id: 'checkout', label: 'Checkout', icon: '&#128075;', secs: ['Checkout'] },
+    { id: 'local', label: 'Things to Do', icon: '&#129517;', secs: ['Local tips'] },
     { id: 'help', label: 'Help', icon: '&#128172;', secs: ['Contact', 'Help', 'Reaching a person', 'Emergencies'] },
   ];
   var lb = { list: [], i: 0 };
@@ -535,7 +535,8 @@
     // Door code / Wi-Fi are already in the tiles; don't repeat them as cards
     var hasCode = !!(g.arrival && g.arrival.door_code), hasWifi = !!g.wifi;
     buckets.arrival = buckets.arrival.filter(function (x) { return !(hasCode && x.photos.length === 0 && /^(front )?door code$/i.test(x.title)); });
-    buckets.wifi = buckets.wifi.filter(function (x) { return !(hasWifi && x.photos.length === 0 && /^wi-?fi( network| password| network & password)?$/i.test(x.title)); });
+    // text-only Wi-Fi cards (in any section) just repeat the Wi-Fi tile at the top
+    Object.keys(buckets).forEach(function (k) { buckets[k] = buckets[k].filter(function (x) { return !(hasWifi && !(x.photos && x.photos.length) && /^wi-?fi( info| network| password| network & password)?$/i.test((x.title || '').trim())); }); });
 
     var extra = {
       arrival: function (sec) {
@@ -545,7 +546,6 @@
       home: function (sec) {
         // Our team's overview replaces Guesty's marketing description when the home has one
         if (!buckets.home.some(function (x) { return x.section === 'About the home'; }) && (d.summary || d.space)) sec.appendChild(longCard('About the home', [d.summary, d.space].filter(Boolean).join('\n\n')));
-        if (p.amenities && p.amenities.length) { var c = el('div', 'gi'), dd = el('details'); dd.appendChild(el('summary', null, 'Amenities (' + p.amenities.length + ')')); var ch = el('div', 'chips'); p.amenities.forEach(function (a) { ch.appendChild(el('span', null, a)); }); dd.appendChild(ch); c.appendChild(dd); sec.appendChild(c); }
       },
       know: function (sec) { if (d.house_rules) sec.appendChild(longCard('House rules', d.house_rules)); if (d.other_notes) sec.appendChild(longCard('Other things to note', d.other_notes)); },
       checkout: function (sec) { if (!buckets.checkout.length) { var c = el('div', 'gi'); c.appendChild(el('h3', null, 'Checkout ' + (p.check_out_time ? 'by ' + p.check_out_time : ''))); c.appendChild(el('p', null, 'Lock up and you’re all set. Thanks for staying with us!')); sec.appendChild(c); } },
