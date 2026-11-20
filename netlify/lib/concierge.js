@@ -35,9 +35,18 @@ function header(event, name) {
 
 // Browsers always send Origin on POST. Requiring it blocks other websites from driving these
 // endpoints from a visitor's browser. (Scripts can forge it — rate limits are the real control.)
+// Some browsers (Safari/iOS, Firefox) send "Origin: null" on same-origin requests when the page's
+// referrer policy is strict. Accept that only when the browser itself marks the request same-origin
+// (Sec-Fetch-Site can't be set by page scripts) and the request is to an allowed concierge host.
+function sameOriginNull(event) {
+  if (header(event, 'sec-fetch-site').toLowerCase() !== 'same-origin') return false;
+  const host = header(event, 'host').toLowerCase();
+  return !!host && allowedOrigins().some((a) => { try { return new URL(a).host.toLowerCase() === host; } catch (e) { return false; } });
+}
 function originOk(event, requireOrigin) {
   const o = header(event, 'origin');
   if (!o) return !requireOrigin;
+  if (o === 'null') return sameOriginNull(event);
   return allowedOrigins().includes(o);
 }
 

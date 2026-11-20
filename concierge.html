@@ -4,7 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<meta name="referrer" content="no-referrer">
+<!-- same-origin, not no-referrer: no-referrer makes Safari/iOS/Firefox send "Origin: null" on our own
+     POSTs, which the origin check rejects ("forbidden"). External links still get no referrer. -->
+<meta name="referrer" content="same-origin">
 <title>Bentonville Lodging Concierge</title>
 <meta name="description" content="Your digital guidebook and concierge for your Bentonville Lodging Co. stay.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
