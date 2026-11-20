@@ -108,16 +108,41 @@
   status = 404
   force = true
 
-# The PropDesk domain never serves the guest page (keeps the two origins separate)
+# The PropDesk domain never serves the guest page (keeps the two origins separate). Netlify also
+# serves concierge.html at the pretty URL /concierge, so cover both; send people to the real guest domain.
 [[redirects]]
   from = "https://bentonvillelodgingcomanagement.com/concierge.html"
-  to = "/"
+  to = "https://concierge.bentonvillelodgingco.com/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://bentonvillelodgingcomanagement.com/concierge"
+  to = "https://concierge.bentonvillelodgingco.com/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://bentonvillelodgingcomanagement.com/concierge/"
+  to = "https://concierge.bentonvillelodgingco.com/"
   status = 301
   force = true
 
 [[redirects]]
   from = "https://www.bentonvillelodgingcomanagement.com/concierge.html"
-  to = "/"
+  to = "https://concierge.bentonvillelodgingco.com/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://www.bentonvillelodgingcomanagement.com/concierge"
+  to = "https://concierge.bentonvillelodgingco.com/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://www.bentonvillelodgingcomanagement.com/concierge/"
+  to = "https://concierge.bentonvillelodgingco.com/"
   status = 301
   force = true
 
