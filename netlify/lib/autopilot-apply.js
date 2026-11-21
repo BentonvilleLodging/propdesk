@@ -164,7 +164,7 @@ async function revertDsoEdit(e, pms) {
 // guestyListings: live Guesty listings with tags. Returns { autoSet, byId: { [lid]: ctx } }.
 async function pricingContext(guestyListings, plMap) {
   const [reg, props, daily, intel] = await Promise.all([
-    I.sbSelect('listing_registry', 'select=listing_id,bedrooms,autopilot_opt_in,autopilot_profile').catch(() => []),
+    I.sbSelect('listing_registry', 'select=listing_id,bedrooms,autopilot_opt_in,autopilot_profile,min_stay_policy').catch(() => []),
     I.sbSelect('properties', 'select=listing_id,min_price,min_nights&listing_id=not.is.null').catch(() => []),
     I.sbSelect('pricelabs_daily', `select=listing_id,snapshot_date,base_price,occupancy_pct_30d,market_occupancy_pct_30d&snapshot_date=gte.${R.addDays(I.today(), -3)}&order=snapshot_date.desc`).catch(() => []),
     I.sbSelect('pricelabs_intel', `select=listing_id,snapshot_date,neighborhood&snapshot_date=gte.${R.addDays(I.today(), -3)}&order=snapshot_date.desc`).catch(() => []),
@@ -189,6 +189,7 @@ async function pricingContext(guestyListings, plMap) {
       profile, auto: autoSet.has(lid), optIn: r.autopilot_opt_in === true,
       minPrice: floor.length ? Math.max(...floor) : null, plMin, ownerMin,
       minNights: P[lid] ? num(P[lid].min_nights) : null,
+      msPolicy: r.min_stay_policy || null,
       market: {
         compCategory: cat, compsMatched: cat != null && br != null && String(cat) === String(Math.round(br)),
         premium: R.positioningPremium(base, nb.base_price_percentiles && nb.base_price_percentiles.p50, RL.premiumCap || 1),

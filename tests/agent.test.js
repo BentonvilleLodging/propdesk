@@ -84,3 +84,17 @@ assert.strictEqual(t[1].auto, true);
 assert(t[0].flags.length === 3);
 
 console.log('agent tests passed');
+
+// Min-stay policy: the agent can't break "Fri & Sat always 2"
+{
+  const AGx = require('../netlify/lib/agent');
+  const d = (date, o) => ({ date, status: 'open', our_price: 300, min_stay: 2, demand: 'Normal Demand', mkt_p50: 350, mkt_booked: 350, best_page: 1, shown: true, ...o });
+  const cx = { inPriceLabs: true, minPrice: 293, minNights: null, profile: 'large_home', market: { compsMatched: true }, msPolicy: { fixed: { fri: 2, sat: 2 }, flex: { days: ['mon', 'tue', 'wed'], min: 1 } },
+    dates: { '2026-11-27': d('2026-11-27'), '2026-11-28': d('2026-11-28'), '2026-11-30': d('2026-11-30') }, ours: {}, foreign: new Set() };
+  const v = AGx.validate([{ date: '2026-11-27', min_stay: 1 }, { date: '2026-11-28', min_stay: 3 }, { date: '2026-11-30', min_stay: 1 }], cx, '2026-11-20');
+  assert.deepStrictEqual(v.ok.map((x) => x.stay_date), ['2026-11-30']);
+  assert.strictEqual(v.rejected.length, 2);
+  assert(/always a 2-night minimum/.test(v.rejected[0].reason));
+  assert.strictEqual(AGx.nightsForPrompt(cx).find((n) => n.d === '2026-11-27').ms_rule, 'always 2');
+  console.log('agent min-stay policy: ok');
+}

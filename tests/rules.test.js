@@ -80,3 +80,43 @@ const market = { premium: 1, compsMatched: true, compCategory: '3', occ30: 47, m
 }
 
 console.log('rules tests passed');
+
+// ── Min-stay policy (69 Rath): Fri & Sat always 2; Mon–Wed down to 1 to fill the week ──
+{
+  const pol = { fixed: { fri: 2, sat: 2 }, flex: { days: ['mon', 'tue', 'wed'], min: 1 } };
+  assert.strictEqual(R.describeMsPolicy(pol), 'Fri & Sat always 2 nights; Mon/Tue/Wed can drop to 1 night to fill the week');
+  const behind = { premium: 1, compsMatched: true, compCategory: '5', occ30: 23, mktOcc30: 33 };
+  const ahead = { ...behind, occ30: 40 };
+  const t = '2026-11-20'; // Friday
+  const dates = [
+    day('2026-11-20', { our_price: 293, mkt_booked: 502, min_stay: 1 }),      // Fri, tonight, PriceLabs at 1 → back to 2
+    day('2026-11-21', { our_price: 380, mkt_booked: 485, min_stay: 3 }),      // Sat at 3 → exactly 2
+    day('2026-11-22', { our_price: 293, mkt_booked: 530, min_stay: 3 }),      // Sun: not in policy, last-minute rule → 2 (large_home)
+    day('2026-11-23', { our_price: 293, mkt_booked: 556, min_stay: 2 }),      // Mon → 1
+    day('2026-12-01', { our_price: 330, mkt_booked: 307, min_stay: 2, best_page: 1 }), // Tue → 1
+    day('2026-12-03', { our_price: 293, mkt_booked: 305, min_stay: 2 }),      // Thu: untouched
+    day('2026-12-05', { our_price: 293, mkt_booked: 293, min_stay: 2 }),      // Sat already 2: untouched
+    day('2026-12-09', { our_price: 355, mkt_booked: 421, min_stay: 2, demand: 'Good Demand' }), // Wed, good demand → keep 2
+  ];
+  const p = byDate(R.proposeForListing({ dates, today: t, minPrice: 293, profile: 'large_home', market: behind, msPolicy: pol }));
+  assert.strictEqual(p['2026-11-20'].proposed_min_stay, 2);
+  assert.strictEqual(p['2026-11-21'].proposed_min_stay, 2);
+  assert(/Sat nights are always a 2-night minimum/.test(p['2026-11-21'].reasons.join(' ')));
+  assert.strictEqual(p['2026-11-22'].proposed_min_stay, 2);
+  assert.strictEqual(p['2026-11-23'].proposed_min_stay, 1);
+  assert.strictEqual(p['2026-12-01'].proposed_min_stay, 1);
+  assert.strictEqual(p['2026-12-03'], undefined);
+  assert.strictEqual(p['2026-12-05'], undefined);
+  assert.strictEqual(p['2026-12-09'], undefined);
+  // A 1-night gap on a Saturday stays 2 (fixed wins over gap fill)
+  const g = byDate(R.proposeForListing({ dates: [day('2026-12-11', { status: 'booked' }), day('2026-12-12', { min_stay: 2 }), day('2026-12-13', { status: 'booked' })], today: t, profile: 'large_home', market: behind, msPolicy: pol }));
+  assert.strictEqual(g['2026-12-12'], undefined);
+  // Pacing ahead of market: Mon–Wed only flex inside 10 days
+  const q = byDate(R.proposeForListing({ dates, today: t, minPrice: 293, profile: 'large_home', market: ahead, msPolicy: pol }));
+  assert.strictEqual(q['2026-11-23'].proposed_min_stay, 1);   // 3 days out
+  assert.strictEqual(q['2026-12-01'], undefined);             // 11 days out
+  // Owner minimum nights still wins
+  const o = byDate(R.proposeForListing({ dates, today: t, minNights: 2, profile: 'large_home', market: behind, msPolicy: pol }));
+  assert.strictEqual(o['2026-11-23'], undefined);
+}
+console.log('min-stay policy: ok');

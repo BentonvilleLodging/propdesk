@@ -45,6 +45,42 @@ const PROFILES = {
     lastMinuteMinStay: 2,       // 8-guest home: keep 2-night minimum even last minute (unless a 1-night gap)
   },
 };
+// Per-listing MINIMUM-STAY POLICY (Luke, Nov 2026 — first used on 69 Rath). Stored in PropDesk as
+// listing_registry.min_stay_policy, e.g.
+//   { "fixed": { "fri": 2, "sat": 2 },                      // these nights are ALWAYS exactly this
+//     "flex":  { "days": ["mon","tue","wed"], "min": 1 } }  // these may drop to `min` to fill the week
+// Days are the night of the stay (check-in day). Fixed nights win over every other min-stay rule
+// (gap fills, last-minute, the AI agent). Flex nights drop to `min` when the home is pacing behind
+// its market, or inside FLEX_WITHIN_DAYS of the night — never on good/high-demand or event nights
+// (a min-stay override also pins that night's price in PriceLabs, so keep it off nights that should
+// be rising), and
+// never below the owner's minimum nights.
+const DOW = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+const FLEX_WITHIN_DAYS = 10;
+function normalizeMsPolicy(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const dayIdx = (d) => { const i = DOW.indexOf(String(d).toLowerCase().slice(0, 3)); return i >= 0 ? i : (Number.isInteger(+d) && +d >= 0 && +d <= 6 ? +d : -1); };
+  const fixed = {};
+  Object.entries(raw.fixed || {}).forEach(([d, n]) => { const i = dayIdx(d), v = parseInt(n, 10); if (i >= 0 && v >= 1 && v <= 7) fixed[i] = v; });
+  let flex = null;
+  if (raw.flex && Array.isArray(raw.flex.days)) {
+    const days = raw.flex.days.map(dayIdx).filter((i) => i >= 0 && fixed[i] == null);
+    const min = parseInt(raw.flex.min, 10);
+    if (days.length && min >= 1) flex = { days, min };
+  }
+  return Object.keys(fixed).length || flex ? { fixed, flex } : null;
+}
+const dowOf = (iso) => new Date(iso + 'T12:00:00Z').getUTCDay();
+// Plain-English summary, e.g. "Fri & Sat always 2 nights; Mon–Wed can drop to 1"
+function describeMsPolicy(raw) {
+  const p = normalizeMsPolicy(raw); if (!p) return null;
+  const cap = (i) => DOW[i][0].toUpperCase() + DOW[i].slice(1);
+  const byN = {}; Object.entries(p.fixed).forEach(([i, n]) => { (byN[n] = byN[n] || []).push(cap(+i)); });
+  const parts = Object.entries(byN).map(([n, ds]) => `${ds.join(' & ')} always ${n} night${n > 1 ? 's' : ''}`);
+  if (p.flex) parts.push(`${p.flex.days.map(cap).join('/')} can drop to ${p.flex.min} night${p.flex.min > 1 ? 's' : ''} to fill the week`);
+  return parts.join('; ');
+}
+
 function rulesFor(profile) { return { ...RULES, ...(PROFILES[profile] || {}), profile: PROFILES[profile] ? profile : 'standard' }; }
 
 const num = (v) => { if (v === null || v === undefined || v === '') return null; const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
@@ -121,8 +157,9 @@ function orphanGaps(dates, today) {
 //   market       { premium, compsMatched, compCategory, occ30, mktOcc30 } (large_home uses these)
 // Returns proposals: { stay_date, kind, original_price, current_price, proposed_price,
 //                      current_min_stay, proposed_min_stay, reasons[], evidence }
-function proposeForListing({ dates, today, minPrice, minNights, ours, foreign, eventDates, profile, market }) {
+function proposeForListing({ dates, today, minPrice, minNights, ours, foreign, eventDates, profile, market, msPolicy }) {
   ours = ours || {}; foreign = foreign || new Set(); eventDates = eventDates || new Set(); market = market || {};
+  const pol = normalizeMsPolicy(msPolicy);
   const RL = rulesFor(profile);
   const large = RL.profile === 'large_home';
   const premium = large ? (market.premium || 1) : 1;
@@ -192,6 +229,23 @@ function proposeForListing({ dates, today, minPrice, minNights, ours, foreign, e
     if (gaps[d.date] != null && curMs != null && gaps[d.date] < curMs && okMs(gaps[d.date])) { ms = gaps[d.date]; reasons.push(`${gaps[d.date]}-night gap between bookings can't be booked with a ${curMs}-night minimum`); }
     const lmMs = Math.max(RL.lastMinuteMinStay, floorNights || 1);
     if (lastMinute && curMs != null && curMs > lmMs && (ms == null || ms > lmMs)) { ms = lmMs; reasons.push(`${days === 0 ? 'Tonight' : days + ' day' + (days === 1 ? '' : 's') + ' out'} and still open — allow ${lmMs}-night stays`); }
+    // Listing min-stay policy (see normalizeMsPolicy): fixed nights override everything above.
+    if (pol) {
+      const dw = dowOf(d.date), dayName = DOW[dw][0].toUpperCase() + DOW[dw].slice(1);
+      const fx = pol.fixed[dw];
+      if (fx != null) {
+        const want = Math.max(fx, floorNights || 1);
+        for (let i = reasons.length - 1; i >= 0; i--) if (/gap between bookings|allow \d+-night stays/.test(reasons[i])) reasons.splice(i, 1);
+        ms = curMs === want ? null : want;
+        if (ms != null) reasons.push(`${dayName} nights are always a ${want}-night minimum`);
+      } else if (pol.flex && pol.flex.days.indexOf(dw) >= 0 && !protectedDate && d.demand !== 'Good Demand' && (behindPace || days <= FLEX_WITHIN_DAYS)) {
+        const fm = Math.max(pol.flex.min, floorNights || 1);
+        if (curMs != null && curMs > fm && (ms == null || ms > fm)) {
+          ms = fm;
+          reasons.push(`${dayName} night: allow ${fm}-night stays to fill the week (${behindPace ? `pacing behind market, ${Math.round(occ)}% vs ${Math.round(mkt)}% next 30 days` : days + ' days out and still open'})`);
+        }
+      }
+    }
 
     const ev = { days_out: days, ref: ref || null, mkt_p50: d.mkt_p50, mkt_booked: d.mkt_booked, best_page: d.best_page, shown: d.shown, demand: d.demand, min_price: minPrice,
       ...(large ? { profile: RL.profile, premium, comp_category: market.compCategory || null, comps_matched: !!market.compsMatched, occ30: occ, mkt_occ30: mkt, min_nights: floorNights } : {}) };
@@ -218,4 +272,4 @@ function proposeForListing({ dates, today, minPrice, minNights, ours, foreign, e
   return out;
 }
 
-module.exports = { RULES, PROFILES, rulesFor, AUTO_TAG, isAutoApplyListing, autoApplySet, positioningPremium, aggregateDates, orphanGaps, proposeForListing, addDays, daysBetween };
+module.exports = { RULES, PROFILES, rulesFor, normalizeMsPolicy, describeMsPolicy, dowOf, FLEX_WITHIN_DAYS, AUTO_TAG, isAutoApplyListing, autoApplySet, positioningPremium, aggregateDates, orphanGaps, proposeForListing, addDays, daysBetween };

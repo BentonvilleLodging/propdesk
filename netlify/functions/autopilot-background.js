@@ -13,6 +13,8 @@
 //      immediately. Every other listing → 'pending' until a staff member approves.
 //      Each listing runs on its pricing profile ('standard' or 'large_home'), with the owner's
 //      minimum price / minimum nights from the Properties page as hard floors.
+//      A listing can also carry a min-stay policy (listing_registry.min_stay_policy — e.g. 69 Rath:
+//      Fri & Sat always 2 nights, Mon–Wed down to 1) that the rules always respect.
 //      Nothing other than price and min stay is ever changed automatically.
 //   4. Push notification summary to the team.
 
@@ -119,7 +121,7 @@ exports.handler = async function (event) {
         const pc = pctx[lid] || { profile: 'standard', minPrice: num(p.min), minNights: null, market: {} };
         if (pc.profile !== 'standard' && !pc.market.compsMatched) summary.errors.push(`${name}: comps aren't ${pc.market.compCategory ? 'bedroom-matched (PriceLabs category ' + pc.market.compCategory + ')' : 'available'} — price changes paused, min stay only`);
         if (pc.ownerMin != null && pc.plMin != null && pc.plMin < pc.ownerMin) summary.errors.push(`${name}: PriceLabs minimum $${Math.round(pc.plMin)} is below the owner's $${Math.round(pc.ownerMin)} minimum on the Properties page — autopilot uses $${Math.round(pc.ownerMin)}`);
-        let props = R.proposeForListing({ dates, today, minPrice: pc.minPrice != null ? pc.minPrice : num(p.min), minNights: pc.minNights, ours, foreign, eventDates, profile: pc.profile, market: pc.market });
+        let props = R.proposeForListing({ dates, today, minPrice: pc.minPrice != null ? pc.minPrice : num(p.min), minNights: pc.minNights, ours, foreign, eventDates, profile: pc.profile, market: pc.market, msPolicy: pc.msPolicy });
         // PriceLabs refuses min-stay overrides on this listing → keep the price part only.
         if (msLocked.has(lid)) props = props.map((x) => (x.kind === 'set' ? { ...x, proposed_min_stay: null } : x)).filter((x) => x.kind !== 'set' || x.proposed_price != null);
         summary.listings++;
