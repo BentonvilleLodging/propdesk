@@ -48,6 +48,15 @@ Reply with ONLY a JSON object, no markdown:
 // Split into the part that's the same for every guest of this home (cached) and the part that's
 // specific to this guest / today (not cached). Sensitive items are only in the second part, so the
 // cached block never changes on check-in day and is shared by everyone chatting about this home.
+// Same section order as the PropDesk walkthrough and the guest Home Guide; unknown sections go last.
+const SECTION_ORDER = ['About the home', 'Check-in', 'Wi-Fi', 'Parking', 'Kitchen', 'Laundry', 'Bedrooms & bathrooms', 'Heating & cooling', 'Tech & TV', 'Entertainment & games', 'Outdoor spaces', 'Hot tub / pool', 'Family & pets', 'Supplies', 'Trash & recycling', 'Utilities', 'Safety & emergencies', 'House quirks', 'Troubleshooting', 'House rules', 'House manual', 'Checkout', 'Local tips', 'General'];
+function bySection(items) {
+  const m = new Map();
+  items.forEach((g) => { const s = g.section || 'General'; if (!m.has(s)) m.set(s, []); m.get(s).push(g); });
+  const rank = (s) => { const i = SECTION_ORDER.indexOf(s); return i < 0 ? 999 : i; };
+  return [...m.entries()].sort((a, b) => rank(a[0]) - rank(b[0]));
+}
+
 function homeInfo(k) {
   const p = k.property || {};
   const lines = [];
@@ -61,8 +70,8 @@ function homeInfo(k) {
   const line = (g) => `- [${g.section}] ${g.title}: ${g.body}${g.photos && g.photos.length && !g.ai_only ? ' (photo in guide)' : ''}`;
   const open = k.guide.filter((g) => !g.sensitive), secret = k.guide.filter((g) => g.sensitive);
   if (open.length) {
-    lines.push('\n## Home guide (written by our team + from Guesty). "photo in guide" = the guest can see a photo of it in their Home Guide.');
-    open.forEach((g) => lines.push(line(g)));
+    lines.push('\n## Home guide (written by our team + from Guesty), grouped by section. "photo in guide" = the guest can see a photo of it in their Home Guide — point them to that section of the guide.');
+    bySection(open).forEach(([sec, xs]) => { lines.push(`### ${sec}`); xs.forEach((g) => lines.push(line(g))); });
   }
   if (k.places && k.places.length) {
     lines.push('\n## Things to do nearby (our curated list — recommend from this first; "partner" = our partner restaurant, mention it warmly; distances are rough, straight-line from the home)');
