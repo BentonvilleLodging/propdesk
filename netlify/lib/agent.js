@@ -76,7 +76,7 @@ async function datePacks(flagged, today, pctx) {
     const c = { listing_id: lid, name: f.name, auto: f.auto, pms: (p && p.pms) || 'guesty', inPriceLabs: !!p,
       // floor = max(PriceLabs minimum, owner minimum on the Properties page)
       minPrice: x.minPrice != null ? x.minPrice : (p ? num(p.min) : null), minNights: x.minNights != null ? x.minNights : null,
-      profile: x.profile || 'standard', market: x.market || {},
+      profile: x.profile || 'standard', market: x.market || {}, msPolicy: x.msPolicy || null,
       dates: {}, ours: {}, foreign: new Set(), foreignUnknown: false, minStayLocked: msLocked.has(lid) };
     activeOurs.filter((o) => o.listing_id === lid).forEach((o) => {
       c.ours[o.stay_date] = { ...o, price: num(o.price), original_price: num(o.original_price), min_stay: num(o.min_stay), original_min_stay: num(o.original_min_stay) };
@@ -100,8 +100,19 @@ function nightsForPrompt(c) {
     d: d.date, s: d.status, price: d.our_price, ms: d.min_stay,
     page: d.shown ? d.best_page : 'not shown', comp_booked: d.mkt_booked, comp_p50: d.mkt_p50, demand: d.demand || undefined,
     lock: c.foreign.has(d.date) ? 'manual override — do not touch' : (c.ours[d.date] ? `PropDesk override (${c.ours[d.date].source || 'autopilot'})` : undefined),
+    ms_rule: msRuleFor(c, d.date),
   }));
 }
+// The listing's min-stay policy for one night, as a hint for Claude (validate() enforces it).
+function msRuleFor(c, date) {
+  const pol = R.normalizeMsPolicy(c && c.msPolicy); if (!pol) return undefined;
+  const dw = R.dowOf(date);
+  if (pol.fixed[dw] != null) return `always ${pol.fixed[dw]}`;
+  if (pol.flex && pol.flex.days.indexOf(dw) >= 0) return `may go down to ${pol.flex.min}`;
+  return undefined;
+}
+
+function msFixedFor(c, date) { const pol = R.normalizeMsPolicy(c && c.msPolicy); return pol ? (pol.fixed[R.dowOf(date)] != null ? pol.fixed[R.dowOf(date)] : null) : null; }
 
 // ── 4. Guardrails (pure — tested in tests/agent.test.js) ────────────────
 // changes: [{date, price, min_stay, why}] from Claude for ONE listing
@@ -143,6 +154,7 @@ function validate(changes, c, today, eventDates) {
       ms = Math.round(ms);
       if (ms < 1 || ms > GUARD.maxMinStay) { rej(date, `Min stay ${ms} outside 1–${GUARD.maxMinStay}`); ms = null; }
       else if (c.minNights != null && ms < c.minNights) { rej(date, `Min stay ${ms} is below the owner's ${c.minNights}-night minimum`); ms = null; }
+      else if (msFixedFor(c, date) != null && ms !== msFixedFor(c, date)) { rej(date, `This listing's ${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][R.dowOf(date)]} nights are always a ${msFixedFor(c, date)}-night minimum`); ms = null; }
       else if (ms === curMs) ms = null;
     }
     if (price == null && ms == null) return;

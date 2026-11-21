@@ -350,6 +350,7 @@ exports.handler = async function (event) {
       pricing_profile: ctx[f.listing_id] ? ctx[f.listing_id].profile : 'standard',
       comps: ctx[f.listing_id] ? ctx[f.listing_id].market : null,
       min_stay_locked: ctx[f.listing_id] ? !!ctx[f.listing_id].minStayLocked : false,
+      min_stay_policy: ctx[f.listing_id] ? R.describeMsPolicy(ctx[f.listing_id].msPolicy) : null,
       next_30_nights: ctx[f.listing_id] ? AG.nightsForPrompt(ctx[f.listing_id]) : [],
     }));
 
