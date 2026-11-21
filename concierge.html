@@ -458,11 +458,11 @@
   var GUIDE_TABS = [
     { id: 'arrival', label: 'Arrival', icon: '&#128273;', secs: ['Check-in', 'Parking'] },
     { id: 'wifi', label: 'Wi-Fi & TV', icon: '&#128246;', secs: ['Wi-Fi', 'Tech & TV'] },
-    { id: 'home', label: 'The Home', icon: '&#127969;', secs: ['About the home', 'Heating & cooling', 'Kitchen', 'Laundry', 'Hot tub / pool', 'Utilities', 'Supplies', 'Trash & recycling', 'Troubleshooting', 'House manual', 'General'] },
+    { id: 'home', label: 'The Home', icon: '&#127969;', secs: ['About the home', 'Kitchen', 'Laundry', 'Bedrooms & bathrooms', 'Heating & cooling', 'Entertainment & games', 'Outdoor spaces', 'Hot tub / pool', 'Family & pets', 'Supplies', 'Trash & recycling', 'Utilities', 'Troubleshooting', 'House manual', 'General'] },
     { id: 'know', label: 'Good to Know', icon: '&#9888;&#65039;', secs: ['House quirks', 'House rules'] },
     { id: 'checkout', label: 'Checkout', icon: '&#128075;', secs: ['Checkout'] },
     { id: 'local', label: 'Things to Do', icon: '&#129517;', secs: ['Local tips'] },
-    { id: 'help', label: 'Help', icon: '&#128172;', secs: ['Contact', 'Help', 'Reaching a person', 'Emergencies'] },
+    { id: 'help', label: 'Help', icon: '&#128172;', secs: ['Contact', 'Help', 'Reaching a person', 'Safety & emergencies', 'Emergencies'] },
   ];
   var lb = { list: [], i: 0 };
   function openLb(list, i) { lb.list = list; lb.i = i; $('lbx').classList.add('open'); showLb(); }
@@ -527,7 +527,7 @@
     var known = {}; GUIDE_TABS.forEach(function (t) { t.secs.forEach(function (s2) { known[s2] = t.id; }); });
     var buckets = {}; GUIDE_TABS.forEach(function (t) { buckets[t.id] = []; });
     Object.keys(bySec).forEach(function (sec) {
-      var tid0 = known[sec] || (/check-?in|arriv|park/i.test(sec) ? 'arrival' : /check-?out|depart/i.test(sec) ? 'checkout' : /local|eat|food|restaurant|trail|bike|thing/i.test(sec) ? 'local' : /contact|help|emergenc/i.test(sec) ? 'help' : /rule|quirk|know/i.test(sec) ? 'know' : 'home');
+      var tid0 = known[sec] || (/check-?in|arriv|park/i.test(sec) ? 'arrival' : /check-?out|depart/i.test(sec) ? 'checkout' : /local|eat|food|restaurant|trail|bike|thing/i.test(sec) ? 'local' : /contact|help|emergenc/i.test(sec) ? 'help' : /rule|quirk|know/i.test(sec) ? 'know' : /safety|emergenc/i.test(sec) ? 'help' : 'home');
       // company-wide "General" items (how to reach us…) belong under Help
       bySec[sec].forEach(function (x) { buckets[x.scope === 'company' && sec === 'General' ? 'help' : tid0].push(x); });
     });
@@ -577,8 +577,8 @@
       var sec = el('section', 'g-sec'); sec.id = 'gs-' + t.id;
       var h = el('h2'); h.innerHTML = '<span class="e">' + t.icon + '</span>'; h.appendChild(document.createTextNode(t.label)); sec.appendChild(h);
       var before = sec.childNodes.length;
-      if (t.id === 'arrival' || t.id === 'help') { if (extra[t.id]) extra[t.id](sec); buckets[t.id].forEach(function (x) { sec.appendChild(cardFor(x)); }); }
-      else { buckets[t.id].forEach(function (x) { sec.appendChild(cardFor(x)); }); if (extra[t.id]) extra[t.id](sec); }
+      if (t.id === 'arrival' || t.id === 'help') { if (extra[t.id]) extra[t.id](sec); addCards(sec, t, buckets[t.id]); }
+      else { addCards(sec, t, buckets[t.id]); if (extra[t.id]) extra[t.id](sec); }
       if (sec.childNodes.length === before) return; // nothing to show → no tab
       wrap.appendChild(sec); shown.push(t);
       var b = el('button'); b.type = 'button'; b.innerHTML = t.label; b.setAttribute('data-t', t.id);
@@ -586,6 +586,17 @@
     });
     setActiveTab(shown.length ? shown[0].id : null);
     $('g-scroll').scrollTop = 0;
+  }
+  // Cards for one tab. When a tab holds items from more than one section (The Home: Kitchen,
+  // Laundry, Outdoor spaces…), each section gets its own small heading so guests can scan it.
+  var SEC_LABEL = { 'General': 'More about the home', 'House manual': 'House manual' };
+  function addCards(sec, t, list) {
+    var secsHere = []; list.forEach(function (x) { if (secsHere.indexOf(x.section) < 0) secsHere.push(x.section); });
+    var heads = secsHere.length > 1, last = null;
+    list.forEach(function (x) {
+      if (heads && x.section !== last && x.section !== 'About the home' && !(x.scope === 'company' && x.section === 'General')) sec.appendChild(el('h4', 'pl-h', SEC_LABEL[x.section] || x.section));
+      last = x.section; sec.appendChild(cardFor(x));
+    });
   }
   function jump(id) {
     var sc = $('g-scroll'), sec = $('gs-' + id); if (!sec) return;

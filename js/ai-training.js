@@ -23,36 +23,75 @@
   var norm = function (s) { return String(s || '').toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]/g, ''); };
   var BUCKET = 'guide-photos', MAX_PHOTOS = 8;
 
-  var SECTIONS = ['About the home', 'Check-in', 'Wi-Fi', 'Parking', 'Heating & cooling', 'Kitchen', 'Laundry', 'Hot tub / pool', 'Utilities', 'Tech & TV', 'Supplies', 'Trash & recycling', 'House quirks', 'Troubleshooting', 'House rules', 'Checkout', 'Local tips', 'General'];
-  // The on-site walkthrough. key → one item per home (except quirks, which can repeat).
+  // Standard sections — the same for every home. The guest Home Guide groups items by these (with a
+  // heading per section) and the AI chat reads them grouped the same way.
+  var SECTIONS = ['About the home', 'Check-in', 'Wi-Fi', 'Parking', 'Kitchen', 'Laundry', 'Bedrooms & bathrooms', 'Heating & cooling', 'Tech & TV', 'Entertainment & games', 'Outdoor spaces', 'Hot tub / pool', 'Family & pets', 'Supplies', 'Trash & recycling', 'Utilities', 'Safety & emergencies', 'House quirks', 'Troubleshooting', 'House rules', 'Checkout', 'Local tips', 'General'];
+  // The on-site walkthrough — the standard checklist for every home. key → one item per home (except
+  // quirks, which can repeat). Extra items still go under "Other guide items" in the right section.
   var PROMPTS = [
     { group: 'Overview', items: [
       { key: 'overview', section: 'About the home', title: 'Home overview', hint: 'A short, practical intro shown at the top of the guest guide (replaces the Guesty marketing description): layout, how many it sleeps, kitchen, laundry, TV/Wi-Fi, parking, trash, quiet hours, checkout time.' },
     ] },
-    { group: 'Utilities', items: [
-      { key: 'breaker', section: 'Utilities', title: 'Breaker box', hint: 'Where is it? Any labels? e.g. "Garage, left wall behind the bikes. Kitchen is #7."' },
-      { key: 'water_heater', section: 'Utilities', title: 'Water heater', hint: 'Location, gas or electric, how long hot water lasts, how to relight.' },
-      { key: 'water_shutoff', section: 'Utilities', title: 'Main water shut-off', hint: 'Where it is and which way to turn it.' },
-      { key: 'gfci', section: 'Utilities', title: 'GFCI / reset outlets', hint: 'Which outlets trip and where their reset button is.' },
+    { group: 'Kitchen', items: [
+      { key: 'coffee', section: 'Kitchen', title: 'Coffee maker', hint: 'Type (Keurig, drip, pour over…), where filters/pods/kettle are.' },
+      { key: 'dishwasher', section: 'Kitchen', title: 'Dishwasher', hint: 'Where pods are, any quirks.' },
+      { key: 'range', section: 'Kitchen', title: 'Stove & oven', hint: 'Gas or electric, any tricks to the controls.' },
+      { key: 'microwave', section: 'Kitchen', title: 'Microwave', hint: 'Where it is if it isn’t obvious.' },
+      { key: 'small_appliances', section: 'Kitchen', title: 'Small appliances', hint: 'Toaster, blender, etc. — which drawer or cabinet.' },
+      { key: 'fridge', section: 'Kitchen', title: 'Refrigerator', hint: 'Ice maker / water filter notes, extra fridge.' },
+      { key: 'cookware', section: 'Kitchen', title: 'Pots & pans', hint: 'Which drawer or cabinet.' },
+      { key: 'baking', section: 'Kitchen', title: 'Baking sheets & dishes', hint: 'Which drawer or cabinet.' },
+      { key: 'bowls', section: 'Kitchen', title: 'Mixing bowls & colanders', hint: 'Which drawer or cabinet.' },
+      { key: 'dishes', section: 'Kitchen', title: 'Plates & bowls', hint: 'Which drawer or cabinet.' },
+      { key: 'glasses', section: 'Kitchen', title: 'Cups, glasses & mugs', hint: 'Which drawer or cabinet.' },
+      { key: 'silverware', section: 'Kitchen', title: 'Silverware', hint: 'Which drawer.' },
+      { key: 'utensils', section: 'Kitchen', title: 'Cooking utensils', hint: 'Spatulas, tongs… which drawer.' },
+      { key: 'knives', section: 'Kitchen', title: 'Knives, cutting boards & openers', hint: 'Knives, cutting boards, measuring cups, can & wine openers.' },
+      { key: 'spices', section: 'Kitchen', title: 'Spices, oil, salt & pepper', hint: 'Where they’re kept.' },
+      { key: 'food_storage', section: 'Kitchen', title: 'Food storage containers', hint: 'Tupperware, foil, plastic wrap.' },
+      { key: 'kitchen_towels', section: 'Kitchen', title: 'Oven mitts & kitchen towels', hint: 'Which drawer.' },
+    ] },
+    { group: 'Laundry', items: [
+      { key: 'laundry', section: 'Laundry', title: 'Washer & dryer', hint: 'Location, detergent, any quirks.' },
+      { key: 'iron', section: 'Laundry', title: 'Iron & ironing board', hint: 'Where they are.' },
+    ] },
+    { group: 'Bedrooms & bathrooms', items: [
+      { key: 'hairdryer', section: 'Bedrooms & bathrooms', title: 'Hairdryer', hint: 'Which bathroom, which drawer.' },
+      { key: 'closet', section: 'Bedrooms & bathrooms', title: 'Closets, hangers & storage', hint: 'Hanging racks, hangers, under-bed storage.' },
     ] },
     { group: 'Comfort', items: [
       { key: 'thermostat', section: 'Heating & cooling', title: 'Thermostat', hint: 'Location, how to use it, limits. e.g. "Won\'t go below 70°F."' },
       { key: 'fireplace', section: 'Heating & cooling', title: 'Fireplace', hint: 'How to turn it on/off, wood or gas, any rules.' },
       { key: 'hot_tub', section: 'Hot tub / pool', title: 'Hot tub / pool', hint: 'Controls, cover, temperature, rules.' },
     ] },
-    { group: 'Tech', items: [
+    { group: 'Tech & entertainment', items: [
       { key: 'router', section: 'Tech & TV', title: 'Wi-Fi router', hint: 'Where it is and how to restart it. (The Wi-Fi password comes from Guesty.)' },
       { key: 'tv', section: 'Tech & TV', title: 'TV & streaming', hint: 'Which remote, which input, apps available.' },
+      { key: 'games', section: 'Entertainment & games', title: 'Games, books & entertainment', hint: 'Board games, cards, books, record player — where they are.' },
     ] },
-    { group: 'Kitchen & laundry', items: [
-      { key: 'coffee', section: 'Kitchen', title: 'Coffee maker', hint: 'Type (Keurig, drip…), where filters/pods are.' },
-      { key: 'dishwasher', section: 'Kitchen', title: 'Dishwasher', hint: 'Where pods are, any quirks.' },
-      { key: 'laundry', section: 'Laundry', title: 'Washer & dryer', hint: 'Location, detergent, any quirks.' },
+    { group: 'Outdoors', items: [
+      { key: 'outdoor_seating', section: 'Outdoor spaces', title: 'Outdoor seating', hint: 'Deck/patio furniture, where cushions are stored.' },
+      { key: 'grill', section: 'Outdoor spaces', title: 'Grill', hint: 'Gas or charcoal, where fuel/tools are, where it’s OK to use it.' },
+      { key: 'fire_pit', section: 'Outdoor spaces', title: 'Fire pit', hint: 'Where it is, firewood, rules.' },
+      { key: 'bike', section: 'Outdoor spaces', title: 'Bike wash & storage', hint: 'Hose, stand, hooks, tools.' },
+    ] },
+    { group: 'Family & pets', items: [
+      { key: 'kids', section: 'Family & pets', title: 'Kids & baby items', hint: 'Pack ’n play, high chair, baby gate, kids’ books.' },
+      { key: 'pets', section: 'Family & pets', title: 'Pet items', hint: 'Bowls, crate, where to walk dogs.' },
     ] },
     { group: 'Supplies & trash', items: [
       { key: 'linens', section: 'Supplies', title: 'Extra linens & towels', hint: 'Where extra blankets, pillows and towels are.' },
       { key: 'supplies', section: 'Supplies', title: 'Cleaning supplies & paper goods', hint: 'Where to find extra TP, paper towels, trash bags.' },
+      { key: 'cleaning_tools', section: 'Supplies', title: 'Vacuum, broom & mop', hint: 'Where they are.' },
       { key: 'trash', section: 'Trash & recycling', title: 'Trash & recycling bins', hint: 'Where bins are, where to take full bags.' },
+    ] },
+    { group: 'Utilities & safety', items: [
+      { key: 'breaker', section: 'Utilities', title: 'Breaker box', hint: 'Where is it? Any labels? e.g. "Garage, left wall behind the bikes. Kitchen is #7."' },
+      { key: 'water_heater', section: 'Utilities', title: 'Water heater', hint: 'Location, gas or electric, how long hot water lasts, how to relight.' },
+      { key: 'water_shutoff', section: 'Utilities', title: 'Main water shut-off', hint: 'Where it is and which way to turn it.' },
+      { key: 'gfci', section: 'Utilities', title: 'GFCI / reset outlets', hint: 'Which outlets trip and where their reset button is.' },
+      { key: 'septic', section: 'Utilities', title: 'Septic system', hint: 'What not to flush. Skip if the home is on city sewer.' },
+      { key: 'safety', section: 'Safety & emergencies', title: 'Fire extinguisher & first aid', hint: 'Where the extinguisher and first-aid kit are.' },
     ] },
   ];
   var QUIRK = { key: 'quirk', section: 'House quirks', title: '', hint: 'Anything that trips guests up. e.g. "Push the shower door in firmly or it leaks."' };
@@ -239,7 +278,7 @@
     return ph.length ? '<div class="thumbs">' + ph.slice(0, 5).map(function (p) { return '<img src="' + E(S.urls[p]) + '" alt="">'; }).join('') + (ph.length > 5 ? '<span class="tag">+' + (ph.length - 5) + '</span>' : '') + '</div>' : '';
   }
   function promptRow(pr, x) {
-    if (!x) return '<div class="pr" data-a="prompt" data-k="' + E(pr.key) + '"><div class="dot"></div><div style="flex:1;min-width:0;"><div class="t">' + E(pr.title) + '</div><div class="s">' + E(pr.hint) + '</div></div><span class="b sm" style="flex-shrink:0;">+ Add details &amp; photos</span></div>';
+    if (!x) return '<div class="pr" data-a="prompt" data-k="' + E(pr.key) + '"><div class="dot"></div><div style="flex:1;min-width:0;"><div class="t">' + E(pr.title) + '</div><div class="s">' + E(pr.hint) + '</div></div><span class="row" style="flex-shrink:0;gap:6px;"><span class="b sm" data-a="na" data-k="' + E(pr.key) + '" title="This home doesn’t have it — mark it done">N/A</span><span class="b sm">+ Add details &amp; photos</span></span></div>';
     return itemRow(x, pr.title);
   }
   function itemRow(x, title) {
@@ -349,6 +388,7 @@
     if ((a === 'prompt' || a === 'new') && S.scope === 'home' && !S.prop.listing_id) { var sel = $('gg-listing'); if (sel) sel.focus(); return toast('Link this property to its Guesty listing first (top of this tab).', 'error'); }
     if (a === 'usename') { var L2 = S.listings.find(function (l) { return l.id === S.prop.listing_id; }); if (L2 && L2.gname) { await renameProperty(S.prop, L2.gname); render(); } return; }
     if (a === 'prompt') return startEdit(null, b.getAttribute('data-k'));
+    if (a === 'na') return markNotHere(b.getAttribute('data-k'));
     if (a === 'new') return startEdit(null, null);
     if (a === 'edit') { var it = S.items.find(function (x) { return String(x.id) === b.getAttribute('data-id'); }); if (it) startEdit(it); return; }
     if (a === 'cancel') return cancelEdit();
@@ -378,6 +418,16 @@
     if (res.error) return toast('Save failed: ' + res.error.message + (/column|photos|ai_only|prompt_key/.test(res.error.message) ? ' — the guide database update hasn’t been run yet.' : ''), 'error');
     if (ed.removed.length) await db.storage.from(BUCKET).remove(ed.removed).catch(function () {});
     S.editing = null; toast('Saved — the guide and AI use this right away.', 'success');
+    await loadItems(); render(); badge();
+  }
+
+  // Walkthrough item this home doesn't have: saved hidden (guests and the AI never see it) so the
+  // checklist counts it as done. Edit it later to fill it in and tick Active.
+  async function markNotHere(key) {
+    var pr = ALL_PROMPTS.find(function (x) { return x.key === key; }); if (!pr || !S.prop || !S.prop.listing_id) return;
+    var row = { listing_id: S.prop.listing_id, section: pr.section, title: pr.title, body: 'Not at this home', sensitive: false, ai_only: false, active: false, photos: [], prompt_key: key, sort: (S.items.length + 1) * 10, updated_by: await me(), updated_at: new Date().toISOString() };
+    var res = await db.from('guest_guide_items').insert(row);
+    if (res.error) return toast('Save failed: ' + res.error.message, 'error');
     await loadItems(); render(); badge();
   }
 
